@@ -1,0 +1,66 @@
+{
+    "implementation_steps": [
+        {
+            "filepath": "index.html",
+            "task_description": "Create the root HTML structure for the calculator app.\n- Add `<!DOCTYPE html>`, `<html>`, `<head>` with meta charset UTF-8, viewport meta for responsive design, title, and link tags to `styles.css` and `app.js`.\n- Inside `<body>`, implement a `<div id=\"calculator\" class=\"calculator\">` container.\n- Within the container, add:\n  * `<div id=\"display\" class=\"display\" aria-live=\"polite\"></div>` for real\u2011time result display.\n  * `<div class=\"buttons\">` containing button elements for digits `0-9`, operations `+ - * /`, equals `=`, clear `C`, and a toggle for light/dark mode.\n- Use `data-type` attributes (`digit`, `operator`, `action`, `theme-toggle`) on buttons to simplify event handling in `app.js`.\n- Ensure the HTML references the CSS and JS files via `<link rel=\"stylesheet\" href=\"styles.css\">` and `<script src=\"app.js\" defer></script>`.\n- This file will be the entry point; subsequent tasks will rely on the element IDs and data attributes defined here."
+        },
+        {
+            "filepath": "styles.css",
+            "task_description": "Implement styling for the calculator UI.\n- Define CSS variables for light and dark themes (`--bg-color`, `--button-bg`, `--button-text`, etc.) under `:root` and `.dark-theme` selectors.\n- Style the `#calculator` container: fixed width, centered, background, border radius, and box\u2011shadow.\n- Style the `#display` area: large font, right\u2011aligned text, padding, background color, and overflow handling.\n- Create a responsive grid for `.buttons` using CSS Grid (`grid-template-columns: repeat(4, 1fr); gap: 0.5rem;`).\n- Style button elements (`button`) with consistent size, font, cursor, and transition effects. Use `data-type` attribute selectors to differentiate digits, operators, and actions for color coding.\n- Add a media query for screens \u2264 480px to adjust calculator width and button size for mobile devices.\n- Include a `.dark-theme` class that overrides the CSS variables to enable dark mode; this class will be toggled by `app.js`.\n- This stylesheet will be imported by `index.html` and referenced by JavaScript for theme toggling."
+        },
+        {
+            "filepath": "app.js",
+            "task_description": "Develop the client\u2011side logic for interaction, expression parsing, calculation, error handling, and theming.\n- Declare constants for DOM elements: `const display = document.getElementById('display'); const buttons = document.querySelectorAll('.buttons button'); const calculator = document.getElementById('calculator');`\n- Define a mutable state object: `let expression = ''; let lastResult = null;`\n- Implement `function updateDisplay()` that sets `display.textContent = expression || '0';`.\n- Attach a click event listener to each button using `button.addEventListener('click', handleButtonClick);`.\n- Implement `function handleButtonClick(e)` that reads `e.target.dataset.type` and routes to:\n  * `handleDigit(value)` \u2013 appends digit to `expression`.\n  * `handleOperator(op)` \u2013 appends operator ensuring no consecutive operators.\n  * `handleEquals()` \u2013 evaluates the expression safely using `Function('return ' + expression)()` inside a try/catch, handling division by zero and syntax errors; updates `display` with result or error message.\n  * `handleClear()` \u2013 resets `expression` and `display`.\n  * `toggleTheme()` \u2013 toggles the `.dark-theme` class on `calculator` and stores the preference in `localStorage`.\n- Implement helper validation functions: `isOperator(char)`, `endsWithOperator()`, `hasInvalidDivisionByZero()`.\n- Add `window.addEventListener('load', () => { const savedTheme = localStorage.getItem('theme'); if (savedTheme === 'dark') calculator.classList.add('dark-theme'); });` to persist theme.\n- Export (if needed) `window.calculatorApp = { updateDisplay, handleButtonClick };` for potential testing.\n- This script depends on the element IDs and data attributes defined in `index.html` and will manipulate CSS classes defined in `styles.css`.\n- Ensure all functions have clear JSDoc comments for maintainability."
+        },
+        {
+            "filepath": "README.md",
+            "task_description": "Write comprehensive project documentation.\n- Add a title, short description, and a screenshot placeholder.\n- Provide a **Tech Stack** section listing HTML, CSS, JavaScript, and optional Node.js dev server.\n- Include **Features** bullet list matching the project plan.\n- Add **Installation** instructions: cloning repo, running `npm install` (if `package.json` exists), and starting a dev server (`npx live-server` or `npm run start`).\n- Add **Usage** section with screenshots and description of UI controls, theme toggle, and error handling.\n- Provide **Development** guidelines: folder structure, how to run linting/tests (if any), and how to contribute.\n- Include a **License** placeholder.\n- This file does not depend on code execution but references the other files for completeness."
+        },
+        {
+            "filepath": "package.json",
+            "task_description": "Create a minimal Node.js package descriptor for optional development tooling.\n- Set `name`, `version`, `description`, `main` (optional), `scripts` with a `start` script that runs `live-server` on the project root.\n- Add `devDependencies` with `live-server` version `^1.2.2`.\n- Include an `author` field and `license` (e.g., MIT).\n- This file allows developers to run `npm install` and `npm start` to serve `index.html`. It does not affect runtime in the browser.\n- No direct code dependencies, but the `start` script will serve the HTML/CSS/JS files created earlier."
+        },
+        {
+            "filepath": ".gitignore",
+            "task_description": "Provide a standard Git ignore file.\n- Ignore `node_modules/`, `dist/`, `.DS_Store`, `npm-debug.log`, and any IDE/editor folders such as `.vscode/`.\n- This file ensures version control cleanliness; no functional dependencies."
+        }
+    ],
+    "plan": {
+        "name": "SimpleCalculatorWebApp",
+        "description": "A simple web application that performs basic arithmetic calculations (addition, subtraction, multiplication, division) with a clean user interface, responsive design, and instant result display.",
+        "techstack": "HTML, CSS, JavaScript",
+        "features": [
+            "User-friendly calculator UI with buttons for digits 0-9 and operations +, -, *, /, =, and clear",
+            "Responsive layout for desktop and mobile devices",
+            "Real-time calculation display as the user inputs expressions",
+            "Error handling for invalid inputs and division by zero",
+            "Basic theming with light and dark mode toggle"
+        ],
+        "files": [
+            {
+                "path": "index.html",
+                "purpose": "Root HTML file containing the calculator UI and linking to CSS and JavaScript"
+            },
+            {
+                "path": "styles.css",
+                "purpose": "Styling for the calculator, including responsive layout and dark mode support"
+            },
+            {
+                "path": "app.js",
+                "purpose": "Client-side JavaScript handling button interactions, expression parsing, and calculation logic"
+            },
+            {
+                "path": "README.md",
+                "purpose": "Project documentation with setup, usage, and contribution guidelines"
+            },
+            {
+                "path": "package.json",
+                "purpose": "Optional Node.js package file for managing dependencies (e.g., using a simple dev server like live-server)"
+            },
+            {
+                "path": ".gitignore",
+                "purpose": "Specifies files/folders to ignore in version control"
+            }
+        ]
+    }
+}

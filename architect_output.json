@@ -1,0 +1,60 @@
+{
+    "implementation_steps": [
+        {
+            "filepath": "index.html",
+            "task_description": "Create the root HTML page.\n- Add `<!DOCTYPE html>` and `<html lang=\"en\">` structure.\n- Include `<head>` with meta charset, viewport for responsive design, title \"SimpleTodoApp\", link to `styles.css` and script tag for `app.js` (deferred).\n- In `<body>`, add a main container `<div id=\"app\">` containing:\n  * Header `<h1>Simple To\u2011Do</h1>`.\n  * Form `<form id=\"todo-form\">` with an input `<input id=\"new-todo\" type=\"text\" placeholder=\"What needs to be done?\" required>` and submit button `<button type=\"submit\">Add</button>`.\n  * Unordered list `<ul id=\"todo-list\" class=\"todo-list\"></ul>` for rendering tasks.\n- Add a `<template id=\"todo-item-template\">` containing a `<li>` structure with a checkbox, label, edit button, delete button, and a span for edit input.\n- Ensure the HTML references CSS classes defined later (`todo-item`, `completed`, `edit-mode`).\n- This file does not depend on other files but will be the entry point for CSS and JS integration."
+        },
+        {
+            "filepath": "styles.css",
+            "task_description": "Define styling for the application.\n- Set global box\u2011sizing, font family, and background color.\n- Style `#app` container with max\u2011width, margin auto, and padding.\n- Create `.todo-list` layout: remove default list styles, add spacing.\n- Define `.todo-item` flex layout with align\u2011items center, padding, border\u2011bottom.\n- Add `.completed` class to strike\u2011through text and dim color.\n- Style buttons (`.edit-btn`, `.delete-btn`) with minimal UI, hover effects.\n- Implement responsive media queries: for screens <600px, stack input and button vertically, increase touch target sizes.\n- Include CSS variables for primary colors to be referenced by JS if needed.\n- No direct dependencies, but class names must match those used in `index.html` and `app.js`."
+        },
+        {
+            "filepath": "app.js",
+            "task_description": "Implement core JavaScript logic.\n1. **Data Model**: Define `class TodoItem { constructor(id, text, completed = false) { this.id = id; this.text = text; this.completed = completed; } }`.\n2. **Storage Layer**: Functions `loadTodos()` (reads JSON from `localStorage` key `todos`, returns array of `TodoItem`), `saveTodos(todos)` (stringifies and stores).\n3. **State Management**: Variable `let todos = []` holds current list; initialize by calling `loadTodos()`.\n4. **DOM References**: Cache `const todoListEl = document.getElementById('todo-list'); const formEl = document.getElementById('todo-form'); const inputEl = document.getElementById('new-todo'); const templateEl = document.getElementById('todo-item-template');`.\n5. **Render Function**: `function renderTodos()` clears `todoListEl`, iterates over `todos`, clones the template, populates text, sets checkbox state, adds event listeners for toggle, edit, delete, and appends to list.\n6. **Add Todo**: `function handleAdd(event)` prevents default, validates non\u2011empty trimmed input, creates new `TodoItem` with `Date.now()` as id, pushes to `todos`, saves, re\u2011renders, clears input. Provides user feedback via `inputEl.setCustomValidity` if empty.\n7. **Toggle Completion**: `function toggleComplete(id)` finds item, flips `completed`, saves, re\u2011renders.\n8. **Edit Todo**: `function startEdit(id)` switches the list item to edit mode (adds `edit-mode` class, replaces label with input). `function confirmEdit(id, newText)` validates, updates `text`, saves, re\u2011renders.\n9. **Delete Todo**: `function deleteTodo(id)` filters out the item, saves, re\u2011renders.\n10. **Event Delegation**: Attach listeners to the cloned elements inside `renderTodos` for click on checkbox, edit, delete, and keypress (Enter) on edit input.\n11. **Initialization**: `document.addEventListener('DOMContentLoaded', () => { renderTodos(); formEl.addEventListener('submit', handleAdd); });`.\n- Exported symbols (if using modules) are not required; script runs in browser.\n- This file depends on HTML structure (ids, template) defined in `index.html` and CSS classes defined in `styles.css`.\n- All functions are pure except DOM manipulation; they follow the signatures described for easy testing."
+        },
+        {
+            "filepath": "README.md",
+            "task_description": "Write project documentation.\n- Title and brief description.\n- Tech stack list.\n- Features checklist.\n- Setup instructions: clone repo, open `index.html` in a browser, optional `npm install` and `npm run dev` if `package.json` is used.\n- Usage guide: how to add, edit, complete, delete tasks, and that data persists via `localStorage`.\n- Contributing guidelines (fork, PR).\n- License placeholder.\n- No dependencies on code files, but references file names and commands."
+        },
+        {
+            "filepath": "package.json",
+            "task_description": "Create optional npm manifest for development convenience.\n- Include `name: \"simple-todo-app\"`, `version: \"1.0.0\"`, `description`, `scripts` with `\"dev\": \"live-server\"` (assuming `live-server` as a dev dependency).\n- Add `devDependencies` with `live-server` version.\n- Provide `homepage`, `repository` placeholders.\n- This file does not affect runtime but enables `npm run dev` to serve the app locally.\n- No code dependencies; just a manifest."
+        }
+    ],
+    "plan": {
+        "name": "SimpleTodoApp",
+        "description": "A simple web application that allows users to create, view, edit, and delete to-do items. The app stores tasks locally in the browser using localStorage, so no backend is required. It features a clean UI with responsive design.",
+        "techstack": "html, css, javascript",
+        "features": [
+            "Add new to\u2011do items",
+            "Mark items as completed",
+            "Edit existing items",
+            "Delete items",
+            "Persist tasks across sessions using localStorage",
+            "Responsive layout for desktop and mobile",
+            "Basic input validation and user feedback"
+        ],
+        "files": [
+            {
+                "path": "index.html",
+                "purpose": "Root HTML page that loads the application and provides the basic structure."
+            },
+            {
+                "path": "styles.css",
+                "purpose": "Styling for the app, including layout, colors, and responsive design."
+            },
+            {
+                "path": "app.js",
+                "purpose": "Main JavaScript logic handling UI interactions, CRUD operations, and localStorage persistence."
+            },
+            {
+                "path": "README.md",
+                "purpose": "Project documentation with setup, usage, and contribution instructions."
+            },
+            {
+                "path": "package.json",
+                "purpose": "Optional npm manifest if the developer wants to use a build tool or serve the app via a simple dev server."
+            }
+        ]
+    }
+}
