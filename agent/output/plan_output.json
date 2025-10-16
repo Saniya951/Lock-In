@@ -1,0 +1,31 @@
+{
+    "name": "SimpleCalculator",
+    "description": "A lightweight web-based calculator application that performs basic arithmetic operations (addition, subtraction, multiplication, division) with a clean, responsive user interface.",
+    "techstack": "html, css, javascript",
+    "features": [
+        "User-friendly interface with numeric keypad and operation buttons",
+        "Supports addition, subtraction, multiplication, and division",
+        "Clear (C) and backspace (\u2190) functionality",
+        "Responsive design for desktop and mobile browsers",
+        "Display shows current input and result",
+        "Input validation to prevent division by zero and malformed expressions"
+    ],
+    "files": [
+        {
+            "path": "index.html",
+            "purpose": "Root HTML file containing the calculator layout and linking CSS/JS"
+        },
+        {
+            "path": "style.css",
+            "purpose": "Styling for the calculator UI, ensuring responsiveness and visual appeal"
+        },
+        {
+            "path": "script.js",
+            "purpose": "Core application logic handling button clicks, expression evaluation, and display updates"
+        },
+        {
+            "path": "README.md",
+            "purpose": "Project documentation with setup, usage, and contribution guidelines"
+        }
+    ]
+}

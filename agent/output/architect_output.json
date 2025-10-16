@@ -1,0 +1,51 @@
+{
+    "implementation_steps": [
+        {
+            "filepath": "index.html",
+            "task_description": "Create the root HTML structure for the SimpleCalculator app.\n- Add <!DOCTYPE html>, <html>, <head>, and <body> tags.\n- In <head>, include <meta charset=\"UTF-8\">, <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">, a <title>Simple Calculator</title>, and link to 'style.css' and 'script.js' using <link rel=\"stylesheet\" href=\"style.css\"> and <script defer src=\"script.js\"></script>.\n- In <body>, create a <div id=\"calculator\" class=\"calculator\"> container.\n- Inside the container, add:\n  * <div id=\"display\" class=\"display\">0</div> for showing current input/result.\n  * A <div class=\"keypad\"> grid that holds all buttons.\n- Define buttons using <button> elements with appropriate classes and data attributes:\n  * Numeric buttons 0\u20119 with class=\"btn number\" and data-value=\"0\" \u2026 \"9\".\n  * Operator buttons (+, -, \u00d7, \u00f7) with class=\"btn operator\" and data-operator=\"+\" etc.\n  * Equals button with class=\"btn equals\" and id=\"equals\".\n  * Clear button with class=\"btn clear\" and id=\"clear\" (label \"C\").\n  * Backspace button with class=\"btn backspace\" and id=\"backspace\" (label \"\u2190\").\n- Ensure the button order reflects a typical calculator layout.\n- This file provides the DOM elements that style.css and script.js will reference.\nDependencies: None (first step)."
+        },
+        {
+            "filepath": "style.css",
+            "task_description": "Implement responsive styling for the calculator UI.\n- Define root variables for colors, font sizes, and spacing.\n- Style body to center the calculator and set a pleasant background.\n- Style .calculator container: fixed width, max-width: 400px, background, border-radius, box-shadow, and padding.\n- Style .display: large font, right\u2011aligned text, background color, padding, border, and overflow handling.\n- Style .keypad as a CSS grid with 4 columns and appropriate row gaps.\n- Style .btn: common button dimensions, font, cursor, border\u2011radius, transition.\n- Provide specific styles for .number, .operator, .equals, .clear, .backspace (different background colors).\n- Add media queries for screens < 500px to make the calculator full\u2011width and adjust font sizes.\n- Ensure all class names match those defined in index.html.\nDependencies: Requires the DOM structure created in index.html."
+        },
+        {
+            "filepath": "script.js",
+            "task_description": "Set up core application logic and event handling.\n- At the top, import no external modules (plain JS).\n- Define a constant DISPLAY = document.getElementById('display');\n- Define a constant BUTTONS = document.querySelectorAll('.btn');\n- Create a Calculator object (or class) with properties:\n  * expression (string) \u2013 current input expression.\n  * lastResult (number) \u2013 stores the most recent evaluated result.\n- Implement methods on the Calculator:\n  * addInput(value) \u2013 appends numeric or operator characters to expression, updates DISPLAY.\n  * clear() \u2013 resets expression to empty string, sets DISPLAY to '0'.\n  * backspace() \u2013 removes last character from expression, updates DISPLAY.\n  * evaluate() \u2013 safely evaluates the expression using a custom parser (no eval). Convert '\u00d7' to '*', '\u00f7' to '/', handle division by zero, and return result or error string.\n  * updateDisplay(value) \u2013 sets DISPLAY.textContent to value.\n- Attach click event listeners to each BUTTON:\n  * If button has data-value (numbers) \u2192 calculator.addInput(value).\n  * If button has data-operator \u2192 calculator.addInput(operatorSymbol) where symbols are '+', '-', '*', '/'.\n  * If button.id === 'equals' \u2192 call calculator.evaluate() and display result.\n  * If button.id === 'clear' \u2192 calculator.clear().\n  * If button.id === 'backspace' \u2192 calculator.backspace().\n- Add keyboard support (optional) by listening to keydown events and mapping keys to the same methods.\n- Export (expose) the Calculator instance for potential testing: window.calculator = calculator.\nDependencies: Relies on HTML elements defined in index.html and styling from style.css for visual feedback."
+        },
+        {
+            "filepath": "README.md",
+            "task_description": "Write comprehensive project documentation.\n- Title and short description of SimpleCalculator.\n- Tech stack list (HTML, CSS, JavaScript).\n- Features bullet list matching the project plan.\n- Installation / setup instructions (clone repo, open index.html in browser).\n- Usage guide with screenshots (optional) describing button functions, clear, backspace, and error handling.\n- Contribution guidelines (fork, branch, pull request).\n- License information (e.g., MIT).\n- Mention that the code is pure client\u2011side and requires no server.\nDependencies: None, but references files created in previous steps."
+        }
+    ],
+    "plan": {
+        "name": "SimpleCalculator",
+        "description": "A lightweight web-based calculator application that performs basic arithmetic operations (addition, subtraction, multiplication, division) with a clean, responsive user interface.",
+        "techstack": "html, css, javascript",
+        "features": [
+            "User-friendly interface with numeric keypad and operation buttons",
+            "Supports addition, subtraction, multiplication, and division",
+            "Clear (C) and backspace (\u2190) functionality",
+            "Responsive design for desktop and mobile browsers",
+            "Display shows current input and result",
+            "Input validation to prevent division by zero and malformed expressions"
+        ],
+        "files": [
+            {
+                "path": "index.html",
+                "purpose": "Root HTML file containing the calculator layout and linking CSS/JS"
+            },
+            {
+                "path": "style.css",
+                "purpose": "Styling for the calculator UI, ensuring responsiveness and visual appeal"
+            },
+            {
+                "path": "script.js",
+                "purpose": "Core application logic handling button clicks, expression evaluation, and display updates"
+            },
+            {
+                "path": "README.md",
+                "purpose": "Project documentation with setup, usage, and contribution guidelines"
+            }
+        ]
+    }
+}
