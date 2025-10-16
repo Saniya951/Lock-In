@@ -1,0 +1,109 @@
+{
+    "implementation_steps": [
+        {
+            "filepath": "package.json",
+            "task_description": "Create package.json with separate scripts and dependencies for server and client. Define project name, version, description, main entry (server.js). Add dependencies: express, cors, body-parser for server; react, react-dom, react-scripts for client. Add devDependencies: nodemon for server hot reload. Include scripts: \"start:server\", \"start:client\", \"dev\" (concurrently run both). This file is independent and must exist before any import statements resolve."
+        },
+        {
+            "filepath": ".gitignore",
+            "task_description": "Create .gitignore to exclude node_modules/, client/node_modules/, .env, and tasks.json (if you want to keep local storage private). No dependencies."
+        },
+        {
+            "filepath": "tasks.json",
+            "task_description": "Initialize an empty JSON array [] in tasks.json. This file will be read/written by server.js for persistent storage. No code changes needed, just ensure file exists."
+        },
+        {
+            "filepath": "server.js",
+            "task_description": "Implement Express server:\n- Import express, cors, bodyParser, fs, path.\n- Load tasks from tasks.json synchronously at startup (JSON.parse). Store in an in\u2011memory array `let tasks = []`.\n- Helper functions: `saveTasks()` writes tasks array to tasks.json (fs.writeFileSync).\n- Define RESTful routes:\n  * GET /api/tasks -> res.json(tasks)\n  * POST /api/tasks -> validate body.title, create task object `{id: uuidv4(), title, description, completed:false}`; push to tasks, save, return 201.\n  * PUT /api/tasks/:id -> find task, update title/description/completed, save, return updated task.\n  * DELETE /api/tasks/:id -> filter out task, save, return 204.\n- Use cors() to allow client origin, bodyParser.json() for JSON payloads.\n- Serve static client build folder (`client/build`) for production fallback.\n- Export app (module.exports = app) for testing.\n- Start server on process.env.PORT || 5000.\nThis task depends on tasks.json existing and will be consumed by the React client via fetch calls."
+        },
+        {
+            "filepath": "client/public/index.html",
+            "task_description": "Create minimal HTML shell with a div#root and script tag linking to bundled React app. Include meta viewport for responsiveness. No code dependencies."
+        },
+        {
+            "filepath": "client/src/index.js",
+            "task_description": "Entry point for React app:\n- Import React, ReactDOM, App component, and optional CSS.\n- Render <App /> into document.getElementById('root') using ReactDOM.createRoot (React 18).\n- Export nothing; this file only bootstraps the UI. Depends on App.js."
+        },
+        {
+            "filepath": "client/src/App.js",
+            "task_description": "Root component handling state and API interaction:\n- Import React, useState, useEffect, TaskForm, TaskList.\n- Define state `tasks` (array) and `editingTask` (object|null).\n- Implement `fetchTasks()` using fetch GET /api/tasks, setTasks.\n- Implement `addTask(task)`, `updateTask(updatedTask)`, `deleteTask(id)`, `toggleComplete(id)`; each performs appropriate fetch (POST, PUT, DELETE) and updates local state.\n- useEffect on mount to load tasks.\n- Render TaskForm (passing addTask or updateTask based on editingTask) and TaskList (passing tasks and action callbacks).\n- Provide context for child components via props. Depends on TaskForm, TaskList, and server API."
+        },
+        {
+            "filepath": "client/src/components/TaskForm.js",
+            "task_description": "Component for adding/editing a task:\n- Props: `onSubmit(task)` callback, `initialTask` (optional) for edit mode.\n- Local state: title, description.\n- useEffect to populate fields when initialTask changes.\n- Form with inputs (title required, description optional) and submit button labeled Add or Update.\n- Validate non\u2011empty title; show simple error message.\n- On submit, call onSubmit({id?, title, description, completed:false}) and clear fields if not editing.\n- Export default TaskForm. Depends on App.js for callback."
+        },
+        {
+            "filepath": "client/src/components/TaskItem.js",
+            "task_description": "Component representing a single task row:\n- Props: `task` object, `onEdit(task)`, `onDelete(id)`, `onToggle(id)`.\n- Render title, optional description, a checkbox for completed (checked based on task.completed), Edit and Delete buttons.\n- Checkbox change triggers onToggle(task.id).\n- Edit button triggers onEdit(task).\n- Delete button triggers onDelete(task.id).\n- Apply simple CSS class for completed (e.g., line\u2011through). Export default TaskItem."
+        },
+        {
+            "filepath": "client/src/components/TaskList.js",
+            "task_description": "Component that maps over tasks array and renders TaskItem for each:\n- Props: `tasks` array, `onEdit`, `onDelete`, `onToggle` callbacks passed down.\n- If tasks length is 0, display \"No tasks yet\" message.\n- Return a <ul> or <div> containing TaskItem components.\n- Export default TaskList. Depends on TaskItem."
+        },
+        {
+            "filepath": "README.md",
+            "task_description": "Write documentation covering:\n- Project overview.\n- Prerequisites (Node.js, npm).\n- Installation steps (`npm install`, `cd client && npm install`).\n- How to run in development (`npm run dev`).\n- API endpoint summary.\n- How to build for production (`npm run build` in client, then `node server.js`).\n- Contribution guidelines.\nNo code dependencies."
+        }
+    ],
+    "plan": {
+        "name": "SimpleTodoApp",
+        "description": "A simple web application that allows users to create, view, edit, and delete tasks in a to-do list. The app includes a minimal backend for storing tasks in memory (or a JSON file) and a responsive frontend for interacting with the list.",
+        "techstack": "nodejs,express,react,javascript",
+        "features": [
+            "User can add a new task with a title and optional description",
+            "User can mark tasks as completed",
+            "User can edit existing tasks",
+            "User can delete tasks",
+            "Persist tasks between sessions using a simple JSON file storage",
+            "Responsive UI built with React",
+            "RESTful API built with Node.js and Express",
+            "Basic error handling and input validation"
+        ],
+        "files": [
+            {
+                "path": "package.json",
+                "purpose": "Project metadata and dependencies for both server and client"
+            },
+            {
+                "path": "server.js",
+                "purpose": "Main Express server handling API routes for CRUD operations on tasks"
+            },
+            {
+                "path": "tasks.json",
+                "purpose": "Simple file-based storage for persisting tasks"
+            },
+            {
+                "path": "client/src/index.js",
+                "purpose": "Entry point for the React application"
+            },
+            {
+                "path": "client/src/App.js",
+                "purpose": "Root React component containing the to-do list UI"
+            },
+            {
+                "path": "client/src/components/TaskForm.js",
+                "purpose": "Component for adding and editing tasks"
+            },
+            {
+                "path": "client/src/components/TaskItem.js",
+                "purpose": "Component representing a single task with edit, complete, and delete actions"
+            },
+            {
+                "path": "client/src/components/TaskList.js",
+                "purpose": "Component that renders the list of TaskItem components"
+            },
+            {
+                "path": "client/public/index.html",
+                "purpose": "HTML shell for the React app"
+            },
+            {
+                "path": ".gitignore",
+                "purpose": "Exclude node_modules and other unnecessary files from version control"
+            },
+            {
+                "path": "README.md",
+                "purpose": "Documentation on how to set up, run, and use the to-do list application"
+            }
+        ]
+    }
+}

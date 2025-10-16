@@ -1,0 +1,61 @@
+{
+    "name": "SimpleTodoApp",
+    "description": "A simple web application that allows users to create, view, edit, and delete tasks in a to-do list. The app includes a minimal backend for storing tasks in memory (or a JSON file) and a responsive frontend for interacting with the list.",
+    "techstack": "nodejs,express,react,javascript",
+    "features": [
+        "User can add a new task with a title and optional description",
+        "User can mark tasks as completed",
+        "User can edit existing tasks",
+        "User can delete tasks",
+        "Persist tasks between sessions using a simple JSON file storage",
+        "Responsive UI built with React",
+        "RESTful API built with Node.js and Express",
+        "Basic error handling and input validation"
+    ],
+    "files": [
+        {
+            "path": "package.json",
+            "purpose": "Project metadata and dependencies for both server and client"
+        },
+        {
+            "path": "server.js",
+            "purpose": "Main Express server handling API routes for CRUD operations on tasks"
+        },
+        {
+            "path": "tasks.json",
+            "purpose": "Simple file-based storage for persisting tasks"
+        },
+        {
+            "path": "client/src/index.js",
+            "purpose": "Entry point for the React application"
+        },
+        {
+            "path": "client/src/App.js",
+            "purpose": "Root React component containing the to-do list UI"
+        },
+        {
+            "path": "client/src/components/TaskForm.js",
+            "purpose": "Component for adding and editing tasks"
+        },
+        {
+            "path": "client/src/components/TaskItem.js",
+            "purpose": "Component representing a single task with edit, complete, and delete actions"
+        },
+        {
+            "path": "client/src/components/TaskList.js",
+            "purpose": "Component that renders the list of TaskItem components"
+        },
+        {
+            "path": "client/public/index.html",
+            "purpose": "HTML shell for the React app"
+        },
+        {
+            "path": ".gitignore",
+            "purpose": "Exclude node_modules and other unnecessary files from version control"
+        },
+        {
+            "path": "README.md",
+            "purpose": "Documentation on how to set up, run, and use the to-do list application"
+        }
+    ]
+}
