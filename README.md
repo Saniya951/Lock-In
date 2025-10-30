@@ -32,10 +32,12 @@ These instructions will guide you through setting up and running the project loc
       .\venv\Scripts\activate
       ```
     - **On macOS / Linux (Bash / Zsh):**
-      `bash
-    source venv/bin/activate
-    `
-      _(Your command prompt should now be prefixed with `(venv)`.)_
+
+    ```bash
+        source venv/bin/activate
+    ```
+
+    _(Your command prompt should now be prefixed with `(venv)`.)_
 
 4.  **Install required packages:**
     This command reads the `requirements.txt` file and installs all the necessary libraries into your `venv`.
@@ -54,9 +56,8 @@ All core logic, scripts, and data live inside the `agent/` directory.
     ```
 
 2.  **Set up Environment Variables:**
-    The agent uses `load_dotenv()` which looks for a `.env` file in the _current directory_ (which is now `agent/`).
 
-    Create a file named `.env` **inside the `agent/` directory** and add your Groq API key:
+    Create a file named `.env` **inside the `Lock-in` directory** and add your Groq API key:
 
     ```ini
     GROQ_API_KEY=your_api_key_here
@@ -81,6 +82,10 @@ After completing the setup, you can run the main agent.
     ```bash
     python graph.py
     ```
+    or
+    ```bash
+    python3 graph.py
+    ```
 4.  The script will load the vector database and then prompt you to enter your project request.
 
 ---
@@ -89,7 +94,7 @@ After completing the setup, you can run the main agent.
 
 ### Updating `requirements.txt`
 
-If you install a new package (e.g., `pip install langchain-community`), you **must** update the `requirements.txt` file so your teammates get the new dependency.
+If you install a new package (e.g., `pip install langchain-community`), you **must** update the `requirements.txt`.
 
 Run this command **from the root `lockin/` directory** (where `requirements.txt` lives) to save all packages from your `venv`:
 
