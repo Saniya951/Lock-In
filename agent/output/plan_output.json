@@ -1,31 +1,57 @@
 {
-    "name": "SimpleCalculator",
-    "description": "A lightweight web-based calculator application that performs basic arithmetic operations (addition, subtraction, multiplication, division) with a clean, responsive user interface.",
-    "techstack": "html, css, javascript",
+    "name": "SimpleTodoApp",
+    "description": "A simple web-based To-Do application that allows users to add, edit, complete, delete, and filter tasks. The app runs entirely in the browser and persists data using localStorage, requiring no backend.",
+    "techstack": "javascript,react",
     "features": [
-        "User-friendly interface with numeric keypad and operation buttons",
-        "Supports addition, subtraction, multiplication, and division",
-        "Clear (C) and backspace (\u2190) functionality",
-        "Responsive design for desktop and mobile browsers",
-        "Display shows current input and result",
-        "Input validation to prevent division by zero and malformed expressions"
+        "User can add new tasks",
+        "User can mark tasks as completed/uncompleted",
+        "User can delete tasks",
+        "User can edit task text",
+        "Filter view: All, Active, Completed",
+        "Persist tasks across sessions using localStorage",
+        "Responsive UI for desktop and mobile",
+        "Clear all completed tasks"
     ],
     "files": [
         {
-            "path": "index.html",
-            "purpose": "Root HTML file containing the calculator layout and linking CSS/JS"
+            "path": "package.json",
+            "purpose": "Project metadata and dependencies (React, ReactDOM, scripts for start/build)"
         },
         {
-            "path": "style.css",
-            "purpose": "Styling for the calculator UI, ensuring responsiveness and visual appeal"
+            "path": "public/index.html",
+            "purpose": "Root HTML file that loads the React app"
         },
         {
-            "path": "script.js",
-            "purpose": "Core application logic handling button clicks, expression evaluation, and display updates"
+            "path": "src/index.js",
+            "purpose": "Entry point that renders the root React component into the DOM"
         },
         {
-            "path": "README.md",
-            "purpose": "Project documentation with setup, usage, and contribution guidelines"
+            "path": "src/App.js",
+            "purpose": "Main application component handling state management and routing of features"
+        },
+        {
+            "path": "src/App.css",
+            "purpose": "Styling for the entire application, ensuring responsive design"
+        },
+        {
+            "path": "src/components/TodoInput.js",
+            "purpose": "Component for entering new tasks and editing existing ones"
+        },
+        {
+            "path": "src/components/TodoList.js",
+            "purpose": "Component that renders a list of TodoItem components based on current filter"
+        },
+        {
+            "path": "src/components/TodoItem.js",
+            "purpose": "Component representing a single task with controls for complete, edit, and delete"
+        },
+        {
+            "path": "src/components/FilterBar.js",
+            "purpose": "Component providing UI to switch between All, Active, and Completed task views"
+        },
+        {
+            "path": "src/utils/localStorage.js",
+            "purpose": "Utility functions to load and save tasks to browser localStorage"
         }
     ]
 }
