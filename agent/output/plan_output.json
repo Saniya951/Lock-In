@@ -1,57 +1,31 @@
 {
     "name": "SimpleTodoApp",
-    "description": "A simple web-based To-Do application that allows users to add, edit, complete, delete, and filter tasks. The app runs entirely in the browser and persists data using localStorage, requiring no backend.",
-    "techstack": "javascript,react",
+    "description": "A simple web-based to-do list application that allows users to add, complete, delete, and filter tasks. The app stores tasks in the browser's localStorage to persist data across sessions.",
+    "techstack": "html, css, javascript",
     "features": [
-        "User can add new tasks",
-        "User can mark tasks as completed/uncompleted",
-        "User can delete tasks",
-        "User can edit task text",
-        "Filter view: All, Active, Completed",
-        "Persist tasks across sessions using localStorage",
-        "Responsive UI for desktop and mobile",
-        "Clear all completed tasks"
+        "Add new tasks",
+        "Mark tasks as completed",
+        "Delete tasks",
+        "Filter tasks (All, Active, Completed)",
+        "Persist tasks using localStorage",
+        "Responsive design for desktop and mobile"
     ],
     "files": [
         {
-            "path": "package.json",
-            "purpose": "Project metadata and dependencies (React, ReactDOM, scripts for start/build)"
+            "path": "index.html",
+            "purpose": "Main HTML structure of the to-do app, includes UI elements and links to CSS and JavaScript."
         },
         {
-            "path": "public/index.html",
-            "purpose": "Root HTML file that loads the React app"
+            "path": "style.css",
+            "purpose": "Styling for the app, providing layout, colors, and responsive design."
         },
         {
-            "path": "src/index.js",
-            "purpose": "Entry point that renders the root React component into the DOM"
+            "path": "app.js",
+            "purpose": "Core application logic: handling task CRUD operations, UI updates, and localStorage persistence."
         },
         {
-            "path": "src/App.js",
-            "purpose": "Main application component handling state management and routing of features"
-        },
-        {
-            "path": "src/App.css",
-            "purpose": "Styling for the entire application, ensuring responsive design"
-        },
-        {
-            "path": "src/components/TodoInput.js",
-            "purpose": "Component for entering new tasks and editing existing ones"
-        },
-        {
-            "path": "src/components/TodoList.js",
-            "purpose": "Component that renders a list of TodoItem components based on current filter"
-        },
-        {
-            "path": "src/components/TodoItem.js",
-            "purpose": "Component representing a single task with controls for complete, edit, and delete"
-        },
-        {
-            "path": "src/components/FilterBar.js",
-            "purpose": "Component providing UI to switch between All, Active, and Completed task views"
-        },
-        {
-            "path": "src/utils/localStorage.js",
-            "purpose": "Utility functions to load and save tasks to browser localStorage"
+            "path": "README.md",
+            "purpose": "Project documentation, setup instructions, and usage guide."
         }
     ]
 }

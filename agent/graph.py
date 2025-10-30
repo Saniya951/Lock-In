@@ -16,16 +16,24 @@ from langchain_community.vectorstores import Chroma
 
 # --- Setup ---
 llm = ChatGroq(model="openai/gpt-oss-120b")
-OUTPUT_DIR = "output"
+
+# Get the absolute path to the directory where this script (graph.py) lives
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Build absolute paths relative to this script's directory
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+DB_PATH = os.path.join(SCRIPT_DIR, "chroma_db") 
+# ========================
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-DB_PATH = "chroma_db"
 HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 # --- Load Vector Database ---
-cprint(" Loading vector database from Chroma...", "yellow")
+cprint(f" Loading vector database from {DB_PATH}...", "yellow")
 embeddings = HuggingFaceEndpointEmbeddings(
     repo_id=HF_EMBEDDING_MODEL
 )
+# This line now uses the absolute path, so it can't fail
 db = Chroma(persist_directory=DB_PATH, embedding_function=embeddings)
 retriever = db.as_retriever(search_kwargs={"k": 3})
 cprint(" Vector database loaded successfully.", "green")

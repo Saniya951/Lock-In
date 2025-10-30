@@ -1,100 +1,50 @@
 {
     "implementation_steps": [
         {
-            "filepath": "package.json",
-            "task_description": "Create a minimal package.json for a React project. Include name \"simple-todo-app\", version, scripts: \"start\": \"react-scripts start\", \"build\": \"react-scripts build\", and dependencies: react, react-dom, and devDependencies: react-scripts. This file is the foundation for npm install and will be used before any source files are compiled."
+            "filepath": "README.md",
+            "task_description": "Create project documentation. Include sections: Project Overview, Features, Tech Stack, Setup Instructions (how to open index.html), Usage Guide (adding, completing, deleting, filtering tasks), LocalStorage Persistence explanation, Responsive Design notes, and Contribution guidelines. No code dependencies, but provides context for all other files."
         },
         {
-            "filepath": "public/index.html",
-            "task_description": "Add a basic HTML5 skeleton with a <div id='root'></div> placeholder. Include a <title>Simple Todo App</title> and link to the bundled JS via the React build process. No external scripts are needed; this file will be loaded by the development server and serves as the mount point for the React tree rendered in src/index.js."
+            "filepath": "index.html",
+            "task_description": "Implement the main HTML structure. Add <!DOCTYPE html>, <html>, <head> with meta charset, viewport, title, link to style.css, and script src=\"app.js\" defer. In <body>, create a container <div class=\"todo-app\"> with:\n- Header <h1>Todo List</h1>\n- Input form: <input id=\"new-task\" type=\"text\" placeholder=\"What needs to be done?\" /> and <button id=\"add-btn\">Add</button>\n- Task list <ul id=\"task-list\"></ul>\n- Filter controls <div class=\"filters\"> with buttons <button data-filter=\"all\" class=\"filter-btn active\">All</button>, <button data-filter=\"active\" class=\"filter-btn\">Active</button>, <button data-filter=\"completed\" class=\"filter-btn\">Completed</button>\nAdd semantic comments. This file will be referenced by app.js for DOM element selectors."
         },
         {
-            "filepath": "src/index.js",
-            "task_description": "Implement the entry point: import React, ReactDOM, and the App component from './App'. Use ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>); Export nothing. This file bootstraps the UI and must run after the HTML file is ready."
+            "filepath": "style.css",
+            "task_description": "Add base styling and responsive layout.\n- Reset margins/padding, set box-sizing.\n- Style .todo-app container: max-width, margin auto, padding.\n- Style header, input, button, and task list items.\n- Define .completed class to show strikethrough and dimmed color.\n- Style .filters and .filter-btn, with .active state.\n- Add media query @media (max-width: 600px) to adjust font-size, button size, and layout for mobile.\nNo JS imports, but class names must match those used in index.html and referenced in app.js."
         },
         {
-            "filepath": "src/utils/localStorage.js",
-            "task_description": "Create two utility functions:\n1. `export const loadTasks = () => { const data = localStorage.getItem('tasks'); return data ? JSON.parse(data) : []; }`\n2. `export const saveTasks = (tasks) => { localStorage.setItem('tasks', JSON.stringify(tasks)); }`\nBoth functions operate on an array of task objects `{ id: string, text: string, completed: boolean }`. They will be imported by App.js for persistence."
-        },
-        {
-            "filepath": "src/components/TodoInput.js",
-            "task_description": "Implement a functional component `TodoInput` that receives props: `onAdd(text)`, `onEdit(id, newText)`, `editTask` (object or null). The component holds internal state `inputValue`. When `editTask` changes, populate the input with its text. On form submit, if `editTask` exists call `onEdit(editTask.id, inputValue)`, else call `onAdd(inputValue)`. Reset input after submission. Export default `TodoInput`. This component will be used by App.js to add or edit tasks."
-        },
-        {
-            "filepath": "src/components/TodoItem.js",
-            "task_description": "Create a functional component `TodoItem` with props: `task` (object), `onToggle(id)`, `onDelete(id)`, `onStartEdit(id)`. Render a `<li>` containing a checkbox bound to `task.completed` that triggers `onToggle(task.id)`, a span showing `task.text` (styled with line\u2011through when completed), an edit button that calls `onStartEdit(task.id)`, and a delete button that calls `onDelete(task.id)`. Export default `TodoItem`. This component will be used inside `TodoList`."
-        },
-        {
-            "filepath": "src/components/TodoList.js",
-            "task_description": "Implement `TodoList` component that receives props: `tasks` (array), `filter` ('all'|'active'|'completed'), `onToggle(id)`, `onDelete(id)`, `onStartEdit(id)`. Compute `visibleTasks` based on filter. Map over `visibleTasks` rendering `TodoItem` for each, passing down the callbacks. Wrap list in `<ul className='todo-list'>`. Export default `TodoList`. This component will be rendered by App.js."
-        },
-        {
-            "filepath": "src/components/FilterBar.js",
-            "task_description": "Create a functional component `FilterBar` with props: `currentFilter`, `onChangeFilter(newFilter)`. Render three buttons or links labeled \"All\", \"Active\", \"Completed\". Highlight the active filter (e.g., with a CSS class). Clicking a button calls `onChangeFilter` with the corresponding filter string. Export default `FilterBar`. App.js will use this to switch view and to clear completed tasks."
-        },
-        {
-            "filepath": "src/App.js",
-            "task_description": "Implement the main `App` component:\n- Import React, useState, useEffect, the utility functions `loadTasks` and `saveTasks`, and all components created earlier.\n- Define state: `tasks` (array), `filter` (string, default 'all'), `editTask` (object|null).\n- On mount (`useEffect` with empty deps) load tasks via `loadTasks` and set state.\n- Whenever `tasks` change, persist them via `saveTasks`.\n- Define handler functions:\n  * `addTask(text)` creates a new task object `{ id: uuidv4(), text, completed: false }` and appends to `tasks`.\n  * `toggleTask(id)` flips `completed` flag.\n  * `deleteTask(id)` removes task.\n  * `startEditTask(id)` sets `editTask` to the matching task.\n  * `editTaskHandler(id, newText)` updates the task's text and clears `editTask`.\n  * `changeFilter(newFilter)` sets `filter`.\n  * `clearCompleted()` filters out completed tasks.\n- Render layout: `<div className='app'>` containing `<h1>Todo</h1>`, `<TodoInput onAdd={addTask} onEdit={editTaskHandler} editTask={editTask} />`, `<TodoList tasks={tasks} filter={filter} onToggle={toggleTask} onDelete={deleteTask} onStartEdit={startEditTask} />`, `<FilterBar currentFilter={filter} onChangeFilter={changeFilter} />`, and a button \"Clear Completed\" that calls `clearCompleted`.\n- Export default `App`.\nThis component wires together all previous components and utilities, providing the full feature set."
-        },
-        {
-            "filepath": "src/App.css",
-            "task_description": "Write CSS to style the application responsively:\n- Global body styling (font, margin, background).\n- `.app` container with max\u2011width, centering, padding.\n- Styles for input field, buttons, and list items.\n- `.todo-list li` layout with flex, aligning checkbox, text, and action icons.\n- `.completed` class (or using `[type='checkbox']:checked + span`) to apply `text-decoration: line-through; opacity: 0.6;`.\n- Media query for screens < 600px to stack controls vertically and increase tap targets.\n- Highlight active filter button in `FilterBar`.\nNo JS code, but class names must match those used in components.\nThis file will be imported in `src/App.js` via `import './App.css';`."
+            "filepath": "app.js",
+            "task_description": "Implement core application logic in modular steps:\n1. Define data model:\n   - const STORAGE_KEY = 'simple_todo_tasks';\n   - let tasks = [];\n   - function loadTasks() reads JSON from localStorage, parses, assigns to tasks.\n   - function saveTasks() writes JSON.stringify(tasks) to localStorage.\n2. Define UI rendering functions:\n   - function renderTasks(filter = 'all') clears #task-list and creates <li> for each task matching filter.\n   - Each <li> includes a checkbox input (class='toggle'), span for text, and button class='delete-btn'.\n   - Apply .completed class when task.completed is true.\n3. Define event handlers:\n   - addTask(event): reads #new-task value, creates task object {id: Date.now(), text, completed:false}, pushes to tasks, saves, re-renders with current filter.\n   - toggleTask(id): flips completed flag, saves, re-renders.\n   - deleteTask(id): removes from tasks array, saves, re-renders.\n   - setFilter(event): updates active filter button, re-renders.\n4. Wire up DOMContentLoaded:\n   - Call loadTasks(); set currentFilter='all'; renderTasks();\n   - Attach listeners: #add-btn click -> addTask, #new-task keypress Enter -> addTask, delegation on #task-list for change on .toggle and click on .delete-btn, click on .filter-btn -> setFilter.\n5. Export (if using modules) not required; script runs in browser.\nAll functions and variables are defined in this file and referenced by index.html via script tag. Ensure function signatures match event listener expectations (event parameter)."
         }
     ],
     "plan": {
         "name": "SimpleTodoApp",
-        "description": "A simple web-based To-Do application that allows users to add, edit, complete, delete, and filter tasks. The app runs entirely in the browser and persists data using localStorage, requiring no backend.",
-        "techstack": "javascript,react",
+        "description": "A simple web-based to-do list application that allows users to add, complete, delete, and filter tasks. The app stores tasks in the browser's localStorage to persist data across sessions.",
+        "techstack": "html, css, javascript",
         "features": [
-            "User can add new tasks",
-            "User can mark tasks as completed/uncompleted",
-            "User can delete tasks",
-            "User can edit task text",
-            "Filter view: All, Active, Completed",
-            "Persist tasks across sessions using localStorage",
-            "Responsive UI for desktop and mobile",
-            "Clear all completed tasks"
+            "Add new tasks",
+            "Mark tasks as completed",
+            "Delete tasks",
+            "Filter tasks (All, Active, Completed)",
+            "Persist tasks using localStorage",
+            "Responsive design for desktop and mobile"
         ],
         "files": [
             {
-                "path": "package.json",
-                "purpose": "Project metadata and dependencies (React, ReactDOM, scripts for start/build)"
+                "path": "index.html",
+                "purpose": "Main HTML structure of the to-do app, includes UI elements and links to CSS and JavaScript."
             },
             {
-                "path": "public/index.html",
-                "purpose": "Root HTML file that loads the React app"
+                "path": "style.css",
+                "purpose": "Styling for the app, providing layout, colors, and responsive design."
             },
             {
-                "path": "src/index.js",
-                "purpose": "Entry point that renders the root React component into the DOM"
+                "path": "app.js",
+                "purpose": "Core application logic: handling task CRUD operations, UI updates, and localStorage persistence."
             },
             {
-                "path": "src/App.js",
-                "purpose": "Main application component handling state management and routing of features"
-            },
-            {
-                "path": "src/App.css",
-                "purpose": "Styling for the entire application, ensuring responsive design"
-            },
-            {
-                "path": "src/components/TodoInput.js",
-                "purpose": "Component for entering new tasks and editing existing ones"
-            },
-            {
-                "path": "src/components/TodoList.js",
-                "purpose": "Component that renders a list of TodoItem components based on current filter"
-            },
-            {
-                "path": "src/components/TodoItem.js",
-                "purpose": "Component representing a single task with controls for complete, edit, and delete"
-            },
-            {
-                "path": "src/components/FilterBar.js",
-                "purpose": "Component providing UI to switch between All, Active, and Completed task views"
-            },
-            {
-                "path": "src/utils/localStorage.js",
-                "purpose": "Utility functions to load and save tasks to browser localStorage"
+                "path": "README.md",
+                "purpose": "Project documentation, setup instructions, and usage guide."
             }
         ]
     }

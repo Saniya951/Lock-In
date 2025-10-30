@@ -34,7 +34,7 @@ These instructions will guide you through setting up and running the project loc
     - **On macOS / Linux (Bash / Zsh):**
 
     ```bash
-        source venv/bin/activate
+    source venv/bin/activate
     ```
 
     _(Your command prompt should now be prefixed with `(venv)`.)_
@@ -49,13 +49,7 @@ These instructions will guide you through setting up and running the project loc
 
 All core logic, scripts, and data live inside the `agent/` directory.
 
-1.  **Navigate into the `agent` directory:**
-
-    ```bash
-    cd agent
-    ```
-
-2.  **Set up Environment Variables:**
+1.  **Set up Environment Variables:**
 
     Create a file named `.env` **inside the `Lock-in` directory** and add your Groq API key:
 
@@ -63,11 +57,23 @@ All core logic, scripts, and data live inside the `agent/` directory.
     GROQ_API_KEY=your_api_key_here
     ```
 
-3.  **Initialize the Vector Database:**
-    Run the setup script to populate the local Chroma vector database. This script will create an `agent/chromadb/` directory (which is git-ignored) and fill it with data.
+2.  **Initialize the Vector Database:**
+    Run the setup script to populate the local Chroma vector database. This script will create an `agent/chroma_db/` directory (which is git-ignored) and fill it with data.
+
+    ```bash
+    cd agent
+    ```
+
     ```bash
     python setup_vectordb.py
     ```
+
+    or
+
+    ```bash
+    python3 setup_vectordb.py
+    ```
+
     You only need to do this once, unless your source data changes.
 
 ---
@@ -76,17 +82,9 @@ All core logic, scripts, and data live inside the `agent/` directory.
 
 After completing the setup, you can run the main agent.
 
-1.  Ensure you are still in the `agent/` directory.
-2.  Ensure your virtual environment (`venv`) is still active.
-3.  Run the main graph:
-    ```bash
-    python graph.py
-    ```
-    or
-    ```bash
-    python3 graph.py
-    ```
-4.  The script will load the vector database and then prompt you to enter your project request.
+1.  Ensure your virtual environment (`venv`) is still active.
+2.  Run the main graph.py script
+3.  The script will load the vector database and then prompt you to enter your project request.
 
 ---
 
