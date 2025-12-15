@@ -57,7 +57,7 @@ def route_query(state: GraphState) -> dict:
 
 def planner_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Planner Agent...", "cyan", attrs=["bold"])
+    cprint(" Entering Planner Workflow...", "cyan", attrs=["bold"])
     
     users_prompt = state["user_prompt"]
     response = llm.with_structured_output(Plan).invoke(planner_prompt(users_prompt))
@@ -76,7 +76,7 @@ def planner_agent(state: GraphState) -> dict:
 
 def architect_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Architect Agent...", "cyan", attrs=["bold"])
+    cprint(" Entering Architect Workflow...", "cyan", attrs=["bold"])
     
     plan: Plan = state["plan"]
     response = llm.with_structured_output(TaskPlan).invoke(architect_prompt(plan))
@@ -94,9 +94,12 @@ def architect_agent(state: GraphState) -> dict:
         
     return {"task_plan": response}
 
+#
+# --- MODIFIED RESEARCHER AGENT ---
+#
 def researcher_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Researcher Agent...", "cyan", attrs=["bold"])
+    cprint(" Entering Researcher and Retriever Workflow...", "cyan", attrs=["bold"])
     
     plan: Plan = state["plan"] 
     task_plan: TaskPlan = state["task_plan"]
@@ -111,10 +114,35 @@ def researcher_agent(state: GraphState) -> dict:
     queries = response.queries
     cprint(f" Generated queries: {queries}", "blue")
 
+    # --- BATCH RETRIEVAL ---
+    # Instead of a loop, we call .batch() to make one efficient API call
+    # for all queries. This avoids the rapid-fire requests that cause
+    # the ConnectionResetError.
+    cprint(f" Executing batch retrieval for {len(queries)} queries...", "yellow")
+    try:
+        list_of_docs_lists = retriever.batch(queries)
+    except Exception as e:
+        cprint(f"!!! Batch retrieval failed: {e}", "red")
+        cprint("This likely means the HF API is down or the token is invalid.", "red")
+        # Handle the error gracefully, maybe by returning empty context
+        return {
+            "research_queries": queries, 
+            "retrieved_context": "Error: Retrieval failed.",
+            "retrieved_docs": []
+        }
+    
+    # --- DE-DUPLICATION ---
+    # Batching similar queries will return duplicate documents.
+    # We use a dictionary to de-duplicate them based on page content.
     all_docs = []
-    for query in queries:
-        docs = retriever.invoke(query)
-        all_docs.extend(docs)
+    seen_content = set()
+    for docs_list in list_of_docs_lists:
+        for doc in docs_list:
+            if doc.page_content not in seen_content:
+                all_docs.append(doc)
+                seen_content.add(doc.page_content)
+    
+    cprint(f" Retrieved {len(all_docs)} unique documents.", "green")
 
     context_str = "\n\n---\n\n".join([doc.page_content for doc in all_docs])
     
@@ -125,13 +153,16 @@ def researcher_agent(state: GraphState) -> dict:
             "content": doc.page_content,
             "source": source
         })
-    cprint(f" Retrieved {len(doc_sources)} documents with sources.", "green")
+    # (doc_sources is already de-duplicated because it's built from all_docs)
 
     return {
         "research_queries": queries, 
         "retrieved_context": context_str,
         "retrieved_docs": doc_sources
     }
+#
+# --- END OF MODIFIED SECTION ---
+#
 
 def coder_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
@@ -163,7 +194,7 @@ def coder_agent(state: GraphState) -> dict:
             # Write the code to the file
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(code_file.content)
-            cprint(f"  Saved code to {file_path}", "green")
+            cprint(f"   Saved code to {file_path}", "green")
             
     except Exception as e:
         cprint(f"Error saving code files: {e}", "red")
