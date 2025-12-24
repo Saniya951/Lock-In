@@ -27,3 +27,5 @@ build/
 *.egg-info/
 
 tempCodeRunnerFile.py
+
+agent/output
