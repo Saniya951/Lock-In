@@ -23,4 +23,10 @@ dist/
 build/
 *.egg-info/
 
+#Frontend node modules
+frontend/node_modules/
+frontend/dist/
+
+
 tempCodeRunnerFile.py
+
