@@ -51,10 +51,14 @@ All core logic, scripts, and data live inside the `agent/` directory.
 
 1.  **Set up Environment Variables:**
 
-    Create a file named `.env` **inside the `Lock-in` directory** and add your Groq API key:
+    Create a file named `.env` **inside the `Lock-in` directory** and add your Groq API and Tavilly API key:
 
     ```ini
     GROQ_API_KEY=your_api_key_here
+    ```
+
+    ```ini
+    TAVILY_API_KEY=your_tavily_api_key_here
     ```
 
 2.  **Initialize the Vector Database:**

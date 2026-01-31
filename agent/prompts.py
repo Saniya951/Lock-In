@@ -33,8 +33,14 @@ def router_prompt(user_prompt: str) -> List[Dict[str, str]]:
 def planner_prompt(user_prompt: str) -> List[Dict[str, str]]:
     """A prompt for the planner agent."""
     
-    # The default tech stack
-    DEFAULT_TECH_STACK = "MongoDB, React, and Flask"
+    # Analyze if tech stack is specified
+    tech_keywords = ["react", "flask", "mongodb", "node", "vue", "django", "express", "python", "javascript", "html", "css"]
+    mentioned_tech = [tech for tech in tech_keywords if tech.lower() in user_prompt.lower()]
+    
+    if mentioned_tech:
+        inferred_stack = f"Based on mentioned technologies: {', '.join(mentioned_tech)}"
+    else:
+        inferred_stack = "No specific technologies mentioned, keep it focused on the request."
     
     return [
         {
@@ -45,24 +51,28 @@ and create a high-level plan to build it.
 
 **CRITICAL CONTEXT:**
 1.  Analyze the user's request: "{user_prompt}"
-2.  If the user **does not** specify a technology stack (e.g., "in Node.js" or "using Vue"),
-    you **MUST** assume the default stack.
-3.  The default stack is: **{DEFAULT_TECH_STACK}**.
-4.  Your plan **MUST** be based on this technology stack (either the user's
-    specified one or the default).
-5.  The output must be a valid JSON object matching the `Plan` Pydantic model.
-6.  The `project_goal` in your plan **MUST** restate the user's goal *including* the
-    chosen tech stack.
+2.  {inferred_stack}
+3.  If no technologies are specified, do not assume a full stack—keep the plan minimal and directly address the request.
+4.  The output must be a valid JSON object matching the `Plan` Pydantic model.
+5.  The `project_goal` must restate the user's goal accurately.
 
-**Example for 'make a todo app':**
+**Example for 'make a todo app' (no tech specified):**
 {{
-    "project_goal": "Build a simple To-Do application using Flask, React, and MongoDB.",
+    "project_goal": "Build a simple To-Do application.",
     "steps": [
-        "Initialize project repository and scaffolding for Flask backend and React frontend.",
-        "Design the MongoDB schema for 'users' and 'todos' collections.",
-        "Implement Flask API endpoints for CRUD operations (Create, Read, Update, Delete) on todos.",
-        "Create the React frontend components (e.g., TodoList, TodoItem, AddTodoForm).",
-        "Connect the React frontend to the Flask API to fetch and manage todos."
+        "Create HTML structure for the todo list.",
+        "Add JavaScript for adding/removing items.",
+        "Style with CSS for basic appearance."
+    ]
+}}
+
+**Example for 'build a React component' (tech specified):**
+{{
+    "project_goal": "Build a React component that displays a list of items.",
+    "steps": [
+        "Create a React component that renders a list from an array.",
+        "Add props for the array and map over items.",
+        "Export the component for use."
     ]
 }}
             """
@@ -121,7 +131,7 @@ def coder_prompt(plan: Plan, task_plan: TaskPlan, context: str) -> List[Dict[str
     
     # For simplicity, we'll just code the first task.
     # A real loop would iterate through these.
-    current_task = task_plan.implementation_steps[0]
+    current_task = task_plan.implementation_steps[0]  # Focus on React component task
     
     return [
         {
@@ -156,3 +166,19 @@ based on a high-level plan and retrieved documentation.
             "content": f"Please generate the code for the task: {current_task['task_description']}"
         }
     ]
+
+def site_selection_prompt(user_prompt: str, task_description: str, plan: Plan, supported_sites: List[str]) -> str:
+    """A prompt for selecting relevant documentation sites."""
+    SITE_SELECTION_PROMPT = f"""
+    You are an expert at analyzing software development requests. Based on the user's project prompt, the current task, and the overall project plan,
+    determine which documentation sites are most relevant for research.
+
+    User prompt: {user_prompt}
+    Current task: {task_description}
+    Project plan: {plan.project_goal}
+    Supported sites: {supported_sites}
+
+    Return a list of site names from the supported sites that are relevant to the task and plan. If none are relevant, return an empty list.
+    Output must be a valid JSON object matching the `SiteSelection` Pydantic model.
+    """
+    return SITE_SELECTION_PROMPT

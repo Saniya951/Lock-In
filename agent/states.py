@@ -16,6 +16,10 @@ class ResearchQueries(BaseModel):
     """The list of research queries."""
     queries: List[str] = Field(description="A list of 3-5 search queries to research the task.")
 
+class SiteSelection(BaseModel):
+    """Selected sites for Tavily search."""
+    sites: List[str] = Field(description="List of site names to search, e.g., ['React', 'Flask'].")
+    
 # --- Pydantic model for the router ---
 class QueryRoute(BaseModel):
     """The routing decision for the user's query."""
@@ -37,6 +41,9 @@ class GeneratedCode(BaseModel):
     """A list of code files to be written to disk."""
     files: List[CodeFile] = Field(description="A list of code files to be generated.")
 
+class TavilyResults(BaseModel):
+    """Results from Tavily real-time search."""
+    results: List[Dict[str, str]] = Field(description="List of search results with 'site', 'content', and 'source'.")
 # --- Graph State ---
 
 class GraphState(TypedDict):
@@ -51,6 +58,7 @@ class GraphState(TypedDict):
         research_queries: List of queries for the researcher.
         retrieved_context: The combined string of retrieved documents.
         retrieved_docs: A list of dicts with {"content": ..., "source": ...}
+        search_method: The chosen search method ("default" or "advance").
     """
     user_prompt: str
     route: str | None  #To store the router's decision
@@ -59,4 +67,5 @@ class GraphState(TypedDict):
     research_queries: List[str] | None
     retrieved_context: str | None
     retrieved_docs: List[Dict[str, Any]] | None #to store content and metadata
+    search_method: bool | None
     generated_code: GeneratedCode | None

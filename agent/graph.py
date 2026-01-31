@@ -13,8 +13,14 @@ from termcolor import cprint
 
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
+from tavily import TavilyClient
 
-# --- Setup ---
+# --- Configuration ---
+SUPPORTED_SITES = {
+    "React": "react.dev",
+    "Flask": "flask.palletsprojects.com"
+}
+
 llm = ChatGroq(model="llama-3.3-70b-versatile")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +40,10 @@ embeddings = HuggingFaceEndpointEmbeddings(repo_id=HF_EMBEDDING_MODEL)
 db = Chroma(persist_directory=DB_PATH, embedding_function=embeddings)
 retriever = db.as_retriever(search_kwargs={"k": 3})
 cprint(" Vector database loaded successfully.", "green")
+
+# --- Initialize Tavily Client ---
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+cprint(" Tavily client initialized.", "green")
 
 # --- Agent Definitions ---
 
@@ -160,9 +170,73 @@ def researcher_agent(state: GraphState) -> dict:
         "retrieved_context": context_str,
         "retrieved_docs": doc_sources
     }
-#
-# --- END OF MODIFIED SECTION ---
-#
+
+
+def tavily_researcher_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Tavily Researcher Workflow...", "cyan", attrs=["bold"])
+    
+    plan: Plan = state["plan"] 
+    task_plan: TaskPlan = state["task_plan"]
+    user_prompt = state["user_prompt"]
+    
+    first_task = task_plan.implementation_steps[0]['task_description']  # Focus on React component
+    cprint(f" Researching task: {first_task}...", "yellow")
+    cprint(f" Project context: {plan.project_goal}", "blue")
+
+    # --- Decide which sites to search ---
+    site_prompt = site_selection_prompt(user_prompt, first_task, plan, list(SUPPORTED_SITES.keys()))
+    site_response = llm.with_structured_output(SiteSelection).invoke(site_prompt)
+    selected_sites = site_response.sites if site_response else ["React", "Flask"]  # Default if failed
+    cprint(f" Selected sites: {selected_sites}", "blue")
+
+    # --- Generate queries ---
+    prompt = research_prompt(first_task, plan) 
+    response = llm.with_structured_output(ResearchQueries).invoke(prompt)
+    queries = response.queries
+    cprint(f" Generated queries: {queries}", "blue")
+
+    # --- Perform Tavily searches ---
+    all_results = []
+    for site_name in selected_sites:
+        site_url = SUPPORTED_SITES.get(site_name)
+        if not site_url:
+            continue
+        for query in queries:
+            site_query = f"site:{site_url} {query}"
+            try:
+                search_results = tavily_client.search(site_query, max_results=3)
+                for result in search_results.get("results", []):
+                    all_results.append({
+                        "content": result.get("content", ""),
+                        "source": result.get("url", ""),
+                        "site": site_name
+                    })
+            except Exception as e:
+                cprint(f" Tavily search failed for {site_query}: {e}", "red")
+
+    # --- De-duplicate and format ---
+    seen_content = set()
+    unique_results = []
+    for res in all_results:
+        if res["content"] not in seen_content:
+            unique_results.append(res)
+            seen_content.add(res["content"])
+    
+    cprint(f" Retrieved {len(unique_results)} unique results.", "green")
+
+    context_str = "\n\n---\n\n".join([res["content"] for res in unique_results])
+    
+    # --- Fallback to vector DB if no results ---
+    if not unique_results:
+        cprint(" No Tavily results, falling back to vector DB.", "yellow")
+        return researcher_agent(state)  # Call the default researcher
+
+    return {
+        "research_queries": queries, 
+        "retrieved_context": context_str,
+        "retrieved_docs": [{"content": res["content"], "source": res["source"]} for res in unique_results]
+    }
 
 def coder_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
@@ -219,7 +293,8 @@ graph = StateGraph(GraphState)
 graph.add_node("router", route_query)
 graph.add_node("planner", planner_agent)
 graph.add_node("architect", architect_agent)
-graph.add_node("researcher", researcher_agent)
+graph.add_node("researcher", researcher_agent)                # Placeholder for vectorDB searcher
+graph.add_node("tavily_researcher", tavily_researcher_agent)  # Placeholder for Tavily searcher
 graph.add_node("coder", coder_agent) # NEW: Add coder node
 graph.add_node("debugger", debugger_agent)
 graph.add_node("learner", learner_agent)
@@ -239,6 +314,14 @@ def route_decision(state: GraphState) -> Literal["planner", "debugger", "learner
     else:
         return "planner"
 
+# --- Define research method decision ---
+def research_decision(state: GraphState) -> Literal["researcher", "tavily_researcher"]:
+    search_method = state.get("search_method")
+    if search_method:
+        return "tavily_researcher"
+    else:
+        return "researcher"
+
 # --- Add conditional edges from the router ---
 graph.add_conditional_edges(
     "router",
@@ -252,8 +335,16 @@ graph.add_conditional_edges(
 
 # --- Define the edges for the "build" flow ---
 graph.add_edge("planner", "architect")
-graph.add_edge("architect", "researcher")
+graph.add_conditional_edges(
+    "architect",
+    research_decision,
+    {
+        "researcher": "researcher",
+        "tavily_researcher": "tavily_researcher"
+    }
+)
 graph.add_edge("researcher", "coder") 
+graph.add_edge("tavily_researcher", "coder") 
 graph.add_edge("coder", END)          
 
 # --- Define the edges for the other flows (they just end for now) ---
@@ -266,6 +357,10 @@ agent = graph.compile()
 cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
 user_prompt = input("Please enter your project request: ")
 
+# Here user can choose search method
+search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
+search_method = search_method_input == 1  # True for advance, False for default
+
 initial_state: GraphState = {
     "user_prompt": user_prompt,
     "route": None,
@@ -274,6 +369,7 @@ initial_state: GraphState = {
     "research_queries": None, 
     "retrieved_context": None,
     "retrieved_docs": None,
+    "search_method": search_method,
     "generated_code": None 
 }
 result = agent.invoke(initial_state)
