@@ -1,0 +1,201 @@
+[API Reference](/reference/react)
+
+[Lints](/reference/eslint-plugin-react-hooks)
+
+# static-components
+
+Validates that components are static, not recreated every render. Components that are recreated dynamically can reset state and trigger excessive re-rendering.
+
+## Rule Details 
+
+Components defined inside other components are recreated on every render. React sees each as a brand new component type, unmounting the old one and mounting the new one, destroying all state and DOM nodes in the process.
+
+### Invalid 
+
+Examples of incorrect code for this rule:
+[code] 
+    // ❌ Component defined inside component  
+    
+    
+    function Parent() {  
+    
+    
+      const ChildComponent = () => { // New component every render!  
+    
+    
+        const [count, setCount] = useState(0);  
+    
+    
+        return <button onClick={() => setCount(count + 1)}>{count}</button>;  
+    
+    
+      };  
+    
+    
+      
+    
+    
+      return <ChildComponent />; // State resets every render  
+    
+    
+    }  
+    
+    
+      
+    
+    
+    // ❌ Dynamic component creation  
+    
+    
+    function Parent({type}) {  
+    
+    
+      const Component = type === 'button'  
+    
+    
+        ? () => <button>Click</button>  
+    
+    
+        : () => <div>Text</div>;  
+    
+    
+      
+    
+    
+      return <Component />;  
+    
+    
+    }
+[/code]
+
+### Valid 
+
+Examples of correct code for this rule:
+[code] 
+    // ✅ Components at module level  
+    
+    
+    const ButtonComponent = () => <button>Click</button>;  
+    
+    
+    const TextComponent = () => <div>Text</div>;  
+    
+    
+      
+    
+    
+    function Parent({type}) {  
+    
+    
+      const Component = type === 'button'  
+    
+    
+        ? ButtonComponent  // Reference existing component  
+    
+    
+        : TextComponent;  
+    
+    
+      
+    
+    
+      return <Component />;  
+    
+    
+    }
+[/code]
+
+## Troubleshooting 
+
+### I need to render different components conditionally 
+
+You might define components inside to access local state:
+[code] 
+    // ❌ Wrong: Inner component to access parent state  
+    
+    
+    function Parent() {  
+    
+    
+      const [theme, setTheme] = useState('light');  
+    
+    
+      
+    
+    
+      function ThemedButton() { // Recreated every render!  
+    
+    
+        return (  
+    
+    
+          <button className={theme}>  
+    
+    
+            Click me  
+    
+    
+          </button>  
+    
+    
+        );  
+    
+    
+      }  
+    
+    
+      
+    
+    
+      return <ThemedButton />;  
+    
+    
+    }
+[/code]
+
+Pass data as props instead:
+[code] 
+    // ✅ Better: Pass props to static component  
+    
+    
+    function ThemedButton({theme}) {  
+    
+    
+      return (  
+    
+    
+        <button className={theme}>  
+    
+    
+          Click me  
+    
+    
+        </button>  
+    
+    
+      );  
+    
+    
+    }  
+    
+    
+      
+    
+    
+    function Parent() {  
+    
+    
+      const [theme, setTheme] = useState('light');  
+    
+    
+      return <ThemedButton theme={theme} />;  
+    
+    
+    }
+[/code]
+
+### Note
+
+If you find yourself wanting to define components inside other components to access local variables, that’s a sign you should be passing props instead. This makes components more reusable and testable.
+
+[Previousset-state-in-render](/reference/eslint-plugin-react-hooks/lints/set-state-in-render)[Nextunsupported-syntax](/reference/eslint-plugin-react-hooks/lints/unsupported-syntax)
