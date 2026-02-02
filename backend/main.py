@@ -40,7 +40,15 @@ async def signup(user: UserCreate):
     token = generate_verification_token()
     
     # Create user
-    new_user = User(email=user.email, password=hashed_password, verification_token=token)
+    new_user = User(
+        email=user.email,
+        password=hashed_password,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        dob=user.dob,
+        profession=user.profession,
+        verification_token=token
+    )
     await new_user.insert()
     
     # Send verification email

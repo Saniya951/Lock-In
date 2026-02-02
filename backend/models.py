@@ -1,10 +1,15 @@
 from beanie import Document
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import date
 
 class User(Document):
     email: EmailStr
     password: str
+    first_name: str
+    last_name: str
+    dob: date
+    profession: str
     is_verified: bool = False
     verification_token: Optional[str] = None
 
@@ -14,6 +19,10 @@ class User(Document):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
+    first_name: str
+    last_name: str
+    dob: date
+    profession: str
 
 class UserLogin(BaseModel):
     email: EmailStr
