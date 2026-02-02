@@ -5,12 +5,17 @@ from pydantic import BaseModel, Field
 class Plan(BaseModel):
     """The development plan."""
     project_goal: str = Field(description="The main goal of the project.")
-    steps: List[str] = Field(description="A list of high-level development steps.")
+    steps: List[str] = Field(description="High-level milestones (e.g. 'Setup', 'Backend', 'Frontend').")
+
+class FileTask(BaseModel):
+    file_name: str = Field(description="The relative path to the file (e.g., 'src/components/TodoList.js').")
+    task_description: str = Field(description="Precise instructions on what to write in this file.")
+    related_docs_topic: str = Field(description="The specific library/concept needed (e.g., 'React useState hook' or 'Flask SQLAlchemy').")
 
 class TaskPlan(BaseModel):
-    """The detailed task plan."""
+    """The File Manifest."""
     plan: Plan = Field(description="The original high-level plan.")
-    implementation_steps: List[dict] = Field(description="A detailed list of implementation tasks, each with a 'task_description' and 'details'.")
+    implementation_steps: List[FileTask] = Field(description="The ordered list of files to be created.")
 
 class ResearchQueries(BaseModel):
     """The list of research queries."""
@@ -60,12 +65,36 @@ class GraphState(TypedDict):
         retrieved_docs: A list of dicts with {"content": ..., "source": ...}
         search_method: The chosen search method ("default" or "advance").
     """
+    # user_prompt: str
+    # route: str | None  #To store the router's decision
+    # plan: Plan | None
+    # task_plan: TaskPlan | None
+    # research_queries: List[str] | None
+    # retrieved_context: str | None
+    # retrieved_docs: List[Dict[str, Any]] | None #to store content and metadata
+    # search_method: bool | None
+    # generated_code: GeneratedCode | None
+    # execution_logs: str   # Output from the code execution
+    # error_report: str     # The specific error the debugger needs to fix
+    # iteration_count: int  # To count retries (0, 1, 2...)
+    # status: str           # "pass" or "fail"
+
+    # --- INPUT ---
     user_prompt: str
-    route: str | None  #To store the router's decision
+    route: str | None
     plan: Plan | None
-    task_plan: TaskPlan | None
-    research_queries: List[str] | None
-    retrieved_context: str | None
-    retrieved_docs: List[Dict[str, Any]] | None #to store content and metadata
+    task_queue: List[Dict[str, Any]]  #Replaces 'task_plan'. This is the list of files to build.
+    current_task_index: int          # Starts at 0
+    # research_queries: List[str] | None
+    retrieved_context: str | None     #This is overwritten in every loop of the coder. It only holds docs relevant to the CURRENT file.
     search_method: bool | None
-    generated_code: GeneratedCode | None
+    # --- OUTPUTS ---
+    # We only store paths, e.g. ["src/App.js", "package.json"]
+    # NOT the actual code content.
+    completed_files: List[str]
+
+    # --- DEBUGGING / EVALUATION ---
+    execution_logs: str
+    error_report: str
+    iteration_count: int
+    status: str

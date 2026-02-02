@@ -5,6 +5,7 @@ from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 import json
 import os
+import re
 from typing import List, Literal, Dict, Any 
 
 from prompts import *
@@ -14,6 +15,8 @@ from termcolor import cprint
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
 from tavily import TavilyClient
+
+from langchain_core.pydantic_v1 import BaseModel, Field
 
 # --- Configuration ---
 SUPPORTED_SITES = {
@@ -55,7 +58,7 @@ def route_query(state: GraphState) -> dict:
     cprint(f" Routing query: {users_prompt[:100]}...", "yellow")
     
     response = llm.with_structured_output(QueryRoute).invoke(
-        router_prompt(users_prompt) # Assumes router_prompt is in prompts.py
+        router_prompt(users_prompt) 
     )
     
     if response is None:
@@ -93,6 +96,9 @@ def architect_agent(state: GraphState) -> dict:
     if response is None:
         raise ValueError("Architect did not return a valid response.")
     response.plan = plan
+    # We convert the Pydantic objects to simple dicts for the state
+    queue_steps = [step.model_dump() for step in response.implementation_steps]    
+    cprint(f" Architect generated {len(queue_steps)} file tasks.", "green")
     
     try:
         file_path = os.path.join(OUTPUT_DIR, "architect_output.json")
@@ -102,184 +108,197 @@ def architect_agent(state: GraphState) -> dict:
     except Exception as e:
         cprint(f"Error saving architect output: {e}", "red")
         
-    return {"task_plan": response}
+    return {
+        "task_queue": queue_steps,
+        "current_task_index": 0,    # Initialize the pointer
+        "completed_files": [],       # Initialize the log
+        "error_report": ""
+    }
+# --- Helper: Research Strategy ---
+def perform_jit_research(topic: str, use_tavily: bool) -> str:
+    """Performs Just-In-Time research using the selected method."""
+    if not topic:
+        return "No specific topic provided."
 
-#
-# --- MODIFIED RESEARCHER AGENT ---
-#
-def researcher_agent(state: GraphState) -> dict:
-    cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Researcher and Retriever Workflow...", "cyan", attrs=["bold"])
-    
-    plan: Plan = state["plan"] 
-    task_plan: TaskPlan = state["task_plan"]
-    
-    first_task = task_plan.implementation_steps[0]['task_description']
-    cprint(f" Researching task: {first_task}...", "yellow")
-    cprint(f" Project context: {plan.project_goal}", "blue")
+    if use_tavily:
+        cprint(f"   [Tavily] Researching: {topic}...", "blue")
+        try:
+            results = tavily_client.search(topic, max_results=3)
+            context = []
+            for res in results.get("results", []):
+                context.append(f"Source: {res['url']}\nContent: {res['content']}")
+            return "\n\n".join(context)
+        except Exception as e:
+            cprint(f"   [Tavily] Failed: {e}. Falling back to VectorDB.", "red")
 
-    prompt = research_prompt(first_task, plan) 
-    response = llm.with_structured_output(ResearchQueries).invoke(prompt)
-
-    queries = response.queries
-    cprint(f" Generated queries: {queries}", "blue")
-
-    # --- BATCH RETRIEVAL ---
-    # Instead of a loop, we call .batch() to make one efficient API call
-    # for all queries. This avoids the rapid-fire requests that cause
-    # the ConnectionResetError.
-    cprint(f" Executing batch retrieval for {len(queries)} queries...", "yellow")
+    # Default / Fallback: VectorDB
+    cprint(f"   [VectorDB] Retrieving docs for: {topic}...", "yellow")
     try:
-        list_of_docs_lists = retriever.batch(queries)
+        results = retriever.invoke(topic)
+        return "\n".join([d.page_content for d in results])
     except Exception as e:
-        cprint(f"!!! Batch retrieval failed: {e}", "red")
-        cprint("This likely means the HF API is down or the token is invalid.", "red")
-        # Handle the error gracefully, maybe by returning empty context
-        return {
-            "research_queries": queries, 
-            "retrieved_context": "Error: Retrieval failed.",
-            "retrieved_docs": []
-        }
-    
-    # --- DE-DUPLICATION ---
-    # Batching similar queries will return duplicate documents.
-    # We use a dictionary to de-duplicate them based on page content.
-    all_docs = []
-    seen_content = set()
-    for docs_list in list_of_docs_lists:
-        for doc in docs_list:
-            if doc.page_content not in seen_content:
-                all_docs.append(doc)
-                seen_content.add(doc.page_content)
-    
-    cprint(f" Retrieved {len(all_docs)} unique documents.", "green")
-
-    context_str = "\n\n---\n\n".join([doc.page_content for doc in all_docs])
-    
-    doc_sources = []
-    for doc in all_docs:
-        source = doc.metadata.get("source", "Unknown")
-        doc_sources.append({
-            "content": doc.page_content,
-            "source": source
-        })
-    # (doc_sources is already de-duplicated because it's built from all_docs)
-
-    return {
-        "research_queries": queries, 
-        "retrieved_context": context_str,
-        "retrieved_docs": doc_sources
-    }
-
-
-def tavily_researcher_agent(state: GraphState) -> dict:
-    cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Tavily Researcher Workflow...", "cyan", attrs=["bold"])
-    
-    plan: Plan = state["plan"] 
-    task_plan: TaskPlan = state["task_plan"]
-    user_prompt = state["user_prompt"]
-    
-    first_task = task_plan.implementation_steps[0]['task_description']  # Focus on React component
-    cprint(f" Researching task: {first_task}...", "yellow")
-    cprint(f" Project context: {plan.project_goal}", "blue")
-
-    # --- Decide which sites to search ---
-    site_prompt = site_selection_prompt(user_prompt, first_task, plan, list(SUPPORTED_SITES.keys()))
-    site_response = llm.with_structured_output(SiteSelection).invoke(site_prompt)
-    selected_sites = site_response.sites if site_response else ["React", "Flask"]  # Default if failed
-    cprint(f" Selected sites: {selected_sites}", "blue")
-
-    # --- Generate queries ---
-    prompt = research_prompt(first_task, plan) 
-    response = llm.with_structured_output(ResearchQueries).invoke(prompt)
-    queries = response.queries
-    cprint(f" Generated queries: {queries}", "blue")
-
-    # --- Perform Tavily searches ---
-    all_results = []
-    for site_name in selected_sites:
-        site_url = SUPPORTED_SITES.get(site_name)
-        if not site_url:
-            continue
-        for query in queries:
-            site_query = f"site:{site_url} {query}"
-            try:
-                search_results = tavily_client.search(site_query, max_results=3)
-                for result in search_results.get("results", []):
-                    all_results.append({
-                        "content": result.get("content", ""),
-                        "source": result.get("url", ""),
-                        "site": site_name
-                    })
-            except Exception as e:
-                cprint(f" Tavily search failed for {site_query}: {e}", "red")
-
-    # --- De-duplicate and format ---
-    seen_content = set()
-    unique_results = []
-    for res in all_results:
-        if res["content"] not in seen_content:
-            unique_results.append(res)
-            seen_content.add(res["content"])
-    
-    cprint(f" Retrieved {len(unique_results)} unique results.", "green")
-
-    context_str = "\n\n---\n\n".join([res["content"] for res in unique_results])
-    
-    # --- Fallback to vector DB if no results ---
-    if not unique_results:
-        cprint(" No Tavily results, falling back to vector DB.", "yellow")
-        return researcher_agent(state)  # Call the default researcher
-
-    return {
-        "research_queries": queries, 
-        "retrieved_context": context_str,
-        "retrieved_docs": [{"content": res["content"], "source": res["source"]} for res in unique_results]
-    }
+        cprint(f"   [VectorDB] Failed: {e}", "red")
+        return "No documentation found."
 
 def coder_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Coder Agent...", "cyan", attrs=["bold"])
     
-    plan: Plan = state["plan"]
-    task_plan: TaskPlan = state["task_plan"]
-    context: str = state["retrieved_context"]
+    # 1. SETUP & QUEUE MANAGEMENT
+    queue = state.get("task_queue", [])
+    index = state.get("current_task_index", 0)
     
-    cprint(" Generating code for the first task...", "yellow")
+    if index >= len(queue):
+        cprint(" All tasks in queue completed.", "green")
+        return {"current_task_index": index} 
+
+    current_step = queue[index]
+    filename = current_step['file_name']
+    task_desc = current_step['task_description']
+    topic = current_step['related_docs_topic']
     
-    prompt = coder_prompt(plan, task_plan, context)
-    response = llm.with_structured_output(GeneratedCode).invoke(prompt)
+    cprint(f" Processing File ({index+1}/{len(queue)}): {filename}", "cyan", attrs=["bold"])
+
+    # 2. RETRIEVAL (Integrated Research)
+    search_method = state.get("search_method", False) # default to False=Vector, True=Tavily
+    doc_context = perform_jit_research(topic, search_method)
+
+    # 3. DETECT MODE: "BUILD" vs "FIX"
+    # We check if we are in a feedback loop by looking for an error report
+    error_report = state.get("error_report")
     
-    if response is None or not response.files:
-        cprint("Coder did not return valid code.", "red")
-        raise ValueError("Coder did not return valid code.")
-        
-    cprint(f" Generated {len(response.files)} file(s).", "green")
+    # Check if the file already exists (important for fixing)
+    file_path = os.path.join(CODE_OUTPUT_DIR, filename)
+    file_exists = os.path.exists(file_path)
+    existing_code = ""
+
+    if file_exists:
+        with open(file_path, "r", encoding="utf-8") as f:
+            existing_code = f.read()
+
+    #4.Mode
+    mode = "fix" if (error_report and file_exists) else "build"
     
-    # Save the generated code to the output/code directory
+    if mode == "fix":
+        cprint("   [Mode] Repairing existing code based on error...", "yellow", attrs=["blink"])
+    else:
+        cprint("   [Mode] Generating new code...", "green")
+
+    prompt = construct_coder_prompt(
+        filename=filename,
+        task_desc=task_desc,
+        doc_context=doc_context,
+        mode=mode,
+        existing_code=existing_code,
+        error_report=error_report
+    )
+
+    # 5. GENERATE
     try:
-        for code_file in response.files:
-            # Create subdirectories if they don't exist
-            file_path = os.path.join(CODE_OUTPUT_DIR, code_file.file_name)
-            file_dir = os.path.dirname(file_path)
-            os.makedirs(file_dir, exist_ok=True)
+        response = llm.invoke(prompt)
+        code_content = response.content.strip()
+        
+        # Strip markdown code blocks if the LLM adds them despite instructions
+        if code_content.startswith("```"):
+            import re
+            code_content = re.sub(r"^```[a-zA-Z]*\n", "", code_content)
+            code_content = re.sub(r"\n```$", "", code_content)
+
+        # 6. WRITE TO DISK (Side Effect)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(code_content)
             
-            # Write the code to the file
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(code_file.content)
-            cprint(f"   Saved code to {file_path}", "green")
-            
+        cprint(f"   Saved {filename} to disk.", "green")
+
     except Exception as e:
-        cprint(f"Error saving code files: {e}", "red")
+        cprint(f"   Generation failed: {e}", "red")
+        raise e
 
-    return {"generated_code": response}
+    # 6. UPDATE STATE
+    # If we were fixing, we clear the error report for the next file
+    return {
+        "current_task_index": index + 1,
+        "completed_files": [filename],
+        "error_report": "" # Clear error after attempting fix
+    }
 
-# --- Placeholder Agent Functions ---
+def executor_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Executor (MOCK)...", "cyan", attrs=["bold"])
+    
+    # Get current iteration count (default to 0)
+    count = state.get("iteration_count") or 0
+    
+    # LOGIC: Fail on the first try (0), Pass on the second (1)
+    if count == 0:
+        cprint(" [MOCK] Simulating runtime error...", "red")
+        #  
+        fake_logs = """
+        Traceback (most recent call last):
+          File "app.py", line 14, in <module>
+            from flask import Flasck
+        ImportError: cannot import name 'Flasck' from 'flask'
+        """
+    else:
+        cprint(" [MOCK] Simulating successful execution...", "green")
+        fake_logs = " * Running on http://127.0.0.1:5000 (Press CTRL+C to quit)"
+        
+    return {"execution_logs": fake_logs, "iteration_count": count + 1}
+
+# --- NEW: EVALUATOR AGENT ---
+class EvalOutput(BaseModel):
+    status: Literal["pass", "fail"]
+    feedback: str = Field(description="Explanation of why it failed or passed")
+
+def evaluator_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Evaluator...", "cyan", attrs=["bold"])
+    
+    logs = state["execution_logs"]
+    
+    # Simple Heuristic for the Mock (can be replaced with LLM call later)
+    if "Traceback" in logs or "ImportError" in logs or "Error" in logs:
+        status = "fail"
+        feedback = f"Execution failed with logs: {logs}"
+        cprint(f" Evaluation: FAIL", "red")
+    else:
+        status = "pass"
+        feedback = "Code ran successfully."
+        cprint(f" Evaluation: PASS", "green")
+        
+    return {"status": status, "error_report": feedback}
+
+# --- NEW: DEBUGGER AGENT ---
 def debugger_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Debugger Agent (Placeholder)...", "cyan", attrs=["bold"])
-    return {} 
+    cprint(" Entering Debugger...", "cyan", attrs=["bold"])
+    
+    error = state["error_report"]
+    cprint(f" Analyzing Error: {error[:100]}...", "red")
+    
+    # 1. Ask LLM to identify the culprit file and the fix
+    # (Simplified for brevity - assumes we know which file broke)
+    # In a real app, you'd parse the stack trace to find the filename.
+    
+    # Let's assume we want to retry the LAST file that was processed
+    # or the LLM identifies the file from the logs.
+    
+    # For this example, let's say the LLM decides 'src/App.js' needs fixing
+    fix_plan = llm.with_structured_output(TaskPlan).invoke(
+        f"Based on this error:\n{error}\n\nCreate a plan to fix the code. Return a TaskPlan with the specific file to fix."
+    )
+    
+    new_queue = [step.model_dump() for step in fix_plan.implementation_steps]
+    cprint(f" Debugger created {len(new_queue)} repair tasks.", "green")
+
+    # 2. RESET STATE FOR THE LOOP
+    # We replace the old queue with the new "Fix Queue"
+    # We reset the index to 0 so the Coder starts working on the fix immediately
+    return {
+        "task_queue": new_queue,
+        "current_task_index": 0, 
+        "error_report": error # Keep error so Coder knows to enter "Fix Mode"
+    }
 
 def learner_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
@@ -293,16 +312,16 @@ graph = StateGraph(GraphState)
 graph.add_node("router", route_query)
 graph.add_node("planner", planner_agent)
 graph.add_node("architect", architect_agent)
-graph.add_node("researcher", researcher_agent)                # Placeholder for vectorDB searcher
-graph.add_node("tavily_researcher", tavily_researcher_agent)  # Placeholder for Tavily searcher
-graph.add_node("coder", coder_agent) # NEW: Add coder node
+graph.add_node("coder", coder_agent) 
 graph.add_node("debugger", debugger_agent)
 graph.add_node("learner", learner_agent)
+graph.add_node("executor", executor_agent)
+graph.add_node("evaluator", evaluator_agent)
 
 # --- Set the router as the entry point ---
 graph.set_entry_point("router")
 
-# --- Define a conditional edge function ---
+# --- Define conditional edge functions ---
 def route_decision(state: GraphState) -> Literal["planner", "debugger", "learner"]:
     route = state.get("route")
     if route == "build":
@@ -314,15 +333,24 @@ def route_decision(state: GraphState) -> Literal["planner", "debugger", "learner
     else:
         return "planner"
 
-# --- Define research method decision ---
-def research_decision(state: GraphState) -> Literal["researcher", "tavily_researcher"]:
-    search_method = state.get("search_method")
-    if search_method:
-        return "tavily_researcher"
+def check_queue_status(state: GraphState) -> Literal["coder", "evaluator"]:
+    queue = state.get("task_queue", [])
+    index = state.get("current_task_index", 0)
+    
+    if index < len(queue):
+        return "coder"  # Go back and do the next file
     else:
-        return "researcher"
+        return "executor" # All files done, now check the work
 
-# --- Add conditional edges from the router ---
+def check_evaluation(state: GraphState) -> Literal["debugger", END]:
+    status = state.get("status")
+    count = state.get("iteration_count", 0)
+    
+    if status == "fail" and count < 3: # Limit retries to 3
+        return "debugger"
+    return END
+
+# --- Add edges and conditional edges ---
 graph.add_conditional_edges(
     "router",
     route_decision,
@@ -333,44 +361,45 @@ graph.add_conditional_edges(
     }
 )
 
-# --- Define the edges for the "build" flow ---
 graph.add_edge("planner", "architect")
+graph.add_edge("architect","coder")
 graph.add_conditional_edges(
-    "architect",
-    research_decision,
+    "coder",
+    check_queue_status,
     {
-        "researcher": "researcher",
-        "tavily_researcher": "tavily_researcher"
+        "coder": "coder",       # Loop back
+        "executor": "executor" # Move on
     }
 )
-graph.add_edge("researcher", "coder") 
-graph.add_edge("tavily_researcher", "coder") 
-graph.add_edge("coder", END)          
+graph.add_edge("executor", "evaluator")
 
-# --- Define the edges for the other flows (they just end for now) ---
-graph.add_edge("debugger", END)
+graph.add_conditional_edges("evaluator", check_evaluation,
+    {"debugger": "debugger", END: END})
+
+graph.add_edge("debugger", "coder") # Close the loop!         
 graph.add_edge("learner", END)
 
-# --- Compile and Run ---
 agent = graph.compile()
 
 cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
 user_prompt = input("Please enter your project request: ")
 
-# Here user can choose search method
 search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
-search_method = search_method_input == 1  # True for advance, False for default
+search_method = (search_method_input == "1")  # True for advance, False for default
 
 initial_state: GraphState = {
     "user_prompt": user_prompt,
     "route": None,
     "plan": None, 
-    "task_plan": None,
-    "research_queries": None, 
+    "task_queue":[],
+    "completed_files": [],
+    "current_task_index": 0, 
     "retrieved_context": None,
-    "retrieved_docs": None,
     "search_method": search_method,
-    "generated_code": None 
+    "iteration_count": 0, # Initialize count
+    "execution_logs": "",
+    "error_report": "",
+    "status" : ""
 }
 result = agent.invoke(initial_state)
 

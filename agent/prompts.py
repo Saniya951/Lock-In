@@ -31,76 +31,84 @@ def router_prompt(user_prompt: str) -> List[Dict[str, str]]:
     ]
 
 def planner_prompt(user_prompt: str) -> List[Dict[str, str]]:
-    """A prompt for the planner agent."""
-    
-    # Analyze if tech stack is specified
-    tech_keywords = ["react", "flask", "mongodb", "node", "vue", "django", "express", "python", "javascript", "html", "css"]
-    mentioned_tech = [tech for tech in tech_keywords if tech.lower() in user_prompt.lower()]
-    
-    if mentioned_tech:
-        inferred_stack = f"Based on mentioned technologies: {', '.join(mentioned_tech)}"
-    else:
-        inferred_stack = "No specific technologies mentioned, keep it focused on the request."
+    """A prompt for the planner agent that enforces clear tech stack decisions."""
     
     return [
         {
             "role": "system",
             "content": f"""
-You are an expert software development planner. Your job is to take a user's request
-and create a high-level plan to build it.
+You are a Lead Technical Planner. Your job is to create a high-level roadmap for a software project.
 
-**CRITICAL CONTEXT:**
-1.  Analyze the user's request: "{user_prompt}"
-2.  {inferred_stack}
-3.  If no technologies are specified, do not assume a full stack—keep the plan minimal and directly address the request.
-4.  The output must be a valid JSON object matching the `Plan` Pydantic model.
-5.  The `project_goal` must restate the user's goal accurately.
+**Your Goal:**
+Take the user's request and turn it into a clear, step-by-step execution strategy.
 
-**Example for 'make a todo app' (no tech specified):**
+**CRITICAL RULES:**
+1. **Analyze the Request:** Understand the core functionality.
+2. **Define the Tech Stack:** - If the user specifies tech (e.g., "React"), use it.
+   - If NO tech is specified, **YOU MUST CHOOSE** the best standard tools for the job (e.g., HTML/JS for simple things, React/Flask for apps). 
+   - *Do not leave it ambiguous.* explicitly state: "Using React for frontend, Flask for backend."
+3. **Step-by-Step Plan:** Break the project into 4-6 high-level milestones.
+   - Step 1 is always "Setup & Configuration".
+   - Final steps should be "Refinement".
+
+**Example Output (User: "Create a snake game"):**
 {{
-    "project_goal": "Build a simple To-Do application.",
+    "project_goal": "Build a classic Snake game using Python and Pygame.",
     "steps": [
-        "Create HTML structure for the todo list.",
-        "Add JavaScript for adding/removing items.",
-        "Style with CSS for basic appearance."
-    ]
-}}
-
-**Example for 'build a React component' (tech specified):**
-{{
-    "project_goal": "Build a React component that displays a list of items.",
-    "steps": [
-        "Create a React component that renders a list from an array.",
-        "Add props for the array and map over items.",
-        "Export the component for use."
+        "Setup Python environment and install Pygame.",
+        "Initialize the game window and main game loop.",
+        "Implement snake movement and control logic.",
+        "Implement food spawning and collision detection.",
+        "Add score tracking and game over states."
     ]
 }}
             """
         },
         {
             "role": "user",
-            "content": user_prompt
+            "content": f"Request: {user_prompt}"
         }
     ]
 
 def architect_prompt(plan: str)->str:
-    ARCHITECT_PROMPT=f""" 
-You are the ARCHITECT agent. Given this project plan, break it down into explicit engineering tasks.
+    ARCHITECT_PROMPT=[
+        {
+            "role": "system",
+            "content": f"""
+You are a Lead Software Architect. 
+Your goal is to break down a high-level project plan into a **granular list of FILE CREATION tasks**.
 
-RULES:
+**Project Goal:** {plan.project_goal}
 
-- For each FILE in the plan, create one or more IMPLEMENTATION TASKS.
-- In each task description:
-  * Specify exactly what to implement.
-  * Name the variables, functions, classes, and components to be defined.
-  * Mention how this task depends on or will be used by previous tasks.
-  * Include integration details: imports, expected function signatures, data flow
-- Order tasks so that dependencies are implemented first.
-- Each step must be SELF-CONTAINED but also carry FORWARD the relevant context fro
+**The Plan:**
+{plan.steps}
 
-Project Plan:
-{plan}
+**Instructions:**
+1. You must translate every high-level step into specific files that need to be created.
+2. DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
+3. Instead, output specific file tasks:
+   - "Create package.json with React dependencies"
+   - "Create public/index.html"
+   - "Create src/index.js"
+   - "Create src/App.js"
+4. For `related_docs_topic`, be specific (e.g., "React Functional Components", "CSS Flexbox", "Node.js Express Setup").
+5. Ensure the order makes sense (Configs first -> Core Logic -> UI Components).
+
+**Example Output:**
+- file_name: "package.json"
+  task_description: "Define standard React dependencies and scripts."
+  related_docs_topic: "NPM Package Json"
+
+- file_name: "src/App.js"
+  task_description: "Main component structure with routing."
+  related_docs_topic: "React Router"
 """
+        },
+        {
+            "role": "user",
+            "content": "Generate the detailed file list now."
+        }
+    ]
     return ARCHITECT_PROMPT
 
 def research_prompt(task_description: str, project_plan: Plan) -> str:
@@ -126,46 +134,119 @@ def research_prompt(task_description: str, project_plan: Plan) -> str:
     """
     return RESEARCH_PROMPT
 
-def coder_prompt(plan: Plan, task_plan: TaskPlan, context: str) -> List[Dict[str, str]]:
-    """A prompt for the coding agent."""
+def construct_coder_prompt(filename: str, task_desc: str, doc_context: str, 
+                           mode: str, existing_code: str = "", error_report: str = "") -> str:
+    """Constructs the prompt for the coder agent."""
     
-    # For simplicity, we'll just code the first task.
-    # A real loop would iterate through these.
-    current_task = task_plan.implementation_steps[0]  # Focus on React component task
+    if mode == "fix":
+        return f"""
+        You are a Senior Debugger.
+        
+        TARGET FILE: {filename}
+        
+        CURRENT CODE:
+        ```
+        {existing_code}
+        ```
+        
+        ERROR REPORT:
+        {error_report}
+        
+        TASK:
+        Fix the error in the code above. 
+        Use the provided documentation if needed.
+        
+        RELEVANT DOCS:
+        {doc_context}
+        
+        OUTPUT FORMAT:
+        Return ONLY the full corrected code content. No markdown formatting, no explanation.
+        """
     
-    return [
-        {
-            "role": "system",
-            "content": f"""
-You are an expert programmer. Your job is to write code to complete a given task,
-based on a high-level plan and retrieved documentation.
+    else: # mode == "build"
+        return f"""
+        You are a Senior Developer.
+        
+        TARGET FILE: {filename}
+        
+        TASK DESCRIPTION:
+        {task_desc}
+        
+        RELEVANT DOCS:
+        {doc_context}
+        
+        OUTPUT FORMAT:
+        Return ONLY the code content for this file. No markdown formatting, no explanation.
+        """
 
-**Overall Project Goal:**
-{plan.project_goal}
+# def coder_prompt(plan: Plan, task_plan: TaskPlan, context: str) -> List[Dict[str, str]]:
+#     """A smart prompt for the coding agent that handles full builds and partial fixes."""
+    
+#     # 1. DETECT FIX MODE
+#     # We check if the context contains the specific error header we added in the agent
+#     is_fix_mode = "CRITICAL FEEDBACK" in context
 
-**Retrieved Documentation / Context:**
----
-{context}
----
+#     # 2. PREPARE TASKS
+#     # Instead of just step[0], we format ALL steps into a readable list
+#     all_tasks = ""
+#     for i, step in enumerate(task_plan.implementation_steps, 1):
+#         all_tasks += f"{i}. {step['task_description']}\n   Details: {step['details']}\n"
 
-**Your Current Task:**
-{current_task['task_description']}
-{current_task['details']}
+#     # 3. DYNAMIC INSTRUCTIONS
+#     if is_fix_mode:
+#         goal_instruction = """
+#         *** FIX MODE ACTIVATED ***
+#         The user has reported an error in your previous code (see 'CRITICAL FEEDBACK' below).
+#         Your job is to PATCH the existing code to fix this error.
+        
+#         RULES FOR FIXING:
+#         1. Analyze the feedback and determine which file(s) caused the error.
+#         2. RETRIEVE the full content of those specific files from your memory/context.
+#         3. OUTPUT ONLY THE FILES THAT NEED CHANGES. Do not regenerate files that are already correct.
+#         4. If a file needs a small change, you must still output the FULL corrected content of that file.
+#         """
+#     else:
+#         goal_instruction = """
+#         *** FRESH BUILD MODE ***
+#         Your job is to write the code for the ENTIRE project scope described below.
+        
+#         RULES FOR BUILDING:
+#         1. Implement all tasks listed in the 'Implementation Steps'.
+#         2. Create all necessary files (backend, frontend, configuration, etc.).
+#         3. Ensure the code is production-ready, clean, and modular.
+#         """
 
-**Instructions:**
-1.  Analyze the project goal, context, and your current task.
-2.  Write the necessary code to implement **only** the current task.
-3.  Ensure the code is correct, clean, and follows best practices.
-4.  You **MUST** output your response in the `GeneratedCode` JSON format.
-5.  Provide the complete code for each file, including imports.
-6.  Use file paths relative to the project root (e.g., 'app.py', 'src/utils.py').
-            """
-        },
-        {
-            "role": "user",
-            "content": f"Please generate the code for the task: {current_task['task_description']}"
-        }
-    ]
+#     # 4. CONSTRUCT PROMPT
+#     return [
+#         {
+#             "role": "system",
+#             "content": f"""
+# You are an expert full-stack developer (React & Flask).
+
+# {goal_instruction}
+
+# **Overall Project Goal:**
+# {plan.project_goal}
+
+# **Implementation Steps (Execute ALL of these):**
+# {all_tasks}
+
+# **Retrieved Documentation & Context:**
+# ---
+# {context}
+# ---
+
+# **Formatting Requirements:**
+# 1. You **MUST** output your response in the `GeneratedCode` JSON format.
+# 2. Ensure you provide the **COMPLETE** code for every file you output (no shortcuts like `// ... rest of code`).
+# 3. Use strict relative file paths (e.g., 'server/app.py', 'client/src/App.js').
+#             """
+#         },
+#         {
+#             "role": "user",
+#             "content": "Execute the plan. If fixing an error, output only the fixed files. If building from scratch, output the full application."
+#         }
+#     ]
 
 def site_selection_prompt(user_prompt: str, task_description: str, plan: Plan, supported_sites: List[str]) -> str:
     """A prompt for selecting relevant documentation sites."""
