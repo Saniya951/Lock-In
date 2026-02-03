@@ -17,6 +17,10 @@ class TaskPlan(BaseModel):
     plan: Plan = Field(description="The original high-level plan.")
     implementation_steps: List[FileTask] = Field(description="The ordered list of files to be created.")
 
+class ExecutionCommands(BaseModel):
+    install_cmd: str = Field(description="The command to install dependencies (e.g., 'npm install && pip install -r requirements.txt')")
+    run_cmd: str = Field(description="The command to start the application (e.g., 'npm start' or 'gunicorn app:app')")
+
 class ResearchQueries(BaseModel):
     """The list of research queries."""
     queries: List[str] = Field(description="A list of 3-5 search queries to research the task.")
@@ -49,7 +53,6 @@ class GeneratedCode(BaseModel):
 class TavilyResults(BaseModel):
     """Results from Tavily real-time search."""
     results: List[Dict[str, str]] = Field(description="List of search results with 'site', 'content', and 'source'.")
-# --- Graph State ---
 
 class GraphState(TypedDict):
     """
@@ -60,26 +63,11 @@ class GraphState(TypedDict):
         route: The decision made by the router (build, debug, learn).
         plan: The high-level plan (for the build route).
         task_plan: The detailed task-level plan (for the build route).
-        research_queries: List of queries for the researcher.
         retrieved_context: The combined string of retrieved documents.
-        retrieved_docs: A list of dicts with {"content": ..., "source": ...}
         search_method: The chosen search method ("default" or "advance").
     """
-    # user_prompt: str
-    # route: str | None  #To store the router's decision
-    # plan: Plan | None
-    # task_plan: TaskPlan | None
-    # research_queries: List[str] | None
-    # retrieved_context: str | None
-    # retrieved_docs: List[Dict[str, Any]] | None #to store content and metadata
-    # search_method: bool | None
-    # generated_code: GeneratedCode | None
-    # execution_logs: str   # Output from the code execution
-    # error_report: str     # The specific error the debugger needs to fix
-    # iteration_count: int  # To count retries (0, 1, 2...)
-    # status: str           # "pass" or "fail"
-
     # --- INPUT ---
+    session_id: str
     user_prompt: str
     route: str | None
     plan: Plan | None
