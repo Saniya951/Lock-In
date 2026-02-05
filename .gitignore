@@ -10,6 +10,11 @@ venv/
 env/
 .venv/
 
+# chroma db
+agent/chroma_db
+
+agent/output
+
 # Environment variables
 .env
 .env.*
