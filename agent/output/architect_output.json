@@ -1,0 +1,116 @@
+{
+    "implementation_steps": [
+        {
+            "filepath": ".gitignore",
+            "task_description": "Create .gitignore file to exclude node_modules, build artifacts, .env files, and OS-specific files. Include entries: node_modules/, build/, .DS_Store, .env, npm-debug.log. This ensures clean version control and will be used by all developers before committing."
+        },
+        {
+            "filepath": "package.json",
+            "task_description": "Initialize package.json with project metadata: name 'simple-todo-app', version '1.0.0', description, scripts (start, build, test), and dependencies: react, react-dom, and devDependencies: @babel/core, @babel/preset-react, webpack, webpack-cli, webpack-dev-server, css-loader, style-loader, html-webpack-plugin. This file is the foundation for installing packages and building the app."
+        },
+        {
+            "filepath": "public/index.html",
+            "task_description": "Create root HTML file. Include a <div id=\"root\"></div> placeholder. Add a <title>Simple Todo App</title>. Link to bundled JS via <script src=\"/bundle.js\"></script>. This file is loaded by the browser and will host the React root rendered by src/index.js."
+        },
+        {
+            "filepath": "src/index.js",
+            "task_description": "Implement entry point. Import React, ReactDOM, and App component. Use ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>); Export nothing. This file boots the React tree and must be referenced in webpack entry."
+        },
+        {
+            "filepath": "src/utils/localStorage.js",
+            "task_description": "Create utility module with two named exports:\n- `saveTasks(tasks: Array<Task>)`: serializes tasks to JSON and stores under key 'todoTasks' in localStorage.\n- `loadTasks(): Array<Task>`: reads key 'todoTasks', parses JSON, returns array or empty array if missing.\nDefine a TypeScript\u2011like JSDoc `@typedef {Object} Task` with fields `id:string`, `title:string`, `description?:string`, `completed:boolean`. This module will be imported by App.js for persistence."
+        },
+        {
+            "filepath": "src/styles/App.css",
+            "task_description": "Write responsive CSS for the app. Define root variables for colors, fonts. Style body, .app-container (max-width, margin auto, padding). Add media queries for mobile (max-width: 600px) to adjust layout. Include classes used by components: .task-input, .task-item, .task-list, .filter-bar, .completed (text-decoration line-through, opacity). Ensure the stylesheet is imported in App.js."
+        },
+        {
+            "filepath": "src/components/TaskInput.js",
+            "task_description": "Implement functional component `TaskInput({ onAdd })`.\n- Internal state: title (string), description (string).\n- Render a form with input for title (required) and textarea for description (optional), and a submit button.\n- On submit, prevent default, generate a unique id (`Date.now().toString()`), create task object matching `Task` typedef, call `onAdd(task)`, then clear fields.\n- Export default TaskInput.\n- Import React and PropTypes. This component will be used in App.js to add new tasks."
+        },
+        {
+            "filepath": "src/components/TaskItem.js",
+            "task_description": "Implement functional component `TaskItem({ task, onToggle, onEdit, onDelete })`.\n- Props: `task` object (id, title, description, completed), callbacks for toggle completion, edit, delete.\n- Render a container showing a checkbox (checked based on `task.completed`) that calls `onToggle(task.id)` when changed.\n- Display title and description; if `task.completed` apply CSS class `completed`.\n- Provide Edit button that toggles an inline edit mode (local state `isEditing`). In edit mode, show inputs pre\u2011filled with current title/description and Save/Cancel buttons. Save calls `onEdit(updatedTask)`.\n- Delete button calls `onDelete(task.id)`.\n- Export default TaskItem.\n- Import React, useState, PropTypes. This component will be rendered by TaskList."
+        },
+        {
+            "filepath": "src/components/TaskList.js",
+            "task_description": "Implement functional component `TaskList({ tasks, filter, onToggle, onEdit, onDelete })`.\n- Props: `tasks` array, `filter` string ('all'|'active'|'completed'), and callbacks passed through to TaskItem.\n- Compute `filteredTasks` based on filter: all \u2192 tasks, active \u2192 !completed, completed \u2192 completed.\n- Map `filteredTasks` to `<TaskItem key={task.id} task={task} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />`.\n- Export default TaskList.\n- Import React and TaskItem. This component will be used in App.js to display the list."
+        },
+        {
+            "filepath": "src/components/FilterBar.js",
+            "task_description": "Implement functional component `FilterBar({ currentFilter, onChange })`.\n- Props: `currentFilter` string, `onChange(filter)` callback.\n- Render three button elements: All, Active, Completed. Highlight the active filter (e.g., class `active`). Clicking a button calls `onChange('all'|'active'|'completed')`.\n- Export default FilterBar.\n- Import React, PropTypes. This component will be placed in App.js to let the user switch filters."
+        },
+        {
+            "filepath": "src/App.js",
+            "task_description": "Implement main application component.\n- Import React, useState, useEffect, and all child components plus `saveTasks`/`loadTasks`.\n- Define state: `tasks` (array of Task), `filter` (string default 'all').\n- On mount (`useEffect` with empty deps), load tasks via `loadTasks()` and set state.\n- Whenever `tasks` changes, persist via `saveTasks(tasks)` (`useEffect` dependent on tasks).\n- Handlers:\n  * `handleAdd(task)` \u2192 setTasks(prev => [...prev, task]).\n  * `handleToggle(id)` \u2192 map tasks toggling `completed` flag for matching id.\n  * `handleEdit(updatedTask)` \u2192 map tasks replacing the matching id.\n  * `handleDelete(id)` \u2192 filter out task.\n  * `handleFilterChange(newFilter)` \u2192 setFilter(newFilter).\n- Render layout: a div with class `app-container` containing `<TaskInput onAdd={handleAdd} />`, `<FilterBar currentFilter={filter} onChange={handleFilterChange} />`, and `<TaskList tasks={tasks} filter={filter} onToggle={handleToggle} onEdit={handleEdit} onDelete={handleDelete} />`.\n- Import './styles/App.css' for styling.\n- Export default App.\n- This component ties together all other components and persistence utilities."
+        },
+        {
+            "filepath": "README.md",
+            "task_description": "Write documentation covering:\n- Project overview and features list.\n- Prerequisites (Node.js, npm).\n- Installation steps (`npm install`).\n- Development script (`npm start`).\n- Build script (`npm run build`).\n- Description of folder structure and where each component resides.\n- How localStorage persistence works.\n- Contribution guidelines.\n- License information.\nThis file provides onboarding for developers and users."
+        }
+    ],
+    "plan": {
+        "name": "SimpleTodoApp",
+        "description": "A simple web-based to-do list application that allows users to add, edit, delete, and mark tasks as completed. The app stores tasks in the browser's local storage so that data persists across sessions without a backend.",
+        "techstack": "javascript,react",
+        "features": [
+            "User can create a new task with a title and optional description",
+            "User can mark a task as completed/uncompleted",
+            "User can edit an existing task",
+            "User can delete a task",
+            "Filter view to show All, Active, or Completed tasks",
+            "Persist tasks in browser localStorage",
+            "Responsive design for desktop and mobile"
+        ],
+        "files": [
+            {
+                "path": "public/index.html",
+                "purpose": "Root HTML file that loads the React app"
+            },
+            {
+                "path": "src/index.js",
+                "purpose": "Entry point that renders the React application into the DOM"
+            },
+            {
+                "path": "src/App.js",
+                "purpose": "Main application component handling state, UI layout, and routing of features"
+            },
+            {
+                "path": "src/components/TaskInput.js",
+                "purpose": "Component for adding new tasks"
+            },
+            {
+                "path": "src/components/TaskItem.js",
+                "purpose": "Component representing a single task with edit, complete, and delete controls"
+            },
+            {
+                "path": "src/components/TaskList.js",
+                "purpose": "Component that renders a list of TaskItem components based on current filter"
+            },
+            {
+                "path": "src/components/FilterBar.js",
+                "purpose": "Component providing filter buttons (All, Active, Completed)"
+            },
+            {
+                "path": "src/utils/localStorage.js",
+                "purpose": "Utility functions for saving and loading tasks from localStorage"
+            },
+            {
+                "path": "src/styles/App.css",
+                "purpose": "Styling for the application, ensuring responsive layout"
+            },
+            {
+                "path": "package.json",
+                "purpose": "Project metadata and dependencies (React, ReactDOM, etc.)"
+            },
+            {
+                "path": ".gitignore",
+                "purpose": "Files/folders to ignore in version control"
+            },
+            {
+                "path": "README.md",
+                "purpose": "Documentation on how to install, run, and use the app"
+            }
+        ]
+    }
+}

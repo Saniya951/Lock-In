@@ -13,6 +13,8 @@ env/
 # chroma db
 agent/chroma_db
 
+agent/output
+
 # Environment variables
 .env
 .env.*
@@ -26,6 +28,36 @@ dist/
 build/
 *.egg-info/
 
+#Frontend node modules
+frontend/node_modules/
+frontend/dist/
+
+# Chroma DB (vector database)
+retrieval agent/chroma_db/
+
 tempCodeRunnerFile.py
 
-agent/output
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

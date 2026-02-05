@@ -21,22 +21,82 @@ h.ignore_emphasis = False
 h.body_width = 0  # Don't wrap lines
 h.mark_code = True
 
-# Key React documentation pages to scrape
-DOCS_TO_SCRAPE = [
-    'https://react.dev/reference/react/useState',
-    'https://react.dev/reference/react/useEffect',
-    'https://react.dev/reference/react/useContext',
-    'https://react.dev/reference/react/useRef',
-    'https://react.dev/reference/react/useMemo',
-    'https://react.dev/reference/react/useCallback',
-    'https://react.dev/learn/your-first-component',
-    'https://react.dev/learn/passing-props-to-a-component',
-    'https://react.dev/learn/conditional-rendering',
-    'https://react.dev/learn/rendering-lists',
-    'https://react.dev/learn/state-a-components-memory',
-    'https://react.dev/learn/updating-objects-in-state',
-    'https://react.dev/learn/updating-arrays-in-state',
+# Configuration for auto-discovery
+BASE_URL = 'https://react.dev'
+SECTIONS_TO_SCRAPE = [
+    '/learn',      # Learning section
+    '/reference',  # API reference
 ]
+
+# Pages to skip (these aren't useful for code generation)
+SKIP_PATTERNS = [
+    '/blog',
+    '/community',
+    '/warnings',
+    '/versions',
+    'team',
+    'acknowledgements',
+]
+
+def should_skip_url(url):
+    """Check if URL should be skipped"""
+    return any(pattern in url for pattern in SKIP_PATTERNS)
+
+def discover_pages(base_url, section_path):
+    """
+    Discover all documentation pages by crawling the navigation
+    
+    Args:
+        base_url (str): Base URL (https://react.dev)
+        section_path (str): Section to crawl (/learn or /reference)
+        
+    Returns:
+        list: List of discovered URLs
+    """
+    discovered_urls = set()
+    url = base_url + section_path
+    
+    try:
+        print(f"Discovering pages in: {url}")
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find all links in the navigation/sidebar
+        # React docs typically have navigation in nav or aside tags
+        nav_elements = soup.find_all(['nav', 'aside'])
+        
+        for nav in nav_elements:
+            links = nav.find_all('a', href=True)
+            
+            for link in links:
+                href = link['href']
+                
+                # Convert relative URLs to absolute
+                if href.startswith('/'):
+                    full_url = base_url + href
+                elif href.startswith('http'):
+                    full_url = href
+                else:
+                    continue
+                
+                # Only include react.dev URLs in our sections
+                if base_url in full_url and not should_skip_url(full_url):
+                    # Remove hash fragments
+                    clean_url = full_url.split('#')[0]
+                    discovered_urls.add(clean_url)
+        
+        print(f"Discovered {len(discovered_urls)} pages")
+        return list(discovered_urls)
+        
+    except Exception as e:
+        print(f"Error discovering pages: {e}")
+        return []
 
 def scrape_page(url):
     """
@@ -95,10 +155,10 @@ def scrape_page(url):
         }
         
     except requests.RequestException as e:
-        print(f" Error scraping {url}: {e}")
+        print(f"Error scraping {url}: {e}")
         return None
     except Exception as e:
-        print(f" Unexpected error for {url}: {e}")
+        print(f"Unexpected error for {url}: {e}")
         return None
 
 def scrape_all_docs():
@@ -106,14 +166,26 @@ def scrape_all_docs():
     Scrape all documentation pages and save to files
     """
     # Create output directory
-    docs_dir = Path('react-docs')
+    docs_dir = Path('react-docs-all')
     docs_dir.mkdir(exist_ok=True)
+    
+    # Discover all pages from sections
+    all_urls = []
+    print(f"\nStarting page discovery...\n")
+    
+    for section in SECTIONS_TO_SCRAPE:
+        discovered = discover_pages(BASE_URL, section)
+        all_urls.extend(discovered)
+        time.sleep(1)  # Be polite between discovery requests
+    
+    # Remove duplicates
+    all_urls = list(set(all_urls))
+    
+    print(f"\nFound {len(all_urls)} unique pages to scrape\n")
     
     results = []
     
-    print(f"\n Starting to scrape {len(DOCS_TO_SCRAPE)} pages...\n")
-    
-    for url in DOCS_TO_SCRAPE:
+    for url in all_urls:
         doc = scrape_page(url)
         
         if doc:
@@ -138,9 +210,9 @@ def scrape_all_docs():
     with open(index_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     
-    print(f"\n Scraped {len(results)} documents")
-    print(f" Index saved to: {index_path}")
-    print(f" Files saved in: {docs_dir}/")
+    print(f"\nScraped {len(results)} documents")
+    print(f"Index saved to: {index_path}")
+    print(f"Files saved in: {docs_dir}/")
 
 if __name__ == '__main__':
     scrape_all_docs()
