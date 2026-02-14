@@ -5,11 +5,59 @@ from fastapi.responses import HTMLResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from models import User, UserCreate, UserLogin, Token
+from pydantic import BaseModel
+import anyio
+import sys
+import ssl
+import os
+from pathlib import Path
+from contextlib import asynccontextmanager
 from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
 from config import MONGODB_URL, DATABASE_NAME
 import uvicorn
 
-app = FastAPI()
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+from agent.graph import run_graph
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        # Create SSL context
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        client = AsyncIOMotorClient(
+            MONGODB_URL,
+            tlsAllowInvalidCertificates=True,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000
+        )
+        await init_beanie(database=client[DATABASE_NAME], document_models=[User])
+        print("MongoDB connected successfully")
+    except Exception as e:
+        print(f"MongoDB connection failed: {e}")
+        print("Warning: Running without database. Auth endpoints will not work.")
+        client = None
+    
+    yield
+    
+    # Shutdown
+    if client:
+        client.close()
+
+app = FastAPI(lifespan=lifespan)
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless" # Better for iframes
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,10 +69,8 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-@app.on_event("startup")
-async def startup_event():
-    client = AsyncIOMotorClient(MONGODB_URL)
-    await init_beanie(database=client[DATABASE_NAME], document_models=[User])
+class GraphRequest(BaseModel):
+    prompt: str
 
 @app.post("/signup", response_model=dict)
 async def signup(user: UserCreate):
@@ -133,6 +179,70 @@ async def login(user: UserLogin):
 @app.get("/home")
 async def home(token: str = Depends(oauth2_scheme)):
     return {"message": "Welcome to home page"}
+
+@app.post("/prompt")
+async def run_graph_endpoint(payload: GraphRequest):
+    result = await anyio.to_thread.run_sync(run_graph, payload.prompt)
+    
+    # Extract session_id from result
+    session_id = result.get("session_id")
+    
+    # Return result with frontend files info
+    return {
+        "result": result,
+        "session_id": session_id,
+        "preview_url": result.get("preview_url"),
+        # "frontend_url": f"http://localhost:8000/session/{session_id}/frontend" if session_id else None
+    }
+
+@app.get("/session/{session_id}/files")
+async def get_session_files(session_id: str):
+    """Get all generated code files for a session (excluding plan directory)"""
+    code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+    
+    if not os.path.exists(code_dir):
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    files = {}
+    for root, _, filenames in os.walk(code_dir):
+        for filename in filenames:
+            filepath = os.path.join(root, filename)
+            rel_path = os.path.relpath(filepath, code_dir)
+            # Normalize to forward slashes for consistency
+            rel_path = rel_path.replace('\\', '/')
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    files[rel_path] = f.read()
+            except:
+                pass
+    
+    return {"files": files}
+
+@app.get("/session/{session_id}/frontend")
+async def get_frontend_embed(session_id: str):
+    """Return HTML iframe embed for webcontainer with frontend files"""
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+    
+    if not os.path.exists(output_dir):
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get frontend files (React/Vue/etc)
+    frontend_files = {}
+    for root, _, filenames in os.walk(output_dir):
+        for filename in filenames:
+            # Only include frontend files
+            if filename.endswith(('.jsx', '.js', '.json', '.html', '.css', '.tsx', '.ts')):
+                filepath = os.path.join(root, filename)
+                rel_path = os.path.relpath(filepath, output_dir)
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        frontend_files[rel_path] = f.read()
+                except:
+                    pass
+    
+    # Create StackBlitz embed link
+    # For now, return files that can be used to create embed
+    return {"files": frontend_files, "session_id": session_id}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

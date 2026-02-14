@@ -86,3 +86,5 @@ class GraphState(TypedDict):
     error_report: str
     iteration_count: int
     status: str
+    
+    preview_url: str

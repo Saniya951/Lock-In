@@ -8,18 +8,18 @@ import os
 import re
 import uuid
 import time
-from memory import CodeMemory 
+from agent.memory import CodeMemory 
 from typing import List, Literal, Dict, Any 
 
-from prompts import *
-from states import * 
+from agent.prompts import *
+from agent.states import * 
 from termcolor import cprint
 
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
 from tavily import TavilyClient
 
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 # --- Configuration ---
 SUPPORTED_SITES = {
@@ -28,6 +28,8 @@ SUPPORTED_SITES = {
 }
 
 llm = ChatGroq(model="llama-3.3-70b-versatile")
+code_llm = ChatGroq(model="openai/gpt-oss-120b")
+test_llm = ChatGroq(model="mixtral-8x7b-32768")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
@@ -283,6 +285,53 @@ def coder_agent(state: GraphState) -> dict:
 
 from e2b_code_interpreter import Sandbox
 
+# --- Helper: Manage Active Sandboxes ---
+ACTIVE_SANDBOXES_FILE = os.path.join(SCRIPT_DIR, "active_sandboxes.json")
+
+def load_active_sandboxes() -> dict:
+    """Load the mapping of session_id -> sandbox_id."""
+    if os.path.exists(ACTIVE_SANDBOXES_FILE):
+        try:
+            with open(ACTIVE_SANDBOXES_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_active_sandboxes(sandboxes: dict):
+    """Save the mapping of session_id -> sandbox_id."""
+    with open(ACTIVE_SANDBOXES_FILE, "w") as f:
+        json.dump(sandboxes, f, indent=2)
+
+def register_sandbox(session_id: str, sandbox_id: str):
+    """Register a sandbox as active."""
+    sandboxes = load_active_sandboxes()
+    sandboxes[session_id] = sandbox_id
+    save_active_sandboxes(sandboxes)
+    cprint(f"   Registered sandbox {sandbox_id} for session {session_id}", "green")
+
+def cleanup_old_sandboxes():
+    """Close old sandboxes to free up resources."""
+    sandboxes = load_active_sandboxes()
+    # For now, we'll just keep the tracking. In production, you'd add timeout logic.
+    cprint(f"   Active sandboxes: {len(sandboxes)}", "yellow")
+
+def close_sandbox_for_session(session_id: str):
+    """Close and unregister a sandbox for a session."""
+    try:
+        sandboxes = load_active_sandboxes()
+        if session_id in sandboxes:
+            sandbox_id = sandboxes[session_id]
+            # Note: To actually close the sandbox, you'd need the Sandbox object
+            # This function just removes it from tracking
+            del sandboxes[session_id]
+            save_active_sandboxes(sandboxes)
+            cprint(f"   Unregistered sandbox {sandbox_id} for session {session_id}", "green")
+        else:
+            cprint(f"   No sandbox found for session {session_id}", "yellow")
+    except Exception as e:
+        cprint(f"   Error closing sandbox for session {session_id}: {e}", "red")
+
 def executor_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
     cprint(" Entering Executor (Dynamic E2B Sandbox)...", "cyan", attrs=["bold"])
@@ -348,60 +397,83 @@ def executor_agent(state: GraphState) -> dict:
 
     logs = ""
     
-    # 3. RUN IN SANDBOX (UPDATED FOR NEW API)
+    # 3. RUN IN SANDBOX (UPDATED FOR NEW API - PERSISTENT SANDBOX)
+    sandbox = None
     try:
         cprint("   Spinning up Cloud Sandbox...", "blue")
         
-        # We set a longer timeout for the sandbox itself
-        with Sandbox.create() as sandbox:
-            
-            # A. Upload Files
-            for root, _, files in os.walk(user_code_dir):
-                for file in files:
-                    local_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(local_path, user_code_dir)
-                    with open(local_path, "rb") as f:
-                        # Upload file to the sandbox
-                        sandbox.files.write(f"/home/user/app/{rel_path}", f)
-            
-            # B. Install Dependencies
-            cprint(f"   Executing Install: {commands.install_cmd}...", "yellow")
-            
-            # NEW API: use commands.run() instead of process.start_and_wait()
-            install_result = sandbox.commands.run(
-                f"cd /home/user/app && {commands.install_cmd}",
-                timeout=180 # 3 minutes for heavy npm installs
-            )
-            
-            if install_result.exit_code != 0:
-                raise Exception(f"Install Failed:\n{install_result.stderr}")
-            
-            logs += f"INSTALL LOGS:\n{install_result.stdout}\n"
-            cprint("   Dependencies installed successfully.", "green")
+        # Create sandbox WITHOUT context manager to keep it alive
+        sandbox = Sandbox.create()
+        cprint(f"   Sandbox created with ID: {sandbox.sandbox_id}", "green")
+        
+        # Register the sandbox so it persists after the function returns
+        register_sandbox(session_id, sandbox.sandbox_id)
+        
+        # A. Upload Files
+        for root, _, files in os.walk(user_code_dir):
+            for file in files:
+                local_path = os.path.join(root, file)
+                rel_path = os.path.relpath(local_path, user_code_dir)
+                with open(local_path, "rb") as f:
+                    # Upload file to the sandbox
+                    sandbox.files.write(f"/home/user/app/{rel_path}", f)
+        
+        # B. Install Dependencies
+        cprint(f"   Executing Install: {commands.install_cmd}...", "yellow")
+        
+        # NEW API: use commands.run() instead of process.start_and_wait()
+        install_result = sandbox.commands.run(
+            f"cd /home/user/app && {commands.install_cmd}",
+            timeout=180 # 3 minutes for heavy npm installs
+        )
+        
+        if install_result.exit_code != 0:
+            raise Exception(f"Install Failed:\n{install_result.stderr}")
+        
+        logs += f"INSTALL LOGS:\n{install_result.stdout}\n"
+        cprint("   Dependencies installed successfully.", "green")
 
-            # C. Run Application (Background)
-            cprint(f"   Executing Run: {commands.run_cmd}...", "green")
-            
-            # We run the server in the background so we can check if it crashes
-            server_result = sandbox.commands.run(
-                f"cd /home/user/app && {commands.run_cmd}",
-                background=True 
-            )
-            
-            # Wait 5 seconds to see if it crashes immediately
-            import time
-            time.sleep(5) 
-            
-            # To check logs of a background process, we usually check output 
-            # or rely on the fact it didn't crash. 
-            logs += "Server command sent to background.\n"
-            logs += "If the app crashes, the debugger will catch it in the next step."
+        # C. Run Application (Background)
+        cprint(f"   Executing Run: {commands.run_cmd}...", "green")
+        
+        # We run the server in the background so we can check if it crashes
+        server_result = sandbox.commands.run(
+            f"cd /home/user/app && {commands.run_cmd}",
+            background=True 
+        )
 
-        return {"execution_logs": logs, "iteration_count": state.get("iteration_count", 0) + 1}
+        # 
+        port = 3000 
+        # hostname = sandbox.get_hostname(port)
+        # preview_url = f"https://{hostname}"
+        # sandbox.ports.expose(port)
+        # preview_url = sandbox.get_public_url(port)
+        preview_url = f"https://{sandbox.get_host(port)}"
+        cprint(f"   E2B Preview URL: {preview_url}", "cyan")
+        # 
+
+        # Wait 5 seconds to see if it crashes immediately
+        import time
+        time.sleep(5) 
+        
+        # To check logs of a background process, we usually check output 
+        # or rely on the fact it didn't crash. 
+        logs += "Server command sent to background.\n"
+        logs += "If the app crashes, the debugger will catch it in the next step."
+
+        
+        return {"execution_logs": logs, "iteration_count": state.get("iteration_count", 0) + 1, "preview_url": preview_url, "sandbox_id": sandbox.sandbox_id}
 
     except Exception as e:
         error_msg = str(e)
         cprint(f"   Execution Failed: {error_msg}", "red")
+        # Only close sandbox on error
+        if sandbox:
+            try:
+                sandbox.close()
+                cprint(f"   Sandbox closed due to error.", "yellow")
+            except:
+                pass
         return {
             "execution_logs": f"{logs}\nCRITICAL ERROR:\n{error_msg}", 
             "iteration_count": state.get("iteration_count", 0) + 1
@@ -419,7 +491,7 @@ def evaluator_agent(state: GraphState) -> dict:
     logs = state["execution_logs"]
     
     # Simple Heuristic for the Mock (can be replaced with LLM call later)
-    if "Traceback" in logs or "ImportError" in logs or "Error" in logs:
+    if any(err in logs for err in ["Traceback", "ImportError", "Error", "CRITICAL ERROR"]):
         status = "fail"
         feedback = f"Execution failed with logs: {logs}"
         cprint(f" Evaluation: FAIL", "red")
@@ -578,33 +650,52 @@ graph.add_edge("learner", END)
 
 agent = graph.compile()
 
-cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
-user_prompt = input("Please enter your project request: ")
+def run_graph(user_prompt: str, search_method: bool = True) -> dict:
+    """
+    Run the agent graph with the given user prompt.
+    
+    Args:
+        user_prompt: The user's request/prompt
+        search_method: True for advance (Live Search), False for default (vector DB)
+    
+    Returns:
+        dict: The final state result from the agent
+    """
+    session_id = str(uuid.uuid4())
+    cprint(f" Session ID generated: {session_id}", "cyan")
 
-search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
-search_method = (search_method_input == "1")  # True for advance, False for default
+    initial_state: GraphState = {
+        "session_id": session_id,
+        "user_prompt": user_prompt,
+        "route": None,
+        "plan": None, 
+        "task_queue": [],
+        "completed_files": [],
+        "current_task_index": 0, 
+        "retrieved_context": None,
+        "search_method": search_method,
+        "iteration_count": 0,
+        "execution_logs": "",
+        "error_report": "",
+        "status": ""
+    }
+    
+    result = agent.invoke(initial_state)
+    cprint(f"\n Agent workflow finished.", "green", attrs=["bold"])
+    
+    return result
 
-session_id = str(uuid.uuid4())
-cprint(f" Session ID generated: {session_id}", "cyan")
+# CLI interface (only runs when script is executed directly)
+if __name__ == "__main__":
+    cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
+    user_prompt = input("Please enter your project request: ")
 
-initial_state: GraphState = {
-    "session_id":session_id,
-    "user_prompt": user_prompt,
-    "route": None,
-    "plan": None, 
-    "task_queue":[],
-    "completed_files": [],
-    "current_task_index": 0, 
-    "retrieved_context": None,
-    "search_method": search_method,
-    "iteration_count": 0, # Initialize count
-    "execution_logs": "",
-    "error_report": "",
-    "status" : ""
-}
-result = agent.invoke(initial_state)
+    search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
+    search_method = (search_method_input == "1")  # True for advance, False for default
 
-cprint(f"\n{'='*50}", "magenta")
-cprint("\n Agent workflow finished. Final state:", "green", attrs=["bold"])
-import pprint
-pprint.pprint(result)
+    result = run_graph(user_prompt, search_method)
+    
+    cprint(f"\n{'='*50}", "magenta")
+    cprint("\n Agent workflow finished. Final state:", "green", attrs=["bold"])
+    import pprint
+    pprint.pprint(result)
