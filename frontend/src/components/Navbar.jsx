@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Signup from './Signup';
 import Login from './Login';
 
@@ -7,6 +8,7 @@ const Navbar = () => {
   const [showSignup, setShowSignup] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check if token is in URL (from verification page)
@@ -29,6 +31,15 @@ const Navbar = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
+  };
+
+  const handleStartCoding = () => {
+    if (!isAuthenticated) {
+      setShowLogin(true);
+    } else {
+      // User is authenticated, navigate to Chat page
+      navigate('/chat');
+    }
   };
 
   return (
@@ -68,15 +79,7 @@ const Navbar = () => {
             )}
 
             <button 
-              onClick={() => {
-                if (!isAuthenticated) {
-                  setShowLogin(true);
-                } else {
-                  // User is authenticated, proceed with coding
-                  // You can add navigation or other logic here
-                  console.log('User is authenticated, proceeding...');
-                }
-              }}
+              onClick={handleStartCoding}
               className="px-5 py-2.5 rounded-full bg-white text-black font-semibold text-sm hover:bg-gray-200 transition-all"
             >
               Start Coding
