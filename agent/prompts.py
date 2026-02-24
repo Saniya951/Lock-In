@@ -12,6 +12,7 @@ BUILD_RULES = {
     "react_only": """
         - ENVIRONMENT: React using Vite.
         - FOLDER STRUCTURE: Vite standard. `index.html`, `package.json`, and `vite.config.js` in the root. Source code in `src/`.
+        - FILE EXTENSIONS: All React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
         - DEPENDENCY FILE: `package.json` in the root.
         - CRITICAL CONFIG: You MUST generate a `vite.config.js` file that imports `@vitejs/plugin-react` and configures the `test` environment to use `jsdom`.
         - CRITICAL SCRIPTS: In `package.json`, the scripts MUST include: "dev": "vite", "build": "vite build", and "test": "vitest run".
@@ -27,6 +28,7 @@ BUILD_RULES = {
         - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
         - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
         - DEPENDENCY FILES: Create `frontend/package.json` AND `backend/requirements.txt`.
+        - FILE EXTENSIONS: All React frontend components MUST use `.jsx`.
         - FRONTEND CONFIG: You MUST generate a `frontend/vite.config.js` file using `@vitejs/plugin-react` and `jsdom` for testing.
         - FRONTEND SCRIPTS: In `frontend/package.json`, include: "dev": "vite", "build": "vite build", and "test": "vitest run".
         - FRONTEND DEPENDENCIES: MUST include `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom`.
@@ -41,7 +43,7 @@ TEST_RULES = {
     """,
     "react_only": """
         - TESTING FRAMEWORK: Use `vitest` and `@testing-library/react`. 
-        - FILE NAMING: Test files must end in `.test.jsx` or `.test.js`.
+        - FILE NAMING: Test files must end in `.test.jsx`. DO NOT use `.js`.
         - FOLDER STRUCTURE (CO-LOCATION): Place the test file in the EXACT SAME directory as the component it tests. Do not create a separate tests folder.
         - CRITICAL IMPORTS: You MUST explicitly import `describe`, `it`, and `expect` from `vitest` at the top of every test file.
         - DOM ASSERTIONS: You MUST explicitly import `@testing-library/jest-dom` at the top of every test file to use DOM matchers like `.toBeInTheDocument()`.
@@ -54,6 +56,7 @@ TEST_RULES = {
         - BACKEND TESTING: Use `pytest` inside the `backend/` folder. Test files start with `test_`.
         - FRONTEND TESTING: Use `vitest` and `@testing-library/react`. 
         - FRONTEND FOLDER STRUCTURE: Co-locate React tests next to their components (e.g., `frontend/src/Button.jsx` and `frontend/src/Button.test.jsx`).
+        - FRONTEND FILE NAMING: Frontend test files MUST end in `.test.jsx`. DO NOT use `.js`.
         - FRONTEND IMPORTS: MUST import `describe`, `it`, `expect` from `vitest`, AND import `@testing-library/jest-dom` at the top of every test file.""",
     "unknown": "Use standard testing frameworks for the language."
 }
@@ -134,8 +137,8 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
 {build_rules}
 
 **Instructions:**
-1. **File List:** Translate high-level steps into specific files (package.json, app.py, App.js).
- **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.js`, `spec.js`).
+1. **File List:** Translate high-level steps into specific files (package.json, app.py, App.jsx).
+ **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.jsx`, `spec.jsx`).
 2. **Dependencies:** List ONLY the package names needed for `npm install` or `pip install`. 
    - DO NOT include version numbers. 
    - Example: ["flask", "flask-cors", "requests"] OR ["react", "axios", "framer-motion"].

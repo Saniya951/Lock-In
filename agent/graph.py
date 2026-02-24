@@ -444,7 +444,8 @@ def runtime_selector(state: GraphState) -> dict:
     files = state.get("completed_files", [])
 
     has_py = any(f.endswith(".py") for f in files)
-    has_node = any(f == "package.json" for f in files)
+    # has_node = any(f == "package.json" for f in files)
+    has_node = any("package.json" in f for f in files)
 
     if has_py and has_node:
         template = "node-python-base"
@@ -494,10 +495,14 @@ def executor_agent(state: GraphState) -> dict:
     try:
         if "python" in template_string:
             cprint("   Installing Python dependencies and pytest...", "yellow")
+            # sandbox.commands.run(
+            #     "cd /home/user/app && pip install pytest && if [ -f requirements.txt ]; then pip install -r requirements.txt; fi", 
+            #     timeout=120
+            # ) 
             sandbox.commands.run(
-                "cd /home/user/app && pip install pytest && if [ -f requirements.txt ]; then pip install -r requirements.txt; fi", 
+                "cd /home/user/app && pip install pytest --break-system-packages && if [ -f requirements.txt ]; then pip install -r requirements.txt --break-system-packages; fi", 
                 timeout=120
-            )        
+            )       
             cprint("   Finished Install", "cyan")
             
         if "node" in template_string:
@@ -530,36 +535,50 @@ def executor_agent(state: GraphState) -> dict:
     cprint("   Running tests...", "magenta")
     
     try:
+        combined_logs = ""
         # again do not change the test commands
-        if template_string.startswith("python"):
+        if template_string == "python-base":
             result = sandbox.commands.run("cd /home/user/app && python -m pytest -q", timeout=30)
-        else:
-            # Node MUST run the test command inside the folder that actually contains package.json
+            combined_logs = result.stdout + result.stderr
+            
+        elif template_string == "node-base":
             result = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
+            combined_logs = result.stdout + result.stderr
+            
+        elif template_string == "node-python-base":
+            cprint("   Running Frontend Tests...", "blue")
+            res_node = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
+            combined_logs += "=== FRONTEND LOGS ===\n" + res_node.stdout + res_node.stderr
+            
+            cprint("   Running Backend Tests...", "blue")
+            res_py = sandbox.commands.run("cd /home/user/app && PYTHONPATH=. python -m pytest -q", timeout=60)
+            combined_logs += "\n=== BACKEND LOGS ===\n" + res_py.stdout + res_py.stderr
             
         execution = ExecutionResult(
             tests_ran=True,
             tests_passed=True,
             exit_code=0,
-            logs=result.stdout + result.stderr,
+            logs=combined_logs,
             environment_ok=True
         )
         
     except Exception as e:
-        # If tests fail or crash (Exit Code 1 or 2), E2B throws an exception.
-        # We catch it, extract the logs, and report it as a failed test!
-        
-        # E2B's CommandExitException usually attaches stdout/stderr to the error object
+        # E2B throws an exception immediately if a test fails (Exit Code > 0).
+        # In the hybrid setup, if the Frontend fails, it will catch here and skip the Backend tests. 
+        # This is a good "fail-fast" mechanism so the Debugger can fix one thing at a time!
         error_logs = getattr(e, 'stdout', '') + getattr(e, 'stderr', str(e))
         exit_code = getattr(e, 'exit_code', 2)
         
         cprint(f"   Tests Failed or Crashed (Exit Code {exit_code})", "red")
         
+        # If it's hybrid, append whatever logs we managed to collect before the crash
+        final_logs = (combined_logs + "\n=== CRASH LOGS ===\n" + error_logs) if template_string == "node-python-base" else error_logs
+        
         execution = ExecutionResult(
             tests_ran=True,
             tests_passed=False,
             exit_code=exit_code,
-            logs=error_logs,
+            logs=final_logs,
             environment_ok=True 
         )
 
