@@ -29,3 +29,5 @@ build/
 tempCodeRunnerFile.py
 
 agent/output
+
+agent/active_sandboxes.json

@@ -1,35 +1,9 @@
-from typing import TypedDict, List, Literal, Dict, Any
+from typing import TypedDict, List, Literal, Dict, Any, Annotated, Optional
 from pydantic import BaseModel, Field
+import operator
+from enum import Enum
 
-# --- Pydantic Models for LLM Output ---
-class Plan(BaseModel):
-    """The development plan."""
-    project_goal: str = Field(description="The main goal of the project.")
-    steps: List[str] = Field(description="High-level milestones (e.g. 'Setup', 'Backend', 'Frontend').")
-
-class FileTask(BaseModel):
-    file_name: str = Field(description="The relative path to the file (e.g., 'src/components/TodoList.js').")
-    task_description: str = Field(description="Precise instructions on what to write in this file.")
-    related_docs_topic: str = Field(description="The specific library/concept needed (e.g., 'React useState hook' or 'Flask SQLAlchemy').")
-
-class TaskPlan(BaseModel):
-    """The File Manifest."""
-    plan: Plan = Field(description="The original high-level plan.")
-    implementation_steps: List[FileTask] = Field(description="The ordered list of files to be created.")
-
-class ExecutionCommands(BaseModel):
-    install_cmd: str = Field(description="The command to install dependencies (e.g., 'npm install && pip install -r requirements.txt')")
-    run_cmd: str = Field(description="The command to start the application (e.g., 'npm start' or 'gunicorn app:app')")
-
-class ResearchQueries(BaseModel):
-    """The list of research queries."""
-    queries: List[str] = Field(description="A list of 3-5 search queries to research the task.")
-
-class SiteSelection(BaseModel):
-    """Selected sites for Tavily search."""
-    sites: List[str] = Field(description="List of site names to search, e.g., ['React', 'Flask'].")
-    
-# --- Pydantic model for the router ---
+# pydantic models for llm output
 class QueryRoute(BaseModel):
     """The routing decision for the user's query."""
     route: Literal["build", "debug", "learn"] = Field(
@@ -41,48 +15,101 @@ class QueryRoute(BaseModel):
         )
     )
 
-class CodeFile(BaseModel):
-    """A single file of code."""
-    file_name: str = Field(description="The full path and name of the file, e.g., 'src/app.py' or 'requirements.txt'")
-    content: str = Field(description="The complete code or content for this file.")
+class Plan(BaseModel):
+    """The development plan."""
+    project_goal: str = Field(description="The main goal of the project.")
+    tech_stack: Literal["react_flask", "python_script", "react_only", "node_backend"] = Field(
+        description="The specific technology stack to be used."
+    )
+    steps: List[str] = Field(description="High-level milestones (e.g. 'Setup', 'Backend', 'Frontend').")
 
-class GeneratedCode(BaseModel):
-    """A list of code files to be written to disk."""
-    files: List[CodeFile] = Field(description="A list of code files to be generated.")
+class FileTask(BaseModel):
+    file_name: str = Field(description="The relative path to the file (e.g., 'src/components/TodoList.js').")
+    task_description: str = Field(description="Precise instructions on what to write in this file.")
+    related_docs_topic: str = Field(description="The specific library/concept needed (e.g., 'React useState hook' or 'Flask SQLAlchemy').")
 
-class TavilyResults(BaseModel):
-    """Results from Tavily real-time search."""
-    results: List[Dict[str, str]] = Field(description="List of search results with 'site', 'content', and 'source'.")
+class TaskPlan(BaseModel):
+    """The File Manifest."""
+    plan: Plan = Field(description="The original high-level plan.")
+    implementation_steps: List[FileTask] = Field(description="The ordered list of files to be created.")
+    dependencies: List[str] = Field(description="A list of PACKAGE NAMES ONLY for pip or npm (e.g., ['flask', 'pandas', 'react', 'axios']).")
+
+class QATask(BaseModel):
+    test_file_name: str = Field(description="The path for the test file (e.g., 'test_utils.py').")
+    target_file: str = Field(description="The existing source file being tested (e.g., 'src/utils.py').")
+    test_scenarios: List[str] = Field(description="List of specific conditions to test.")
+
+class QAPlan(BaseModel):
+    """Output for Prompt 2: The Test Strategy."""
+    qa_tasks: List[QATask] = Field(description="The mapping of source files to test files.")
+
+class ErrorCategory(str, Enum):
+    INFRA = "infra"         # pip/npm failed, bad requirements
+    SYNTAX = "syntax"       # compilation error, bad imports, typos
+    RUNTIME = "runtime"     # code crashed while running (TypeError, etc)
+    LOGICAL = "logical"     # tests failed an assertion (math is wrong)
+    TIMEOUT = "timeout"     # infinite loop, UI blocked the terminal
+    NONE = "none"           # passed!
+
+class EvaluationResult(BaseModel):
+    status: Literal["pass", "fail"] = Field(description="Did the execution pass all tests?")
+    category: ErrorCategory = Field(description="The structural layer where the code failed.")
+    feedback: str = Field(description="A concise summary of exactly what broke and why along with the filename if present in logs")
+
+class DebugTask(BaseModel):
+    file_name: str = Field(description="The exact relative path of the existing file to patch")
+    bug_analysis: str = Field(description="Briefly explain exactly what line or concept is causing the error in this specific file.") # <-- Forces the LLM to think first
+    task_description: str = Field(description="Precise, step-by-step instructions on what to change or replace to fix the specific error.")
+    related_docs_topic: str = Field(description="The specific library or syntax concept needed to fix the bug.")
+
+class DebugPlan(BaseModel):
+    """The Bug Fix Plan."""
+    implementation_steps: List[DebugTask] = Field(description="The list of files that need to be modified to resolve the error.")
+
+# Layer = Literal["infrastructure", "test", "application"]
+
+# class Failure(BaseModel):
+#     symptom: str
+#     layer: Layer
+#     confidence: float
+#     evidence: List[str]
+#     requires_code_change: bool
+
+class ExecutionResult(BaseModel):
+    tests_ran: bool
+    tests_passed: bool
+    exit_code: int
+    logs: str
+    environment_ok: bool
 
 class GraphState(TypedDict):
     """
     Represents the state of our graph.
-
-    Attributes:
-        user_prompt: The initial prompt from the user.
-        route: The decision made by the router (build, debug, learn).
-        plan: The high-level plan (for the build route).
-        task_plan: The detailed task-level plan (for the build route).
-        retrieved_context: The combined string of retrieved documents.
-        search_method: The chosen search method ("default" or "advance").
     """
-    # --- INPUT ---
+
+    # try not to comment out any of these or else the app will break TT
     session_id: str
     user_prompt: str
+
     route: str | None
     plan: Plan | None
     task_queue: List[Dict[str, Any]]  #Replaces 'task_plan'. This is the list of files to build.
-    current_task_index: int          # Starts at 0
-    # research_queries: List[str] | None
-    retrieved_context: str | None     #This is overwritten in every loop of the coder. It only holds docs relevant to the CURRENT file.
+    current_task_index: int          # used by coder to loop through the tasks in the task queue
+
+    dependencies: List[str]       # Output of Architect Call 1
+
+    qa_plan: List[dict]
+
     search_method: bool | None
-    # --- OUTPUTS ---
-    # We only store paths, e.g. ["src/App.js", "package.json"]
-    # NOT the actual code content.
-    completed_files: List[str]
+    completed_files: Annotated[list, operator.add]
 
     # --- DEBUGGING / EVALUATION ---
-    execution_logs: str
+    execution_result: Optional[ExecutionResult] = None
+    # failure: Optional[Failure] = None
+
+    iteration_count: int = 0
+    attempt_history: Annotated[List[dict], operator.add]
     error_report: str
-    iteration_count: int
     status: str
+
+    sandbox_id: str | None
