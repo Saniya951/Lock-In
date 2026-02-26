@@ -104,3 +104,44 @@ Run this command **from the root `lockin/` directory** (where `requirements.txt`
 # Make sure you are in the 'lockin/' root directory
 pip freeze > requirements.txt
 ```
+
+## 🖥️ Running the Application
+
+To run the full application, you will need to start both the backend server and the frontend development environment. It is recommended to use two separate terminal windows.
+
+### 1. Start the Backend (API)
+Ensure your virtual environment (`venv`) is activated and you have already installed the requirements.
+
+* **Navigate to the root directory:**
+    ```bash
+    cd backend
+    ```
+
+* **Run the main server:**
+    ```bash
+    python main.py
+    ```
+
+---
+
+### 2. Start the Frontend (UI)
+Open a **new terminal** window to run the user interface.
+
+* **Navigate to the frontend directory:**
+    ```bash
+    cd frontend
+    ```
+
+* **Install dependencies:**
+    This only needs to be done once or when `package.json` changes.
+    ```bash
+    npm install
+    ```
+
+* **Launch the development server:**
+    ```bash
+    npm run dev
+    ```
+    *(The application will usually be available at `http://localhost:5173` or `http://localhost:3000`.)*
+
+---
