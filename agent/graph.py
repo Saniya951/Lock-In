@@ -17,10 +17,10 @@ from tavily import TavilyClient
 from e2b_code_interpreter import Sandbox
 from typing import List, Literal, Dict, Any 
 
-from prompts import *
-from states import * 
-from memory import CodeMemory 
-from sandbox_registry import get_sandbox_for_session, register_sandbox
+from agent.prompts import *
+from agent.states import * 
+from agent.memory import CodeMemory 
+from agent.sandbox_registry import get_sandbox_for_session, register_sandbox
 
 from concurrent.futures import ThreadPoolExecutor
 

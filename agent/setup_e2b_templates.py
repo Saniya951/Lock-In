@@ -14,7 +14,7 @@ def setup_e2b_templates():
     # node_template = Template().from_node_image("lts")
     # Template.build(node_template, alias="node-base")
 
-    print("Building node-python-base (Hybrid)...")
+    # print("Building node-python-base (Hybrid)...")
     # hybrid = Template().from_ubuntu_image("22.04").run_cmd("apt-get update && apt-get install -y python3 python3-pip nodejs npm")
     # Template.build(hybrid, alias="node-python-base")
         
