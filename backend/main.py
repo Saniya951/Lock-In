@@ -71,6 +71,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 class GraphRequest(BaseModel):
     prompt: str
+    search_method: bool = False  # False (0) for vectordb (default), True (1) for tavily
 
 @app.post("/signup", response_model=dict)
 async def signup(user: UserCreate):
@@ -182,7 +183,7 @@ async def home(token: str = Depends(oauth2_scheme)):
 
 @app.post("/prompt")
 async def run_graph_endpoint(payload: GraphRequest):
-    result = await anyio.to_thread.run_sync(run_graph, payload.prompt)
+    result = await anyio.to_thread.run_sync(run_graph, payload.prompt, payload.search_method)
     
     # Extract session_id from result
     session_id = result.get("session_id")

@@ -892,6 +892,48 @@ graph.add_edge("learner", END)
 
 agent = graph.compile()
 
+def run_graph(user_prompt: str, search_method: bool = False) -> dict:
+    """
+    Run the agent graph with the given user prompt and search method.
+    
+    Args:
+        user_prompt: The user's project request
+        search_method: False (default) for vectordb, True for tavily live search
+    
+    Returns:
+        dict: The final state of the agent workflow
+    """
+    session_id = str(uuid.uuid4())
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(f" Starting new session: {session_id}", "cyan", attrs=["bold"])
+    cprint(f" User prompt: {user_prompt}", "yellow")
+    cprint(f" Search method: {'Tavily (Live)' if search_method else 'VectorDB (Default)'}", "yellow")
+    
+    initial_state: GraphState = {
+        "session_id": session_id,
+        "user_prompt": user_prompt,
+        "route": None,
+        "plan": None, 
+        "task_queue": [],
+        "dependencies": [],    
+        "qa_plan": [],
+        "completed_files": [],
+        "current_task_index": 0, 
+        "search_method": search_method,
+        "iteration_count": 0,
+        "error_report": "",
+        "status": "fail",
+        "sandbox_id": get_sandbox_for_session(session_id),
+        "attempt_history": []
+    }
+    
+    result = agent.invoke(initial_state, config={"recursion_limit": 100})
+    
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Agent workflow finished.", "green", attrs=["bold"])
+    
+    return result
+
 if __name__ == "__main__":
         
     cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
