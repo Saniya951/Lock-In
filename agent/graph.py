@@ -35,6 +35,8 @@ embedding_executor = ThreadPoolExecutor(max_workers=2)
 # test_llm = ChatGroq(model="mixtral-8x7b-32768")
 
 llm = ChatGroq(model="llama-3.3-70b-versatile")
+code_llm = ChatGroq(model="openai/gpt-oss-120b")
+test_llm = ChatGroq(model="mixtral-8x7b-32768")
 
 
 # imp!!!!! this is an absolute path. It dynamically finds exactly where graph.py lives on your hard drive and forces the output folder to be created right next to it, 
