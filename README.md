@@ -87,7 +87,10 @@ All core logic, scripts, and data live inside the `agent/` directory.
 After completing the setup, you can run the main agent.
 
 1.  Ensure your virtual environment (`venv`) is still active.
-2.  Run the main graph.py script
+2.  Run the main graph.py script 
+```bash
+    python -m agent.graph
+```
 3.  The script will load the vector database and then prompt you to enter your project request.
 
 ---

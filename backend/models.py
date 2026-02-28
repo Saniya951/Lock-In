@@ -12,6 +12,7 @@ class User(Document):
     profession: str
     is_verified: bool = False
     verification_token: Optional[str] = None
+    github_access_token: Optional[str] = None
 
     class Settings:
         name = "users"

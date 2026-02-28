@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from models import User, UserCreate, UserLogin, Token
@@ -15,6 +15,19 @@ from contextlib import asynccontextmanager
 from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
 from config import MONGODB_URL, DATABASE_NAME
 import uvicorn
+from github_service import create_github_repo, push_to_github
+import httpx
+import certifi # Add this import
+from github_service import sync_to_github
+
+
+# Inside lifespan or where you define the client:
+client = AsyncIOMotorClient(
+    MONGODB_URL,
+    tlsCAFile=certifi.where(), # Add this line
+    tlsAllowInvalidCertificates=True,
+    serverSelectionTimeoutMS=5000
+)
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -245,5 +258,145 @@ async def get_frontend_embed(session_id: str):
     # For now, return files that can be used to create embed
     return {"files": frontend_files, "session_id": session_id}
 
+
+# 1. Start OAuth
+# @app.get("/github/login")
+# async def github_login():
+#     client_id = os.getenv("GITHUB_CLIENT_ID")
+#     return {"url": f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo"}
+@app.get("/github/login")
+async def github_login():
+    client_id = os.getenv("GITHUB_CLIENT_ID")
+    # Redirect the user to GitHub's OAuth page
+    return RedirectResponse(
+        f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo"
+    )
+
+
+# 2. Callback (GitHub redirects here)
+# @app.get("/github/callback")
+# async def github_callback(code: str):
+#     # Exchange code for token
+#     async with httpx.AsyncClient() as client:
+#         res = await client.post(
+#             "https://github.com/login/oauth/access_token",
+#             params={
+#                 "client_id": os.getenv("GITHUB_CLIENT_ID"),
+#                 "client_secret": os.getenv("GITHUB_CLIENT_SECRET"),
+#                 "code": code
+#             },
+#             headers={"Accept": "application/json"}
+#         )
+#         token = res.json().get("access_token")
+    
+#     # We redirect back to frontend with a temporary token to identify the session
+#     # In a real app, you'd verify the JWT user and save this token to their DB record
+#     return HTMLResponse(f"""
+#         <script>
+#             window.opener.postMessage({{ github_token: "{token}" }}, "http://localhost:5173");
+#             window.close();
+#         </script>
+#     """)
+
+@app.get("/github/callback")
+async def github_callback(code: str):
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            params={
+                "client_id": os.getenv("GITHUB_CLIENT_ID"),
+                "client_secret": os.getenv("GITHUB_CLIENT_SECRET"),
+                "code": code
+            },
+            headers={"Accept": "application/json"}
+        )
+        token = res.json().get("access_token")
+
+    # Use double {{ }} to escape the f-string for JavaScript logic
+    content = f"""
+    <html>
+        <body style="background: #050505; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center;">
+            <div>
+                <h2 style="color: #6366f1;">✨ Connection Successful!</h2>
+                <p>Syncing with Lock-In...</p>
+                <div id="manual-box" style="display:none; margin-top: 20px; padding: 20px; border: 1px border-white/10; border-radius: 10px;">
+                    <p style="font-size: 12px; color: #888;">If this window doesn't close, copy this token:</p>
+                    <code style="background: #222; padding: 5px; border-radius: 4px;">{token}</code>
+                </div>
+            </div>
+            <script>
+                (function() {{
+                    const token = "{token}";
+                    if (window.opener) {{
+                        // Send to any local port for maximum compatibility
+                        window.opener.postMessage({{ github_token: token }}, "*");
+                        setTimeout(() => {{ window.close(); }}, 1000);
+                    }} else {{
+                        document.getElementById("manual-box").style.display = "block";
+                        console.error("Main window reference lost.");
+                    }}
+                }})();
+            </script>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=content)
+
+# # 3. The Sync Endpoint
+# @app.post("/github/sync")
+# async def sync_repo(session_id: str, repo_name: str, token: str):
+#     # Get user info from GitHub
+#     async with httpx.AsyncClient() as client:
+#         user_res = await client.get("https://api.github.com/user", headers={"Authorization": f"token {token}"})
+#         username = user_res.json()['login']
+    
+#     # Create the repo
+#     await create_github_repo(token, repo_name)
+    
+#     # Path to your generated code
+#     code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+    
+#     # Push files
+#     await push_to_github(token, username, repo_name, code_dir)
+    
+#     return {"status": "success", "repo_url": f"https://github.com/{username}/{repo_name}"}
+
+
+
+
+
+
+@app.post("/github/sync")
+async def handle_github_sync(session_id: str, repo_name: str, token: str):
+    # 1. Verify the code folder exists locally
+    code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+    
+    if not os.path.exists(code_dir):
+        raise HTTPException(status_code=404, detail="Generated code folder not found.")
+
+    async with httpx.AsyncClient() as client:
+        # 2. Verify the GitHub token and get username
+        headers = {"Authorization": f"token {token}", "Accept": "application/json"}
+        user_res = await client.get("https://api.github.com/user", headers=headers)
+        
+        if user_res.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid GitHub token. Please reconnect.")
+        
+        user_data = user_res.json()
+        if 'login' not in user_data:
+            raise HTTPException(status_code=500, detail="Could not retrieve GitHub username.")
+            
+        username = user_data['login']
+
+    try:
+        # 3. Call your service to create repo and push files
+        from github_service import sync_to_github
+        repo_url = await sync_to_github(token, repo_name, code_dir)
+        return {"status": "success", "repo_url": repo_url}
+    except Exception as e:
+        print(f"Sync Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+        
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
