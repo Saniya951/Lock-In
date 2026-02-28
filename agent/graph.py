@@ -608,6 +608,25 @@ def executor_agent(state: GraphState) -> dict:
             environment_ok=True
         )
         
+        # extract package-lock.json for webcontainer
+        if "node" in template_string:
+            cprint("   Extracting package-lock.json from Sandbox...", "cyan")
+            try:
+                # Find where the lockfile was generated (root or frontend/)
+                lock_path = "frontend/package-lock.json" if template_string == "node-python-base" else "package-lock.json"
+                remote_path = f"/home/user/app/{lock_path}"
+                
+                # Read it from E2B
+                lock_content = sandbox.files.read(remote_path)
+                
+                # Save it to your local output directory
+                local_lock_path = os.path.join(code_dir, lock_path)
+                with open(local_lock_path, "w", encoding="utf-8") as f:
+                    f.write(lock_content)
+                cprint(f"   Saved {lock_path} for WebContainer optimization.", "green")
+            except Exception as e:
+                cprint(f"   Could not extract package-lock.json: {e}", "yellow")
+
     except Exception as e:
         # E2B throws an exception immediately if a test fails (Exit Code > 0).
         # In the hybrid setup, if the Frontend fails, it will catch here and skip the Backend tests. 
