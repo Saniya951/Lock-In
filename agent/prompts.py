@@ -14,7 +14,7 @@ BUILD_RULES = {
         - FOLDER STRUCTURE: Vite standard. `index.html`, `package.json`, and `vite.config.js` in the root. Source code in `src/`.
         - FILE EXTENSIONS: All React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
         - DEPENDENCY FILE: `package.json` in the root.
-        - CRITICAL CONFIG: You MUST generate a `vite.config.js` file that imports `@vitejs/plugin-react` and configures the `test` environment to use `jsdom`.
+        - CRITICAL CONFIG: You MUST generate a `vite.config.js` file that imports `@vitejs/plugin-react`. Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
         - CRITICAL SCRIPTS: In `package.json`, the scripts MUST include: "dev": "vite", "build": "vite build", and "test": "vitest run".
         - CRITICAL DEPENDENCIES: You MUST include `react` and `react-dom` in standard dependencies. You MUST include `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom` in devDependencies.
     """,
@@ -22,14 +22,15 @@ BUILD_RULES = {
         - ENVIRONMENT: Pure JavaScript/Node.js.
         - FOLDER STRUCTURE: `src/` directory for logic, `src/routes/`, `src/controllers/`.
         - DEPENDENCY FILE: `package.json` in the root.
-        - CRITICAL BOILERPLATE: MUST include "scripts": { "test": "jest --passWithNoTests" } in package.json.
+        - CRITICAL BOILERPLATE: MUST include "scripts": { "test": "vitest run" } in package.json.
+        - CRITICAL DEPENDENCIES: MUST include `vitest` and `supertest` in devDependencies. ABSOLUTELY DO NOT install `jest`.
     """,
     "react_flask": """
         - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
         - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
         - DEPENDENCY FILES: Create `frontend/package.json` AND `backend/requirements.txt`.
         - FILE EXTENSIONS: All React frontend components MUST use `.jsx`.
-        - FRONTEND CONFIG: You MUST generate a `frontend/vite.config.js` file using `@vitejs/plugin-react` and `jsdom` for testing.
+        - FRONTEND CONFIG: You MUST generate a `frontend/vite.config.js` file using `@vitejs/plugin-react`.Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
         - FRONTEND SCRIPTS: In `frontend/package.json`, include: "dev": "vite", "build": "vite build", and "test": "vitest run".
         - FRONTEND DEPENDENCIES: MUST include `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom`.
     """,
@@ -47,9 +48,9 @@ TEST_RULES = {
         - FOLDER STRUCTURE (CO-LOCATION): Place the test file in the EXACT SAME directory as the component it tests. Do not create a separate tests folder.
         - CRITICAL IMPORTS: You MUST explicitly import `describe`, `it`, and `expect` from `vitest` at the top of every test file.
         - DOM ASSERTIONS: You MUST explicitly import `@testing-library/jest-dom` at the top of every test file to use DOM matchers like `.toBeInTheDocument()`.
-    """,
+        - CRITICAL MOCKING RULE: DO NOT use the `jest` object. Use Vitest's `vi` object (e.g., `vi.fn()`). ABSOLUTELY DO NOT import `@jest/globals` or `jest`. The ONLY time you are allowed to type the word "jest" is when importing `@testing-library/jest-dom`.""",    
     "node_backend": """
-        - TESTING FRAMEWORK: Use `jest` and `supertest`. 
+        - TESTING FRAMEWORK: Use `vitest` and `supertest`. ABSOLUTELY DO NOT use `jest`. 
         - FILE NAMING: Test files must end in `.test.js`.
     """,
     "react_flask": """
@@ -57,7 +58,8 @@ TEST_RULES = {
         - FRONTEND TESTING: Use `vitest` and `@testing-library/react`. 
         - FRONTEND FOLDER STRUCTURE: Co-locate React tests next to their components (e.g., `frontend/src/Button.jsx` and `frontend/src/Button.test.jsx`).
         - FRONTEND FILE NAMING: Frontend test files MUST end in `.test.jsx`. DO NOT use `.js`.
-        - FRONTEND IMPORTS: MUST import `describe`, `it`, `expect` from `vitest`, AND import `@testing-library/jest-dom` at the top of every test file.""",
+        - FRONTEND IMPORTS: MUST import `describe`, `it`, `expect` from `vitest`, AND import `@testing-library/jest-dom` at the top of every test file.
+        - CRITICAL MOCKING RULE: DO NOT use the `jest` object. Use Vitest's `vi` object (e.g., `vi.fn()`). ABSOLUTELY DO NOT import `@jest/globals` or `jest`. The ONLY time you are allowed to type the word "jest" is when importing `@testing-library/jest-dom`.""",
     "unknown": "Use standard testing frameworks for the language."
 }
 
@@ -231,7 +233,9 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         return f"""
         You are a Senior Debugger.
 
-        BUILD RULES: {build_rules}
+        FIX RULES: {build_rules}
+
+        FILE SPECIFIC RULES:{file_specific_rules}
         
         TARGET FILE: {filename}
         
@@ -246,7 +250,6 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         TASK:
         Fix the error in the code above. 
         Use the provided documentation if needed.
-        {file_specific_rules}
         
         RELEVANT DOCS:
         {doc_context}
@@ -295,7 +298,7 @@ def construct_qa_prompt(target_filename: str, source_code: str, scenarios: list,
     
     REQUIREMENTS:
     1. IMPORTS: Ensure you import the specific functions/classes from `{target_filename}` correctly.
-    2. MOCKING: If the code calls external APIs or databases, you MUST mock them.
+    2. MOCKING: You MUST mock all external API calls. If the code uses `fetch`, you MUST explicitly mock it globally using `global.fetch = vi.fn(...)`. You MUST use Vitest's `vi` utility. NEVER use `jest`.
     3. OUTPUT: Return ONLY the code for the test file. No markdown, no explanations.
     """
 

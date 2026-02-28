@@ -289,6 +289,24 @@ def coder_agent(state: GraphState) -> dict:
     error_report = state.get("error_report")
     
     file_exists = os.path.exists(file_path)
+
+    # below block is for react_flask apps with files nested in frontend and backend folders
+    if not file_exists:
+        # Vitest/Pytest logs often omit 'frontend/' or 'backend/'. 
+        # If the direct path fails, hunt for the file in the subdirectories.
+        for root, _, local_files in os.walk(user_code_dir):
+            for f in local_files:
+                full_path = os.path.join(root, f)
+                # If the actual file path ends with the requested filename (e.g. matching 'src/App.test.jsx')
+                if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+                    file_path = full_path
+                    file_exists = True
+                    # Update the filename so it saves to the correct absolute location!
+                    filename = os.path.relpath(full_path, user_code_dir).replace("\\", "/")
+                    break
+            if file_exists:
+                break
+
     existing_code = ""
 
     if file_exists:
@@ -352,7 +370,7 @@ def coder_agent(state: GraphState) -> dict:
     return {
         "current_task_index": index + 1,   #this is so that the coder knows whether it needs to loop back or move on (i could just add a for loop instead and remove this state variable entirely but im done with this shit)
         "completed_files": [filename],
-        "error_report": "" 
+        # "error_report": "" 
     }
 
 def qa_agent(state: GraphState) -> dict:
@@ -427,10 +445,18 @@ def dependency_validator_agent(state: GraphState) -> dict:
     files = state.get("completed_files", [])
     failed_packages = []
 
+    # Find all package files no matter what folder they are in
+    req_paths = []
+    pkg_paths = []
+    for root, _, local_files in os.walk(user_code_dir):
+        if "requirements.txt" in local_files:
+            req_paths.append(os.path.join(root, "requirements.txt"))
+        if "package.json" in local_files:
+            pkg_paths.append(os.path.join(root, "package.json"))
+
     # check python requirements.txt
-    req_path = os.path.join(user_code_dir, "requirements.txt")
-    if os.path.exists(req_path):
-        cprint("   Validating requirements.txt against PyPI...", "yellow")
+    for req_path in req_paths:
+        cprint(f"   Validating {req_path} against PyPI...", "yellow")
         with open(req_path, "r") as f:
             lines = f.readlines()
             
@@ -438,31 +464,35 @@ def dependency_validator_agent(state: GraphState) -> dict:
             line = line.strip()
             if not line or line.startswith("#"): continue
             
-            # extract just the package name, ignore versions (e.g., package==1.0.0 -> package)
             match = re.match(r'^([a-zA-Z0-9_\-]+)', line)
             if match:
                 pkg_name = match.group(1)
-                res = requests.get(f"https://pypi.org/pypi/{pkg_name}/json", timeout=5)
-                if res.status_code != 200:
-                    cprint(f"   [!] HALLUCINATION DETECTED: {pkg_name} does not exist on PyPI.", "red")
-                    failed_packages.append(pkg_name)
+                try:
+                    res = requests.get(f"https://pypi.org/pypi/{pkg_name}/json", timeout=10)
+                    if res.status_code != 200:
+                        cprint(f"   [!] HALLUCINATION DETECTED: {pkg_name} does not exist on PyPI.", "red")
+                        failed_packages.append(pkg_name)
+                except requests.exceptions.RequestException as e:
+                    cprint(f"   [!] Network timeout validating {pkg_name}. Skipping check.", "yellow")
 
-    # check node package.json
-    pkg_json_path = os.path.join(user_code_dir, "package.json")
-    if os.path.exists(pkg_json_path):
-        cprint("   Validating package.json against npm registry...", "yellow")
+    # node package.json check
+    for pkg_json_path in pkg_paths:
+        cprint(f"   Validating {pkg_json_path} against npm registry...", "yellow")
         with open(pkg_json_path, "r") as f:
             try:
                 pkg_data = json.load(f)
                 deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
                 
                 for pkg_name in deps.keys():
-                    res = requests.get(f"https://registry.npmjs.org/{pkg_name}", timeout=5)
-                    if res.status_code != 200:
-                        cprint(f"   [!] HALLUCINATION DETECTED: {pkg_name} does not exist on npm.", "red")
-                        failed_packages.append(pkg_name)
+                    try:
+                        res = requests.get(f"https://registry.npmjs.org/{pkg_name}", timeout=10)
+                        if res.status_code != 200:
+                            cprint(f"   [!] HALLUCINATION DETECTED: {pkg_name} does not exist on npm.", "red")
+                            failed_packages.append(pkg_name)
+                    except requests.exceptions.RequestException as e:
+                        cprint(f"   [!] Network timeout validating {pkg_name}. Skipping check.", "yellow")
             except json.JSONDecodeError:
-                failed_packages.append("package.json (Invalid JSON Syntax)")
+                failed_packages.append(f"{pkg_json_path} (Invalid JSON Syntax)")
 
     # routing logic
     if failed_packages:
@@ -539,12 +569,14 @@ def executor_agent(state: GraphState) -> dict:
     try:
         if "python" in template_string:
             cprint("   Installing Python dependencies and pytest...", "yellow")
-            # sandbox.commands.run(
-            #     "cd /home/user/app && pip install pytest && if [ -f requirements.txt ]; then pip install -r requirements.txt; fi", 
-            #     timeout=120
-            # ) 
+            # Install pytest globally first
             sandbox.commands.run(
-                "cd /home/user/app && pip install pytest --break-system-packages && if [ -f requirements.txt ]; then pip install -r requirements.txt --break-system-packages; fi", 
+                "pip install pytest --break-system-packages", 
+                timeout=60
+            )
+            # Find any requirements.txt anywhere in the app and install it from within its own directory
+            sandbox.commands.run(
+                "cd /home/user/app && find . -name 'requirements.txt' -execdir pip install -r {} --break-system-packages \\;", 
                 timeout=120
             )       
             cprint("   Finished Install", "cyan")
@@ -556,7 +588,8 @@ def executor_agent(state: GraphState) -> dict:
                 "cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm install --legacy-peer-deps \\;", 
                 timeout=120
             )
-            
+            cprint("   Finished Install", "cyan")
+
     except Exception as e:
         # if pip or npm explodes,i.e, installing of dependencies wasnt successful, catch it and send it eval and debugger so that coder can fix req.txt and package.json
         cprint(f"   Dependency Install Failed: {e}", "red")
@@ -582,10 +615,12 @@ def executor_agent(state: GraphState) -> dict:
         combined_logs = ""
         # again do not change the test commands
         if template_string == "python-base":
+            cprint("   Running Python tests...", "yellow")
             result = sandbox.commands.run("cd /home/user/app && python -m pytest -q", timeout=30)
             combined_logs = result.stdout + result.stderr
             
         elif template_string == "node-base":
+            cprint("   Running Node tests...", "yellow")
             result = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
             combined_logs = result.stdout + result.stderr
             
@@ -595,7 +630,7 @@ def executor_agent(state: GraphState) -> dict:
             combined_logs += "=== FRONTEND LOGS ===\n" + res_node.stdout + res_node.stderr
             
             cprint("   Running Backend Tests...", "blue")
-            res_py = sandbox.commands.run("cd /home/user/app && PYTHONPATH=. python -m pytest -q", timeout=60)
+            res_py = sandbox.commands.run("cd /home/user/app && PYTHONPATH=. python3 -m pytest -q", timeout=60)
             combined_logs += "\n=== BACKEND LOGS ===\n" + res_py.stdout + res_py.stderr
             
         execution = ExecutionResult(
@@ -605,7 +640,7 @@ def executor_agent(state: GraphState) -> dict:
             logs=combined_logs,
             environment_ok=True
         )
-        
+
     except Exception as e:
         # E2B throws an exception immediately if a test fails (Exit Code > 0).
         # In the hybrid setup, if the Frontend fails, it will catch here and skip the Backend tests. 
@@ -625,6 +660,25 @@ def executor_agent(state: GraphState) -> dict:
             logs=final_logs,
             environment_ok=True 
         )
+
+    # extract package-lock.json for webcontainer
+    if "node" in template_string:
+        cprint("   Extracting package-lock.json from Sandbox...", "cyan")
+        try:
+            # find where the lockfile was generated (root or frontend/)
+            lock_path = "frontend/package-lock.json" if template_string == "node-python-base" else "package-lock.json"
+            remote_path = f"/home/user/app/{lock_path}"
+            
+            # read from e2b
+            lock_content = sandbox.files.read(remote_path)
+            
+            #save to disk
+            local_lock_path = os.path.join(code_dir, lock_path)
+            with open(local_lock_path, "w", encoding="utf-8") as f:
+                f.write(lock_content)
+            cprint(f"   Saved {lock_path} for WebContainer optimization.", "green")
+        except Exception as e:
+            cprint(f"   Could not extract package-lock.json: {e}", "yellow")
 
     return {
         "execution_result": execution,
