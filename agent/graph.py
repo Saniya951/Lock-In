@@ -523,17 +523,6 @@ def executor_agent(state: GraphState) -> dict:
     # install deps
     # do not change the sandbox commands please. they are precarious and were crafted carefully after 100 app crashes
     try:
-        # if "python" in template_string:
-        #     cprint("   Installing Python dependencies and pytest...", "yellow")
-        #     # sandbox.commands.run(
-        #     #     "cd /home/user/app && pip install pytest && if [ -f requirements.txt ]; then pip install -r requirements.txt; fi", 
-        #     #     timeout=120
-        #     # ) 
-        #     sandbox.commands.run(
-        #         "cd /home/user/app && pip install pytest --break-system-packages && if [ -f requirements.txt ]; then pip install -r requirements.txt --break-system-packages; fi", 
-        #         timeout=120
-        #     )       
-        #     cprint("   Finished Install", "cyan")
         if "python" in template_string:
             cprint("   Installing Python dependencies and pytest...", "yellow")
             # Install pytest globally first
@@ -607,25 +596,6 @@ def executor_agent(state: GraphState) -> dict:
             logs=combined_logs,
             environment_ok=True
         )
-        
-        # extract package-lock.json for webcontainer
-        if "node" in template_string:
-            cprint("   Extracting package-lock.json from Sandbox...", "cyan")
-            try:
-                # Find where the lockfile was generated (root or frontend/)
-                lock_path = "frontend/package-lock.json" if template_string == "node-python-base" else "package-lock.json"
-                remote_path = f"/home/user/app/{lock_path}"
-                
-                # Read it from E2B
-                lock_content = sandbox.files.read(remote_path)
-                
-                # Save it to your local output directory
-                local_lock_path = os.path.join(code_dir, lock_path)
-                with open(local_lock_path, "w", encoding="utf-8") as f:
-                    f.write(lock_content)
-                cprint(f"   Saved {lock_path} for WebContainer optimization.", "green")
-            except Exception as e:
-                cprint(f"   Could not extract package-lock.json: {e}", "yellow")
 
     except Exception as e:
         # E2B throws an exception immediately if a test fails (Exit Code > 0).
@@ -646,6 +616,25 @@ def executor_agent(state: GraphState) -> dict:
             logs=final_logs,
             environment_ok=True 
         )
+
+    # extract package-lock.json for webcontainer
+    if "node" in template_string:
+        cprint("   Extracting package-lock.json from Sandbox...", "cyan")
+        try:
+            # find where the lockfile was generated (root or frontend/)
+            lock_path = "frontend/package-lock.json" if template_string == "node-python-base" else "package-lock.json"
+            remote_path = f"/home/user/app/{lock_path}"
+            
+            # read from e2b
+            lock_content = sandbox.files.read(remote_path)
+            
+            #save to disk
+            local_lock_path = os.path.join(code_dir, lock_path)
+            with open(local_lock_path, "w", encoding="utf-8") as f:
+                f.write(lock_content)
+            cprint(f"   Saved {lock_path} for WebContainer optimization.", "green")
+        except Exception as e:
+            cprint(f"   Could not extract package-lock.json: {e}", "yellow")
 
     return {
         "execution_result": execution,
