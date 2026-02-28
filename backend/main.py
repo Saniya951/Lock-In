@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from models import User, UserCreate, UserLogin, Token
@@ -10,6 +10,8 @@ import anyio
 import sys
 import ssl
 import os
+import json
+import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
@@ -20,7 +22,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from agent.graph import run_graph
+from agent.graph import run_graph, set_file_callback
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -195,6 +197,86 @@ async def run_graph_endpoint(payload: GraphRequest):
         "preview_url": result.get("preview_url"),
         # "frontend_url": f"http://localhost:8000/session/{session_id}/frontend" if session_id else None
     }
+
+@app.post("/prompt/stream")
+async def run_graph_stream_endpoint(payload: GraphRequest):
+    """Stream file creation events in real-time using Server-Sent Events"""
+    
+    async def event_generator():
+        file_queue = asyncio.Queue()
+        session_id_holder = {}
+        
+        # Get the current event loop for the callback to use
+        loop = asyncio.get_event_loop()
+        
+        def file_callback(event_type: str, data: dict):
+            """Callback function that runs in the agent thread"""
+            try:
+                # Use the captured event loop to safely put data from worker thread
+                asyncio.run_coroutine_threadsafe(
+                    file_queue.put({"type": event_type, "data": data}),
+                    loop
+                )
+            except Exception as e:
+                print(f"Error in callback: {e}")
+        
+        # Set the callback for this request
+        set_file_callback(file_callback)
+        
+        # Run the agent in a background thread
+        async def run_agent():
+            try:
+                result = await anyio.to_thread.run_sync(
+                    run_graph, 
+                    payload.prompt, 
+                    payload.search_method
+                )
+                session_id = result.get('session_id')
+                preview_url = result.get('preview_url')
+                session_id_holder['id'] = session_id
+                session_id_holder['preview_url'] = preview_url
+                
+                # Only send serializable data in complete event
+                await file_queue.put({
+                    "type": "complete", 
+                    "data": {
+                        "session_id": session_id,
+                        "preview_url": preview_url,
+                        "status": result.get("status", "unknown")
+                    }
+                })
+            except Exception as e:
+                await file_queue.put({"type": "error", "data": {"error": str(e)}})
+            finally:
+                set_file_callback(None)  # Clear callback
+        
+        # Start agent in background
+        agent_task = asyncio.create_task(run_agent())
+        
+        try:
+            while True:
+                event = await file_queue.get()
+                event_type = event["type"]
+                
+                # Send SSE formatted message
+                yield f"data: {json.dumps(event)}\n\n"
+                
+                if event_type == "complete" or event_type == "error":
+                    break
+        finally:
+            # Clean up
+            if not agent_task.done():
+                agent_task.cancel()
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @app.get("/session/{session_id}/files")
 async def get_session_files(session_id: str):

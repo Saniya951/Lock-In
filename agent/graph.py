@@ -49,6 +49,23 @@ DB_PATH = os.path.join(SCRIPT_DIR, "chroma_db")
 
 HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
+# Global callback for streaming file events
+_file_event_callback = None
+
+def set_file_callback(callback):
+    """Set a callback function to receive file creation events"""
+    global _file_event_callback
+    _file_event_callback = callback
+
+def emit_file_event(event_type: str, data: dict):
+    """Emit a file event if callback is registered"""
+    global _file_event_callback
+    if _file_event_callback:
+        try:
+            _file_event_callback(event_type, data)
+        except Exception as e:
+            cprint(f"Error in file event callback: {e}", "red")
+
 #load vector db
 cprint(f" Loading vector database from {DB_PATH}...", "yellow")
 embeddings = HuggingFaceEndpointEmbeddings(repo_id=HF_EMBEDDING_MODEL)
@@ -104,10 +121,26 @@ def planner_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
     cprint(" Entering Planner Workflow...", "cyan", attrs=["bold"])
     
+    session_id = state["session_id"]
     users_prompt = state["user_prompt"]
+    
+    # Emit planning start event
+    emit_file_event("status", {
+        "session_id": session_id,
+        "message": "Planning project structure...",
+        "stage": "planning"
+    })
+    
     response = llm.with_structured_output(Plan).invoke(planner_prompt(users_prompt))
     if response is None:
         raise ValueError("Planner did not return a valid response.")
+    
+    # Emit plan created event
+    emit_file_event("plan_created", {
+        "session_id": session_id,
+        "tech_stack": response.tech_stack,
+        "goal": response.project_goal
+    })
     
     try:
         session_id = state["session_id"]
@@ -293,6 +326,15 @@ def coder_agent(state: GraphState) -> dict:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(code_content)
+        
+        # Emit file creation event for streaming
+        emit_file_event("file_created", {
+            "session_id": session_id,
+            "filename": filename,
+            "content": code_content,
+            "mode": mode,
+            "progress": f"{index + 1}/{len(queue)}"
+        })
 
         # to make sure that code is embedded even when hf gives 504 gateway error. 
         # embedding_executor our object from class ThreadPoolExecutor uses a function which takes our function(embed_file_async) as a parameter
@@ -908,6 +950,12 @@ def run_graph(user_prompt: str, search_method: bool = False) -> dict:
     cprint(f" Starting new session: {session_id}", "cyan", attrs=["bold"])
     cprint(f" User prompt: {user_prompt}", "yellow")
     cprint(f" Search method: {'Tavily (Live)' if search_method else 'VectorDB (Default)'}", "yellow")
+    
+    # Emit session start event
+    emit_file_event("session_start", {
+        "session_id": session_id,
+        "prompt": user_prompt
+    })
     
     initial_state: GraphState = {
         "session_id": session_id,

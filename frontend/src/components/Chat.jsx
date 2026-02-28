@@ -90,93 +90,174 @@ const Chat = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userPrompt = input;
     setInput('');
     setLoading(true);
 
+    // Add initial bot message
+    const botMessageId = Date.now() + 1;
+    const initialBotMessage = {
+      id: botMessageId,
+      text: 'Initializing agent...',
+      sender: 'bot',
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, initialBotMessage]);
+
     try {
-      const response = await fetch('http://localhost:8000/prompt', {
+      // Use fetch with streaming for POST requests
+      const response = await fetch('http://localhost:8000/prompt/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify({ 
+          prompt: userPrompt,
+          search_method: false 
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentSessionId = null;
+      let currentPreviewUrl = null;
+      let fileCount = 0;
 
-      // 
-      // If the backend returned a preview URL from E2B
-      if (data.preview_url) {
-        setWebcontainerUrl(data.preview_url); // You can rename this state to previewUrl
-        setWebcontainerReady(true);
-        setLoading(false);
-      }
-      // 
-      
-      const botMessage = {
-        id: Date.now() + 1,
-        text: `Agent generated files. Session: ${data.session_id}`,
-        sender: 'bot',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botMessage]);
-      
-      // Fetch generated files
-      if (data.session_id) {
-        try {
-          const filesResponse = await fetch(`http://localhost:8000/session/${data.session_id}/files`);
-          const filesData = await filesResponse.json();
-          
-          // Filter out unwanted files and set all remaining files
-          const allFiles = filesData.files || {};
-          const codeFiles = Object.fromEntries(
-            Object.entries(allFiles).filter(([path]) => 
-              path.endsWith('.jsx') || 
-              path.endsWith('.js') || 
-              path.endsWith('.html') || 
-              path.endsWith('.css') ||
-              path === 'package.json'
-            )
-          );
-          
-          console.log('Filtered code files:', Object.keys(codeFiles));
-          //
-          // setSessionFiles(codeFiles); 
-          setSessionFiles(allFiles);
-          // 
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          setLoading(false);
+          break;
+        }
 
-          // Select first file automatically
-          const fileList = Object.keys(codeFiles);
-          if (fileList.length > 0) {
-            const firstFile = fileList[0];
-            console.log('Setting initial file to:', firstFile);
-            console.log('File content exists:', !!codeFiles[firstFile]);
-            setSelectedFile(firstFile);
-          }
+        // Decode the chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages (they end with \n\n)
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop() || ''; // Keep incomplete message in buffer
+
+        for (const message of messages) {
+          if (!message.trim() || !message.startsWith('data: ')) continue;
           
-          // Initialize WebContainer with all code files
-          if (Object.keys(codeFiles).length > 0 && !data.preview_url) {
-            await initializeWebContainer(codeFiles);
+          try {
+            const jsonStr = message.replace(/^data: /, '');
+            const data = JSON.parse(jsonStr);
+            const eventType = data.type;
+            const eventData = data.data;
+
+            console.log('Received SSE event:', eventType, eventData);
+
+            switch (eventType) {
+              case 'session_start':
+                currentSessionId = eventData.session_id;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `Session started: ${currentSessionId}` }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'status':
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: eventData.message }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'plan_created':
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `Planning complete. Tech stack: ${eventData.tech_stack}. Building files...` }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'file_created':
+                fileCount++;
+                const filename = eventData.filename;
+                const content = eventData.content;
+                
+                // Update bot message with progress
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `Generated ${fileCount} files. Latest: ${filename}` }
+                      : msg
+                  )
+                );
+
+                // Add file to sessionFiles immediately
+                setSessionFiles((prev) => {
+                  const updated = { ...prev, [filename]: content };
+                  
+                  // Auto-select first file
+                  if (fileCount === 1) {
+                    setSelectedFile(filename);
+                  }
+                  
+                  return updated;
+                });
+                break;
+
+              case 'complete':
+                setLoading(false);
+                
+                currentPreviewUrl = eventData.preview_url;
+                if (currentPreviewUrl) {
+                  setWebcontainerUrl(currentPreviewUrl);
+                  setWebcontainerReady(true);
+                }
+
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `✅ Project complete! Generated ${fileCount} files.` }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'error':
+                setLoading(false);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `❌ Error: ${eventData.error}` }
+                      : msg
+                  )
+                );
+                break;
+            }
+          } catch (err) {
+            console.error('Error parsing SSE event:', err);
           }
-        } catch (error) {
-          console.error('Error fetching files:', error);
         }
       }
+
     } catch (error) {
       console.error('Error sending message:', error);
-      const botMessage = {
-        id: Date.now() + 1,
-        text: 'Error sending prompt to agent. Please try again.',
-        sender: 'bot',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botMessage]);
-    } finally {
       setLoading(false);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMessageId
+            ? { ...msg, text: '❌ Error sending prompt. Please try again.' }
+            : msg
+        )
+      );
     }
   };
 
