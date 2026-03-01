@@ -12,11 +12,19 @@ BUILD_RULES = {
     "react_only": """
         - ENVIRONMENT: React using Vite.
         - FOLDER STRUCTURE: Vite standard. `index.html`, `package.json`, and `vite.config.js` in the root. Source code in `src/`.
-        - FILE EXTENSIONS: All React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
+        - FILE EXTENSIONS: All React components MUST use `.jsx` (e.g., `App.jsx`, `main.jsx`). DO NOT use `.js` for React components.
         - DEPENDENCY FILE: `package.json` in the root.
+        - MANDATORY FILES (IN THIS ORDER):
+          * `index.html` in the root - MUST contain a <div id="root"></div> and <script type="module" src="/src/main.jsx"></script>
+          * `src/main.jsx` - The React entry point that imports and renders App.jsx
+          * `src/App.jsx` - The main application component (imported by main.jsx)
+        - ENTRY FLOW: index.html → main.jsx → App.jsx (main.jsx MUST NOT BE SKIPPED)
         - CRITICAL CONFIG: You MUST generate a `vite.config.js` file that imports `@vitejs/plugin-react`. Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
         - CRITICAL SCRIPTS: In `package.json`, the scripts MUST include: "dev": "vite", "build": "vite build", and "test": "vitest run".
-        - CRITICAL DEPENDENCIES: You MUST include `react` and `react-dom` in standard dependencies. You MUST include `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom` in devDependencies.
+        - CRITICAL DEPENDENCIES (EXACT VERSIONS MUST MATCH): 
+          * Standard deps: `react@^18.0.0`, `react-dom@^18.0.0`
+          * Dev deps: `vite@^5.0.0`, `@vitejs/plugin-react@^4.0.0`, `vitest@^1.0.0`, `jsdom@^23.0.0`, `@testing-library/react@^14.0.0`, `@testing-library/jest-dom@^6.0.0`
+          * Use these EXACT versions to avoid peer dependency conflicts.
     """,
     "node_backend": """
         - ENVIRONMENT: Pure JavaScript/Node.js.
@@ -30,9 +38,16 @@ BUILD_RULES = {
         - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
         - DEPENDENCY FILES: Create `frontend/package.json` AND `backend/requirements.txt`.
         - FILE EXTENSIONS: All React frontend components MUST use `.jsx`.
+        - MANDATORY FRONTEND FILES (IN THIS ORDER):
+          * `frontend/index.html` in the root - MUST contain a <div id="root"></div> and <script type="module" src="/src/main.jsx"></script>
+          * `frontend/src/main.jsx` - The React entry point that imports and renders App.jsx
+          * `frontend/src/App.jsx` - The main application component (imported by main.jsx)
+        - FRONTEND ENTRY FLOW: index.html → main.jsx → App.jsx (main.jsx MUST NOT BE SKIPPED)
         - FRONTEND CONFIG: You MUST generate a `frontend/vite.config.js` file using `@vitejs/plugin-react`.Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
         - FRONTEND SCRIPTS: In `frontend/package.json`, include: "dev": "vite", "build": "vite build", and "test": "vitest run".
-        - FRONTEND DEPENDENCIES: MUST include `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom`.
+        - FRONTEND DEPENDENCIES (EXACT VERSIONS MUST MATCH): 
+          * Standard deps: `react@^18.0.0`, `react-dom@^18.0.0`
+          * Dev deps: `vite@^5.0.0`, `@vitejs/plugin-react@^4.0.0`, `vitest@^1.0.0`, `jsdom@^23.0.0`, `@testing-library/react@^14.0.0`, `@testing-library/jest-dom@^6.0.0`
     """,
     "unknown": "Use standard software development best practices."
 }
@@ -139,15 +154,22 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
 {build_rules}
 
 **Instructions:**
-1. **File List:** Translate high-level steps into specific files (package.json, app.py, App.jsx).
- **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.jsx`, `spec.jsx`).
+1. **File List:** Translate high-level steps into specific files (package.json, index.html, app.py, App.jsx).
+   - **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.jsx`, `spec.jsx`).
+   - **FOR REACT PROJECTS:** You MUST include these files in this exact order:
+     * `package.json` (dependencies)
+     * `vite.config.js` (Vite configuration)
+     * `index.html` (HTML entry point in root - MANDATORY)
+     * `src/main.jsx` (React entry point - MANDATORY - bridges index.html and App.jsx)
+     * `src/App.jsx` (main component - MANDATORY - imported by main.jsx)
+     * Other components as needed
 2. **Dependencies:** List ONLY the package names needed for `npm install` or `pip install`. 
    - DO NOT include version numbers. 
    - Example: ["flask", "flask-cors", "requests"] OR ["react", "axios", "framer-motion"].
-3.DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
+3. DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
 4. Instead output specific file tasks. 
 5. For `related_docs_topic`, be specific (e.g., "React Functional Components", "CSS Flexbox", "Node.js Express Setup").
-6. Ensure the order makes sense (Configs first -> Core Logic -> UI Components).
+6. Ensure the order makes sense (Configs first -> HTML entry -> React entry (main.jsx) -> App component -> Other components).
 
 **Output Format:**
 Return a JSON with `implementation_steps` and `dependencies`.
@@ -218,6 +240,22 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         4. DO NOT add built-in Python libraries (math, os, sys).
         5. If no external dependencies are needed, leave the file completely blank.
         """
+    
+    #index.html rules for React/Vite projects
+    elif "index.html" in filename_lower:
+        file_specific_rules = """
+        CRITICAL `index.html` RULES:
+        1. Output a complete, valid HTML5 document.
+        2. MANDATORY structure:
+           - <!DOCTYPE html>
+           - <html lang="en">
+           - <head> with <meta charset="UTF-8">, viewport meta tag, and <title>
+           - <body> with a <div id="root"></div>
+           - <script type="module" src="/src/main.jsx"></script> right before closing </body>
+        3. This file is the HTML entry point for Vite. Keep it simple and minimal.
+        4. DO NOT include React code or component logic here - this is pure HTML.
+        5. CRITICAL: Link to `/src/main.jsx`, NOT `/src/App.jsx`. main.jsx will handle importing App.jsx.
+        """
         
     #vite config rules
     elif "vite.config" in filename_lower:
@@ -225,6 +263,38 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         CRITICAL `vite.config` RULES:
         1. Output valid JavaScript/ESM configuration for Vite.
         2. MANDATORY: Ensure you configure the `test` block for Vitest (e.g., environment: 'jsdom') and import `@vitejs/plugin-react`.
+        """
+    
+    #React main.jsx entry point rules
+    elif filename.endswith("main.jsx") or filename.endswith("src/main.jsx"):
+        file_specific_rules = """
+        CRITICAL `main.jsx` RULES:
+        1. This is the React entry point and MUST be imported by index.html via <script type="module" src="/src/main.jsx"></script>
+        2. MANDATORY content (exact structure):
+           import React from 'react'
+           import ReactDOM from 'react-dom/client'
+           import App from './App.jsx'
+           
+           ReactDOM.createRoot(document.getElementById('root')).render(
+             <React.StrictMode>
+               <App />
+             </React.StrictMode>,
+           )
+        3. DO NOT modify this structure. It is the standard Vite+React entry point.
+        4. This file bridges index.html and App.jsx.
+        """
+    
+    #React App component rules
+    elif filename.endswith("App.jsx") or filename.endswith("src/App.jsx"):
+        file_specific_rules = """
+        CRITICAL `App.jsx` RULES:
+        1. This is the main React application component (imported by main.jsx).
+        2. MANDATORY:
+           - Import React at the top: import React from 'react'
+           - This is a functional component that returns JSX
+           - Export as default: export default App
+        3. This component is rendered by main.jsx via ReactDOM.createRoot
+        4. Keep the root component structure clean and pass props to child components as needed.
         """
 
     build_rules = BUILD_RULES.get(tech_stack, BUILD_RULES["unknown"])

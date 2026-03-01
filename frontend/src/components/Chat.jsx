@@ -26,12 +26,29 @@ const Chat = () => {
 
   const initializeWebContainer = async (files) => {
     try {
+      const totalStart = performance.now();
+      console.log('[WebContainer] Starting initialization...');
+
+      if (webcontainerRef.current) {
+        console.log('[WebContainer] Tearing down existing container...');
+        try {
+          webcontainerRef.current.teardown();
+        } catch (teardownError) {
+          console.warn('[WebContainer] Teardown warning:', teardownError);
+        }
+      }
+
       // Boot up WebContainer
+      const bootStart = performance.now();
+      console.log('[WebContainer] Step 1/4: Booting container...');
       const container = await WebContainer.boot();
       webcontainerRef.current = container;
+      console.log(`[WebContainer] Step 1/4 complete in ${(performance.now() - bootStart).toFixed(0)} ms`);
       
       
       // Write files to the container
+      const mountStart = performance.now();
+      console.log(`[WebContainer] Step 2/4: Mounting ${Object.keys(files).length} files...`);
       for (const [filename, content] of Object.entries(files)) {
         // Create directory structure
         const dirPath = filename.substring(0, filename.lastIndexOf('/'));
@@ -41,29 +58,85 @@ const Chat = () => {
         // Write file
         await container.fs.writeFile(filename, content);
       }
+      console.log(`[WebContainer] Step 2/4 complete in ${(performance.now() - mountStart).toFixed(0)} ms`);
+
+      const hasPackageJson = Boolean(files['package.json']);
+      const hasPackageLockJson = Boolean(files['package-lock.json']);
+      console.log(`[WebContainer] package.json present: ${hasPackageJson}`);
+      console.log(`[WebContainer] package-lock.json present: ${hasPackageLockJson}`);
       
       // Check if package.json exists, if so run npm install
-      if (files['package.json']) {
-        const installProcess = await container.spawn('npm', ['install']);
-        await installProcess.exit;
+      if (hasPackageJson) {
+        const installStart = performance.now();
+        console.log('[WebContainer] Step 3/4: Running npm install...');
+        const installProcess = await container.spawn('npm', ['install', '--legacy-peer-deps']);
+
+        const installOutputPromise = installProcess.output.pipeTo(
+          new WritableStream({
+            write(data) {
+              const text = String(data || '').trim();
+              if (text) console.log(`[WebContainer][npm install] ${text}`);
+            },
+          })
+        );
+
+        const installExitCode = await installProcess.exit;
+        await installOutputPromise.catch(() => {});
+        if (installExitCode !== 0) {
+          throw new Error(`npm install failed with exit code ${installExitCode}`);
+        }
+        console.log(`[WebContainer] Step 3/4 complete in ${(performance.now() - installStart).toFixed(0)} ms`);
       }
       
       // Start dev server (assumes vite, next, or create-react-app)
+      const devStart = performance.now();
+      console.log('[WebContainer] Step 4/4: Starting dev server...');
+
+      const serverReadyPromise = new Promise((resolve) => {
+        container.on('server-ready', (port, url) => {
+          console.log(`[WebContainer] Step 4/4 complete in ${(performance.now() - devStart).toFixed(0)} ms`);
+          console.log(`[WebContainer] Server is live at: ${url} on port ${port}`);
+          console.log(`[WebContainer] Total mount-to-render time: ${(performance.now() - totalStart).toFixed(0)} ms`);
+          setWebcontainerUrl(url);
+          setWebcontainerReady(true);
+          resolve({ port, url });
+        });
+      });
+
       let devProcess;
       if (files['vite.config.js'] || files['vite.config.ts']) {
-        devProcess = await container.spawn('npm', ['run', 'dev']);
+        devProcess = await container.spawn('npm', ['run', 'dev', '--', '--host', '0.0.0.0']);
       } else if (files['next.config.js']) {
         devProcess = await container.spawn('npm', ['run', 'dev']);
-      } else if (files['package.json']) {
+      } else if (hasPackageJson) {
         devProcess = await container.spawn('npm', ['start']);
       }
-      
-      // Listen for server ready
-      container.on('server-ready', (port, url) => {
-        console.log(`Server is live at: ${url} on port ${port}`);
-        setWebcontainerUrl(url);
-        setWebcontainerReady(true);
-      });
+
+      if (devProcess) {
+        devProcess.output.pipeTo(
+          new WritableStream({
+            write(data) {
+              const text = String(data || '').trim();
+              if (text) console.log(`[WebContainer][dev] ${text}`);
+            },
+          })
+        ).catch(() => {});
+
+        devProcess.exit.then((code) => {
+          console.log(`[WebContainer] Dev process exited with code ${code}`);
+          if (code !== 0) {
+            setWebcontainerReady(false);
+          }
+        });
+      }
+
+      const timeoutMs = 45000;
+      await Promise.race([
+        serverReadyPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`server-ready not fired within ${timeoutMs}ms`)), timeoutMs)
+        ),
+      ]);
       
       console.log('WebContainer initialized and running');
     } catch (error) {
@@ -105,6 +178,9 @@ const Chat = () => {
     setMessages((prev) => [...prev, initialBotMessage]);
 
     try {
+      setWebcontainerUrl(null);
+      setWebcontainerReady(false);
+
       // Use fetch with streaming for POST requests
       const response = await fetch('http://localhost:8000/prompt/stream', {
         method: 'POST',
@@ -127,6 +203,7 @@ const Chat = () => {
       let currentSessionId = null;
       let currentPreviewUrl = null;
       let fileCount = 0;
+      const streamedFiles = {};
 
       while (true) {
         const { done, value } = await reader.read();
@@ -190,6 +267,7 @@ const Chat = () => {
                 fileCount++;
                 const filename = eventData.filename;
                 const content = eventData.content;
+                streamedFiles[filename] = content;
                 
                 // Update bot message with progress
                 setMessages((prev) =>
@@ -220,6 +298,9 @@ const Chat = () => {
                 if (currentPreviewUrl) {
                   setWebcontainerUrl(currentPreviewUrl);
                   setWebcontainerReady(true);
+                } else if (streamedFiles['package.json']) {
+                  console.log('[WebContainer] No preview_url from backend. Initializing local WebContainer...');
+                  await initializeWebContainer(streamedFiles);
                 }
 
                 setMessages((prev) =>

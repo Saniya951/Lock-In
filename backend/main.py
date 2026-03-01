@@ -212,11 +212,14 @@ async def run_graph_stream_endpoint(payload: GraphRequest):
         def file_callback(event_type: str, data: dict):
             """Callback function that runs in the agent thread"""
             try:
+                filename = data.get('filename', 'N/A')
+                print(f"[BACKEND CALLBACK] Received event: {event_type}, file: {filename}")
                 # Use the captured event loop to safely put data from worker thread
                 asyncio.run_coroutine_threadsafe(
                     file_queue.put({"type": event_type, "data": data}),
                     loop
                 )
+                print(f"[BACKEND CALLBACK] Successfully queued: {filename}")
             except Exception as e:
                 print(f"Error in callback: {e}")
         

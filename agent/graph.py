@@ -60,11 +60,15 @@ def set_file_callback(callback):
 def emit_file_event(event_type: str, data: dict):
     """Emit a file event if callback is registered"""
     global _file_event_callback
+    cprint(f" [EMIT EVENT] Type: {event_type}, File: {data.get('filename', 'N/A')}", "magenta")
     if _file_event_callback:
         try:
             _file_event_callback(event_type, data)
+            cprint(f" [EMIT SUCCESS] Event sent to callback", "green")
         except Exception as e:
             cprint(f"Error in file event callback: {e}", "red")
+    else:
+        cprint(f" [EMIT WARNING] No callback registered!", "yellow")
 
 #load vector db
 cprint(f" Loading vector database from {DB_PATH}...", "yellow")
@@ -669,14 +673,27 @@ def executor_agent(state: GraphState) -> dict:
             lock_path = "frontend/package-lock.json" if template_string == "node-python-base" else "package-lock.json"
             remote_path = f"/home/user/app/{lock_path}"
             
-            # read from e2b
-            lock_content = sandbox.files.read(remote_path)
+            # read from e2b (returns bytes, decode to string)
+            lock_content_bytes = sandbox.files.read(remote_path)
+            lock_content = lock_content_bytes.decode("utf-8") if isinstance(lock_content_bytes, bytes) else lock_content_bytes
             
             #save to disk
             local_lock_path = os.path.join(code_dir, lock_path)
             with open(local_lock_path, "w", encoding="utf-8") as f:
                 f.write(lock_content)
             cprint(f"   Saved {lock_path} for WebContainer optimization.", "green")
+            
+            # Emit file_created event for package-lock.json
+            cprint(f" [CHECKPOINT 1] About to emit package-lock.json event...", "cyan")
+            cprint(f" [CHECKPOINT 2] Content length: {len(lock_content)} chars", "cyan")
+            emit_file_event("file_created", {
+                "session_id": session_id,
+                "filename": lock_path,
+                "content": lock_content,
+                "mode": "generated",
+                "progress": "npm dependencies"
+            })
+            cprint(f" [CHECKPOINT 3] Emit call completed for package-lock.json", "cyan")
         except Exception as e:
             cprint(f"   Could not extract package-lock.json: {e}", "yellow")
 
