@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
+import JSZip from 'jszip';
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
@@ -11,9 +12,11 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const iframeRef = useRef(null);
   const webcontainerRef = useRef(null);
+  const menuRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,6 +26,57 @@ const Chat = () => {
       navigate('/');
     }
   }, [navigate]);
+
+  useEffect(() => {
+    // Close menu when clicking outside
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [menuOpen]);
+
+  const exportAsZip = async () => {
+    try {
+      if (Object.keys(sessionFiles).length === 0) {
+        alert('No files to export');
+        return;
+      }
+
+      const zip = new JSZip();
+
+      // Add all sessionFiles to the zip
+      Object.entries(sessionFiles).forEach(([filename, content]) => {
+        zip.file(filename, content);
+      });
+
+      // Generate zip blob
+      const blob = await zip.generateAsync({ type: 'blob' });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'project.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log('Project exported as zip successfully');
+      setMenuOpen(false);
+    } catch (error) {
+      console.error('Error exporting as zip:', error);
+      alert('Failed to export project as zip');
+    }
+  };
 
   const initializeWebContainer = async (files) => {
     try {
@@ -514,9 +568,38 @@ const Chat = () => {
           </div>
           <h1 className="text-2xl font-bold">Lock-In</h1>
         </div>
-        <button className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white font-semibold hover:opacity-80 transition-all">
-          A
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Menu Button */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-lg z-50">
+                <button 
+                  onClick={exportAsZip}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-t-lg"
+                >
+                  📦 Export as zip
+                </button>
+                <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-b-lg border-t border-white/5">
+                  🔗 Link to github
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Button */}
+          <button className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white font-semibold hover:opacity-80 transition-all">
+            A
+          </button>
+        </div>
       </div>
 
       {/* Main Content with Resizable Panels */}
@@ -672,17 +755,8 @@ const Chat = () => {
                   {selectedFile && sessionFiles[selectedFile] ? (
                     <>
                       {/* File Header */}
-                      <div className="bg-[#0a0a0a] border-b border-white/5 px-3 py-2 flex items-center justify-between">
+                      <div className="bg-[#0a0a0a] border-b border-white/5 px-3 py-2">
                         <span className="text-xs text-gray-400 font-mono">{selectedFile}</span>
-                        <button 
-                          onClick={() => {
-                            // TODO: Implement run functionality
-                            console.log('Running file:', selectedFile);
-                          }}
-                          className="px-3 py-1 bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded text-xs text-green-400 font-semibold transition-colors flex items-center gap-1"
-                        >
-                          ▶ Run
-                        </button>
                       </div>
                       
                       {/* Code Editor Area */}
