@@ -3,17 +3,28 @@ from states import *
 import json
 
 # stack specific rules to build and test 
-BUILD_RULES = {
+ARCHITECT_RULES = {
     "python_script": """
         - ENVIRONMENT: Pure Python.
         - FOLDER STRUCTURE: Flat directory. All files in the root.
-        - DEPENDENCY FILE: `requirements.txt` only.
+        - DEPENDENCY FILE: `requirements.txt` only. You MUST generate tasks to create this.
+        - ORDER: Ensure the order makes sense (Config -> Core Logic -> UI Components).    
     """,
     "react_only": """
         - ENVIRONMENT: React using Vite.
         - SCAFFOLDING AWARENESS: The workspace ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these files.
-        - TASK GENERATION: Your task queue should start with modifying `src/App.jsx` according to user prompt and adding new components. If new npm packages are needed, create a task to MODIFY the existing `package.json`.
-        - FILE EXTENSIONS: All new React components MUST use `.jsx`.
+        - TASK GENERATION: Your task queue should start with modifying `src/App.jsx` and adding new components. If new npm packages are needed, create a task to MODIFY the existing `package.json`.
+        - FILE EXTENSIONS: All new React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
+        - ORDER: Ensure the order makes sense (Core Logic -> UI Components).
+
+    """,
+    "react_flask": """
+        - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
+        - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
+        - FRONTEND SCAFFOLDING: The `frontend/` directory ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these.
+        - FRONTEND TASKS: Start by modifying `frontend/src/App.jsx`. If new npm packages are needed create a task to MODIFY `frontend/package.json`.
+        - BACKEND TASKS: The `backend/` directory is EMPTY. You must generate all tasks to create `requirements.txt`, `app.py`, and routing logic from scratch.
+        - FILE EXTENSIONS: All new React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
     """,
     "node_backend": """
         - ENVIRONMENT: Pure JavaScript/Node.js.
@@ -22,13 +33,36 @@ BUILD_RULES = {
         - CRITICAL BOILERPLATE: MUST include "scripts": { "test": "vitest run" } in package.json.
         - CRITICAL DEPENDENCIES: MUST include `vitest` and `supertest` in devDependencies. ABSOLUTELY DO NOT install `jest`.
     """,
+    "unknown": "Use standard software development best practices."
+}
+
+CODER_RULES = {
+    "python_script": """
+        - ENVIRONMENT: Pure Python.
+        - FOLDER STRUCTURE: Flat directory. All files in the root.
+        - DEPENDENCY FILE: `requirements.txt` only. 
+    """,
+    "react_only": """
+        - ENVIRONMENT: React using Vite.
+        - SYNTAX: Use modern functional components and Hooks (useState, useEffect).
+        - IMPORTS: Use ES modules (`import`/`export`). Do NOT use CommonJS (`require`).
+        - CSS: Assume standard CSS is available if requested, but focus on the component logic.
+        - FILE EXTENSIONS: React components MUST be written as JSX.
+    """,
     "react_flask": """
         - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
-        - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
-        - FRONTEND SCAFFOLDING AWARENESS: The `frontend/` directory ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these.
-        - FRONTEND TASKS: Start by modifying `frontend/src/App.jsx`. To add npm packages, create a task to MODIFY `frontend/package.json`.
+        - FRONTEND: React using Vite. Use functional components and ES module imports.
+        - BACKEND: Python/Flask. 
         - FILE EXTENSIONS: All React frontend components MUST use `.jsx`.
-        - BACKEND TASKS: The `backend/` directory is EMPTY. You must generate all tasks to create `requirements.txt`, `app.py`, and routing logic from scratch.
+        - API CALLS: If writing frontend API calls, assume the Flask backend is available via relative API routes or a configured proxy.
+        - CORS: If writing the Flask backend, ensure `flask-cors` is utilized so the React frontend can communicate with it.
+    """,
+    "node_backend": """
+        - ENVIRONMENT: Pure JavaScript/Node.js.
+        - FOLDER STRUCTURE: `src/` directory for logic, `src/routes/`, `src/controllers/`.
+        - DEPENDENCY FILE: `package.json` in the root.
+        - CRITICAL BOILERPLATE: MUST include "scripts": { "test": "vitest run" } in package.json.
+        - CRITICAL DEPENDENCIES: MUST include `vitest` and `supertest` in devDependencies. ABSOLUTELY DO NOT install `jest`.
     """,
     "unknown": "Use standard software development best practices."
 }
@@ -120,7 +154,7 @@ You must return a valid JSON object matching this exact structure. Do not use ma
 
 def architect_prompt(plan) -> List[Dict[str, str]]:
     """Prompt 1: Build Structure & Dependencies"""
-    build_rules = BUILD_RULES.get(plan.tech_stack, BUILD_RULES["unknown"])
+    architect_rules = ARCHITECT_RULES.get(plan.tech_stack, ARCHITECT_RULES["unknown"])
     return [
         {
             "role": "system",
@@ -131,8 +165,8 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
 **Project Goal:** {plan.project_goal}
 **Stack:** {plan.tech_stack}
 **Steps:** {plan.steps}
-**CRITICAL BUILD RULES:**
-{build_rules}
+**CRITICAL ARCHITECT RULES:**
+{architect_rules}
 
 **Instructions:**
 1. **File List:** Translate high-level steps into specific files (app.py, App.jsx).
@@ -142,7 +176,6 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
    - Example: ["flask", "flask-cors", "requests"] OR ["react", "axios", "framer-motion"].
 3.DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
 4. Instead output specific file tasks according to the Project Goal . 
-5. Ensure the order makes sense (Core Logic -> UI Components).
 
 **Output Format:**
 Return a JSON with `implementation_steps` and `dependencies`.
@@ -153,7 +186,7 @@ Return a JSON with `implementation_steps` and `dependencies`.
 
 def qa_architect_prompt(plan, files_context:str) -> List[Dict[str, str]]:
     """Prompt 2: Test Strategy based on the Build Manifest"""
-    build_rules = BUILD_RULES.get(plan.tech_stack, BUILD_RULES["unknown"])
+    architect_rules = ARCHITECT_RULES.get(plan.tech_stack, ARCHITECT_RULES["unknown"])
     test_rules = TEST_RULES.get(plan.tech_stack, TEST_RULES["unknown"])
         
     return [
@@ -167,7 +200,7 @@ Your goal is to design a **Unit Testing Strategy** based on the files the Archit
 **Planned Source Files:**{files_context}
 
 **FOLDER STRUCTURE RULES (Where to place files):**
-{build_rules}
+{architect_rules}
 
 **TESTING RULES (How to write tests):**
 {test_rules}
@@ -175,6 +208,7 @@ Your goal is to design a **Unit Testing Strategy** based on the files the Archit
 **Instructions:**
 1.Create a `QATask` for every major logic/component file in the list above.
 2.DO NOT generate tests for configuration files like package.json, requirements.txt, .gitignore, or HTML files.
+3.DO NOT generate tests for boilerplate files like index.html, main.jsx etc.
 3.ABSOLUTELY NO SOURCE CODE. You are only designing test files.
 4.**Scenarios:** List 3-5 specific edge cases to test for each file.
 
@@ -250,7 +284,7 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         3. DO NOT add built-in Python libraries (math, os, sys).
         4. If no external dependencies are needed, YOU MUST RETURN EXACTLY AND ONLY THIS COMMENT: `# No dependencies required`. Do not output any other text or explanations."""
 
-    build_rules = BUILD_RULES.get(tech_stack, BUILD_RULES["unknown"])
+    coder_rules = CODER_RULES.get(tech_stack, CODER_RULES["unknown"])
 
     prompt_header = f"""
         Overarching Goal: {user_prompt}
@@ -261,7 +295,7 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         {prompt_header}
         You are a Senior Debugger.
 
-        FIX RULES: {build_rules}
+        GENERAL RULES: {coder_rules}
         FILE SPECIFIC RULES: {file_specific_rules}
         TARGET FILE: {filename}
         
@@ -284,7 +318,7 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         {prompt_header}
         You are a Senior Developer.
 
-        BUILD RULES: {build_rules}
+        GENERAL RULES: {coder_rules}
         FILE SPECIFIC RULES: {file_specific_rules}
         TARGET FILE: {filename}
         
@@ -310,12 +344,12 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         {prompt_header}
         You are a senior developer
 
-        BUILD RULES: {build_rules}
+        BUILD RULES: {coder_rules}
+        FILE SPECIFIC RULES:{file_specific_rules}
         TARGET FILE: {filename}
         
         TASK DESCRIPTION:
         {task_desc}
-        {file_specific_rules}
         
         RELEVANT DOCS:
         {doc_context}
