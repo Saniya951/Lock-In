@@ -146,8 +146,7 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
    - Example: ["flask", "flask-cors", "requests"] OR ["react", "axios", "framer-motion"].
 3.DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
 4. Instead output specific file tasks. 
-5. For `related_docs_topic`, be specific (e.g., "React Functional Components", "CSS Flexbox", "Node.js Express Setup").
-6. Ensure the order makes sense (Configs first -> Core Logic -> UI Components).
+5. Ensure the order makes sense (Configs first -> Core Logic -> UI Components).
 
 **Output Format:**
 Return a JSON with `implementation_steps` and `dependencies`.
@@ -190,9 +189,41 @@ Return a JSON with `qa_tasks`.
         {"role": "user", "content": "Generate the QA manifest."}
     ]
 
+def construct_researcher_prompt(tech_stack: str, task_queue: list, project_goal: str) -> str:
+    """Constructs the prompt for the Dedicated Researcher Node."""
+    
+    # Format the queue into a readable string
+    tasks_str = "\n".join([f"- File: {t['file_name']} | Task: {t['task_description']}" for t in task_queue])
+    
+    return f"""
+    You are a Lead Research Strategist. 
+    Your job is to analyze a queue of coding tasks and determine if external documentation is required to complete them successfully.
+    CRITICAL  RULES:
+1. THE CONFIG BAN: You MUST set `needs_search` to False for ALL dependency manifests and configuration files. This includes, but is not limited to: `package.json`, `requirements.txt`, `vite.config.js`, `vite.config.ts`, `tailwind.config.js`, `eslint`, `.env`, and `index.html`. 
+
+2. THE FOUNDATION BAN: You MUST set `needs_search` to False for foundational programmatic logic (e.g., standard React `useState`/`useEffect`, basic Flask routing, straightforward data parsing).
+
+3. THE STANDARD LIBRARY BAN: You MUST set `needs_search` to False for built-in language libraries that require no installation. For Python, this includes `os`, `sys`, `tkinter`, `unittest`, `mock`, `math`, `json`, etc. 
+
+4. QUERY ENGINEERING: When `needs_search` is True, your `search_query` MUST be optimized for finding official documentation, NOT beginner tutorials. 
+   - BAD QUERY: "how to use react router"
+   - GOOD QUERY: "React Router v6 createBrowserRouter exact syntax and API reference"
+   - BAD QUERY: "flask database setup"
+   - GOOD QUERY: "Flask-SQLAlchemy model definition query reference"
+
+INSTRUCTIONS:
+Evaluate every file in the pending tasks list against the rules above. Output your decisions mapping exactly to the filenames provided.
+    
+    PROJECT GOAL: {project_goal}
+    TECH STACK: {tech_stack}
+    
+    PENDING TASKS:
+    {tasks_str}
+    """
 
 def construct_coder_prompt(filename: str, task_desc: str, doc_context: str, 
-                           mode: str, existing_code: str = "", error_report: str = "", tech_stack: str ="") -> str:
+                           mode: str, existing_code: str = "", error_report: str = "", 
+                           tech_stack: str ="", user_prompt: str = "") -> str:
     """Constructs the prompt for the coder agent."""
     
     file_specific_rules = ""
@@ -207,18 +238,6 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         3. MANDATORY: You MUST additionally include all scripts, frameworks, and configuration blocks (like Vite, Vitest) required by the BUILD RULES below.
         4. DO NOT write Python dependencies here.
         """
-        
-    #pip and python rules
-    elif "requirements.txt" in filename_lower:
-        file_specific_rules = """
-        CRITICAL `requirements.txt` RULES:
-        1. Output standard pip format (one package per line).
-        2. DO NOT put JavaScript, Vite, Node, NPM packages, or JSON configuration in this file. Pure Python packages ONLY.
-        3. Include all Python packages requested in the task description.
-        4. DO NOT add built-in Python libraries (math, os, sys).
-        5. If no external dependencies are needed, leave the file completely blank.
-        """
-        
     #vite config rules
     elif "vite.config" in filename_lower:
         file_specific_rules = """
@@ -227,16 +246,27 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         2. MANDATORY: Ensure you configure the `test` block for Vitest (e.g., environment: 'jsdom') and import `@vitejs/plugin-react`.
         """
 
+    elif "requirements.txt" in filename_lower:
+        file_specific_rules = """
+        CRITICAL `requirements.txt` RULES:
+        1. Output standard pip format (one package per line).
+        2. DO NOT put JavaScript, Vite, Node, NPM packages, or JSON configuration. Pure Python ONLY.
+        3. DO NOT add built-in Python libraries (math, os, sys).
+        4. If no external dependencies are needed, YOU MUST RETURN EXACTLY AND ONLY THIS COMMENT: `# No dependencies required`. Do not output any other text or explanations."""
+
     build_rules = BUILD_RULES.get(tech_stack, BUILD_RULES["unknown"])
+
+    prompt_header = f"""
+        Overarching Goal: {user_prompt}
+    """
 
     if mode == "fix":
         return f"""
+        {prompt_header}
         You are a Senior Debugger.
 
         FIX RULES: {build_rules}
-
-        FILE SPECIFIC RULES:{file_specific_rules}
-        
+        FILE SPECIFIC RULES: {file_specific_rules}
         TARGET FILE: {filename}
         
         CURRENT CODE:
@@ -247,23 +277,18 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         ERROR REPORT:
         {error_report}
         
-        TASK:
-        Fix the error in the code above. 
-        Use the provided documentation if needed.
-        
-        RELEVANT DOCS:
-        {doc_context}
-        
+        TASK: Fix the error in the code above.
+
         OUTPUT FORMAT:
         Return ONLY the raw file content. Do NOT wrap it in ```markdown blocks. No explanations.
         """
     
     else: # mode == "build"
         return f"""
-        You are a Senior Developer.
+        {prompt_header}
+        You are a senior developer
 
         BUILD RULES: {build_rules}
-        
         TARGET FILE: {filename}
         
         TASK DESCRIPTION:

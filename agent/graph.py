@@ -1,5 +1,10 @@
+import os
+import sys 
+
 from dotenv import load_dotenv
 load_dotenv()
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
@@ -7,7 +12,6 @@ from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
 from pydantic import BaseModel, Field
 import json
-import os
 import re
 import uuid
 import time
@@ -40,7 +44,9 @@ llm = ChatGroq(model="llama-3.3-70b-versatile")
 # imp!!!!! this is an absolute path. It dynamically finds exactly where graph.py lives on your hard drive and forces the output folder to be created right next to it, 
 # completely ignoring where your terminal is currently pointing.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+# OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+# Save outputs to the user's home directory, completely escaping LangGraph's file watcher
+OUTPUT_DIR = os.path.expanduser("~/lock_in_agent_outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 DB_PATH = os.path.join(SCRIPT_DIR, "chroma_db") 
@@ -68,7 +74,7 @@ TECH_STACK_DOCS = {
     ],
     "python_script": [
         "docs.python.org",
-        "pypi.org", # Good for finding package specific docs
+        "readthedocs.io"
     ],
     "react_only": [
         "react.dev",
@@ -183,6 +189,46 @@ def architect_agent(state: GraphState) -> dict:
         "error_report": ""
     }   
 
+def researcher_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Researcher (Context Gathering)...", "cyan", attrs=["bold"])
+    
+    queue = state.get("task_queue", [])
+    if not queue:
+        cprint(" No tasks in queue to research.", "yellow")
+        return {}
+        
+    plan = state.get("plan")
+    tech_stack = plan.tech_stack if plan else "unknown"
+    project_goal = plan.project_goal if plan else "A software project"
+    
+    prompt = construct_researcher_prompt(tech_stack, queue, project_goal)
+    
+    try:
+        response = llm.with_structured_output(ResearchPlan).invoke([{"role": "user", "content": prompt}])
+        
+        # Map the LLM's decisions back to the specific files
+        decisions_map = {d.file_name: d for d in response.research_tasks}
+        
+        updated_queue = []
+        for task in queue:
+            decision = decisions_map.get(task['file_name'])
+            # Inject the search data directly into the task dictionary
+            task['needs_search'] = decision.needs_search if decision else False
+            task['search_query'] = decision.search_query if decision else ""
+            updated_queue.append(task)
+            
+            if task['needs_search']:
+                cprint(f"   [Search Planned] {task['file_name']} -> {task['search_query']}", "blue")
+            else:
+                cprint(f"   [Skip Search] {task['file_name']}", "dark_grey")
+                
+        return {"task_queue": updated_queue}
+
+    except Exception as e:
+        cprint(f"   Researcher failed: {e}. Defaulting to no-search.", "red")
+        return {} 
+
 # below 2 functions are coder helpers: research and embed async 
 def perform_jit_research(topic: str, use_tavily: bool,approved_domains: list = None) -> str:
     """Performs Just-In-Time research using the selected method."""
@@ -191,15 +237,25 @@ def perform_jit_research(topic: str, use_tavily: bool,approved_domains: list = N
 
     if use_tavily:
         cprint(f"   [Tavily] Researching: {topic}...", "blue")
-        # if approved_domains:
-            # cprint(f"   [Filter] Restricting to: {approved_domains}", "cyan")
+        search_kwargs = {
+                "max_results": 3,
+                "search_depth": "advanced", # Forces deep scraping, not just meta tags
+                "include_answer": True # Asks Tavily to synthesize a direct answer
+            }   
+        if approved_domains:
+            cprint(f"   [Filter] Restricting to: {approved_domains}", "cyan")
+            search_kwargs["include_domains"] = approved_domains
         try:
-            results = tavily_client.search(topic, max_results=4)            
-            # results = tavily_client.search(topic, max_results=4,include_domains=approved_domains)
+            # results = tavily_client.search(topic, max_results=4)      
+            results = tavily_client.search(topic, **search_kwargs)
             context = []
+            # Tavily's synthesized answer is often better than the raw snippets
+            if results.get("answer"):
+                context.append(f"Tavily Summary:\n{results['answer']}\n")
             for res in results.get("results", []):
                 context.append(f"Source: {res['url']}\nContent: {res['content']}")
-            return "\n\n".join(context)
+            final_context = "\n\n".join(context)
+            return final_context if final_context else "No relevant official docs found."
         except Exception as e:
             cprint(f"   [Tavily] Failed: {e}. Falling back to VectorDB.", "red")
 
@@ -234,8 +290,11 @@ def coder_agent(state: GraphState) -> dict:
     current_step = queue[index]
     filename = current_step['file_name']
     task_desc = current_step['task_description']
-    topic = current_step['related_docs_topic']
+    # topic = current_step['related_docs_topic']
     
+    needs_search = current_step.get('needs_search', False)
+    search_query = current_step.get('search_query', "")
+
     session_id = state["session_id"]
     user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code") 
     file_path = os.path.join(user_code_dir, filename)
@@ -244,11 +303,19 @@ def coder_agent(state: GraphState) -> dict:
     tech_stack = plan.tech_stack if plan else "unknown"
     official_domains = TECH_STACK_DOCS.get(tech_stack, [])
 
+    user_prompt = state.get("user_prompt")
+
     cprint(f" Processing File ({index+1}/{len(queue)}): {filename}", "cyan", attrs=["bold"])
 
-    #retrieve from vector db or tavily
-    search_method = state.get("search_method", False)
-    doc_context = perform_jit_research(topic, search_method,approved_domains=official_domains)
+    if needs_search and search_query:
+        search_method = state.get("search_method", False)
+        doc_context = perform_jit_research(search_query, search_method, approved_domains=official_domains)
+    else:
+        doc_context = "Rely on the above rules and your internal knowledge. No external docs provided."
+
+    # #retrieve from vector db or tavily
+    # search_method = state.get("search_method", False)
+    # doc_context = perform_jit_research(topic, search_method,approved_domains=official_domains)
 
     # detect: is this a fix mode or build mode?
     error_report = state.get("error_report")
@@ -293,7 +360,8 @@ def coder_agent(state: GraphState) -> dict:
         mode=mode,
         existing_code=existing_code,
         error_report=error_report,
-        tech_stack=tech_stack
+        tech_stack=tech_stack,
+        user_prompt=user_prompt
     )
 
     try:
@@ -836,6 +904,7 @@ graph.add_node("router", route_query)
 graph.add_node("planner", planner_agent)
 graph.add_node("architect", architect_agent)
 graph.add_node("coder", coder_agent) 
+graph.add_node("researcher",researcher_agent)
 graph.add_node("qa_agent", qa_agent)
 graph.add_node("dependency_validator",dependency_validator_agent)
 graph.add_node("executor", executor_agent)
@@ -908,7 +977,8 @@ graph.add_conditional_edges(
 )
 
 graph.add_edge("planner", "architect")
-graph.add_edge("architect","coder")
+graph.add_edge("architect","researcher")
+graph.add_edge("researcher","coder")
 graph.add_conditional_edges(
     "coder",
     check_queue_status,
@@ -939,8 +1009,10 @@ graph.add_conditional_edges(
     }
 )
 
-graph.add_edge("debugger", "coder") # close the loop!!!!!    
+graph.add_edge("debugger", "researcher") # close the loop!!!!!    
+graph.add_edge("researcher","coder")
 graph.add_edge("learner", END)
+
 
 agent = graph.compile()
 

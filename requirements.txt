@@ -30,7 +30,8 @@ filetype==1.2.0
 flatbuffers==25.9.23
 frozenlist==1.8.0
 fsspec==2025.9.0
-google-auth==2.41.1
+google-auth==2.48.0
+google-genai==1.62.0
 googleapis-common-protos==1.70.0
 greenlet==3.2.4
 groq==0.32.0
@@ -55,7 +56,8 @@ jsonschema-specifications==2025.9.1
 kubernetes==34.1.0
 langchain==0.3.27
 langchain-community==0.3.31
-langchain-core==0.3.79
+langchain-core==1.2.9
+langchain-google-genai==4.2.0
 langchain-groq==0.3.8
 langchain-huggingface==0.3.1
 langchain-text-splitters==0.3.11
@@ -138,6 +140,7 @@ typing_extensions==4.15.0
 unstructured==0.18.15
 unstructured-client==0.42.3
 urllib3==2.3.0
+uuid_utils==0.14.0
 uvicorn==0.37.0
 uvloop==0.21.0
 watchfiles==1.1.1

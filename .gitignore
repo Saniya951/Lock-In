@@ -31,3 +31,9 @@ tempCodeRunnerFile.py
 agent/output
 
 agent/active_sandboxes.json
+
+
+# LangGraph Studio Local Config
+langgraph.json
+.langgraph_api/
+.langgraph.sqlite
