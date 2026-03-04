@@ -567,9 +567,11 @@
 // export default Chat;
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Send, Sparkles, MoreHorizontal } from 'lucide-react';
 import { Send, Sparkles, Github, Loader2, X, Folder, FileCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
+import JSZip from 'jszip';
 import SyncModal from './SyncModal'; // Make sure this path matches your file structure
 
 const Chat = () => {
@@ -581,6 +583,7 @@ const Chat = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   
   // --- New GitHub Sync States ---
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -590,6 +593,7 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const iframeRef = useRef(null);
   const webcontainerRef = useRef(null);
+  const menuRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -606,6 +610,61 @@ const Chat = () => {
     const token = localStorage.getItem('github_token');
     
     if (!token) {
+      navigate('/');
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    // Close menu when clicking outside
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [menuOpen]);
+
+  const exportAsZip = async () => {
+    try {
+      if (Object.keys(sessionFiles).length === 0) {
+        alert('No files to export');
+        return;
+      }
+
+      const zip = new JSZip();
+
+      // Add all sessionFiles to the zip
+      Object.entries(sessionFiles).forEach(([filename, content]) => {
+        zip.file(filename, content);
+      });
+
+      // Generate zip blob
+      const blob = await zip.generateAsync({ type: 'blob' });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'project.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log('Project exported as zip successfully');
+      setMenuOpen(false);
+    } catch (error) {
+      console.error('Error exporting as zip:', error);
+      alert('Failed to export project as zip');
+    }
+  };
+
       alert("Please connect your GitHub account in the Navbar first!");
       setShowSyncModal(false);
       return;
@@ -642,24 +701,119 @@ const Chat = () => {
   // --- WebContainer Logic ---
   const initializeWebContainer = async (files) => {
     try {
+      const totalStart = performance.now();
+      console.log('[WebContainer] Starting initialization...');
+
+      if (webcontainerRef.current) {
+        console.log('[WebContainer] Tearing down existing container...');
+        try {
+          webcontainerRef.current.teardown();
+        } catch (teardownError) {
+          console.warn('[WebContainer] Teardown warning:', teardownError);
+        }
+      }
+
+      // Boot up WebContainer
+      const bootStart = performance.now();
+      console.log('[WebContainer] Step 1/4: Booting container...');
       const container = await WebContainer.boot();
       webcontainerRef.current = container;
+      console.log(`[WebContainer] Step 1/4 complete in ${(performance.now() - bootStart).toFixed(0)} ms`);
       
+      
+      // Write files to the container
+      const mountStart = performance.now();
+      console.log(`[WebContainer] Step 2/4: Mounting ${Object.keys(files).length} files...`);
       for (const [filename, content] of Object.entries(files)) {
         const dirPath = filename.substring(0, filename.lastIndexOf('/'));
         if (dirPath) await container.fs.mkdir(dirPath, { recursive: true });
         await container.fs.writeFile(filename, content);
       }
+      console.log(`[WebContainer] Step 2/4 complete in ${(performance.now() - mountStart).toFixed(0)} ms`);
+
+      const hasPackageJson = Boolean(files['package.json']);
+      const hasPackageLockJson = Boolean(files['package-lock.json']);
+      console.log(`[WebContainer] package.json present: ${hasPackageJson}`);
+      console.log(`[WebContainer] package-lock.json present: ${hasPackageLockJson}`);
       
+      // Check if package.json exists, if so run npm install
+      if (hasPackageJson) {
+        const installStart = performance.now();
+        console.log('[WebContainer] Step 3/4: Running npm install...');
+        const installProcess = await container.spawn('npm', ['install', '--legacy-peer-deps']);
+
+        const installOutputPromise = installProcess.output.pipeTo(
+          new WritableStream({
+            write(data) {
+              const text = String(data || '').trim();
+              if (text) console.log(`[WebContainer][npm install] ${text}`);
+            },
+          })
+        );
+
+        const installExitCode = await installProcess.exit;
+        await installOutputPromise.catch(() => {});
+        if (installExitCode !== 0) {
+          throw new Error(`npm install failed with exit code ${installExitCode}`);
+        }
+        console.log(`[WebContainer] Step 3/4 complete in ${(performance.now() - installStart).toFixed(0)} ms`);
       if (files['package.json']) {
         const installProcess = await container.spawn('npm', ['install']);
         await installProcess.exit;
       }
       
+      // Start dev server (assumes vite, next, or create-react-app)
+      const devStart = performance.now();
+      console.log('[WebContainer] Step 4/4: Starting dev server...');
+
+      const serverReadyPromise = new Promise((resolve) => {
+        container.on('server-ready', (port, url) => {
+          console.log(`[WebContainer] Step 4/4 complete in ${(performance.now() - devStart).toFixed(0)} ms`);
+          console.log(`[WebContainer] Server is live at: ${url} on port ${port}`);
+          console.log(`[WebContainer] Total mount-to-render time: ${(performance.now() - totalStart).toFixed(0)} ms`);
+          setWebcontainerUrl(url);
+          setWebcontainerReady(true);
+          resolve({ port, url });
+        });
+      });
+
       let devProcess;
+      if (files['vite.config.js'] || files['vite.config.ts']) {
+        devProcess = await container.spawn('npm', ['run', 'dev', '--', '--host', '0.0.0.0']);
+      } else if (files['next.config.js']) {
       if (files['vite.config.js'] || files['vite.config.ts'] || files['package.json']) {
         devProcess = await container.spawn('npm', ['run', 'dev']);
+      } else if (hasPackageJson) {
+        devProcess = await container.spawn('npm', ['start']);
       }
+
+      if (devProcess) {
+        devProcess.output.pipeTo(
+          new WritableStream({
+            write(data) {
+              const text = String(data || '').trim();
+              if (text) console.log(`[WebContainer][dev] ${text}`);
+            },
+          })
+        ).catch(() => {});
+
+        devProcess.exit.then((code) => {
+          console.log(`[WebContainer] Dev process exited with code ${code}`);
+          if (code !== 0) {
+            setWebcontainerReady(false);
+          }
+        });
+      }
+
+      const timeoutMs = 45000;
+      await Promise.race([
+        serverReadyPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`server-ready not fired within ${timeoutMs}ms`)), timeoutMs)
+        ),
+      ]);
+      
+      console.log('WebContainer initialized and running');
       
       container.on('server-ready', (port, url) => {
         setWebcontainerUrl(url);
@@ -678,18 +832,174 @@ const Chat = () => {
 
     const userMessage = { id: Date.now(), text: input, sender: 'user', timestamp: new Date() };
     setMessages((prev) => [...prev, userMessage]);
+    const userPrompt = input;
     setInput('');
     setLoading(true);
 
+    // Add initial bot message
+    const botMessageId = Date.now() + 1;
+    const initialBotMessage = {
+      id: botMessageId,
+      text: 'Initializing agent...',
+      sender: 'bot',
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, initialBotMessage]);
+
     try {
-      const response = await fetch('http://localhost:8000/prompt', {
+      setWebcontainerUrl(null);
+      setWebcontainerReady(false);
+
+      // Use fetch with streaming for POST requests
+      const response = await fetch('http://localhost:8000/prompt/stream', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          prompt: userPrompt,
+          search_method: false 
+        }),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: input }),
       });
 
       if (!response.ok) throw new Error("Request failed");
 
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentSessionId = null;
+      let currentPreviewUrl = null;
+      let fileCount = 0;
+      const streamedFiles = {};
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          setLoading(false);
+          break;
+        }
+
+        // Decode the chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages (they end with \n\n)
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop() || ''; // Keep incomplete message in buffer
+
+        for (const message of messages) {
+          if (!message.trim() || !message.startsWith('data: ')) continue;
+          
+          try {
+            const jsonStr = message.replace(/^data: /, '');
+            const data = JSON.parse(jsonStr);
+            const eventType = data.type;
+            const eventData = data.data;
+
+            console.log('Received SSE event:', eventType, eventData);
+
+            switch (eventType) {
+              case 'session_start':
+                currentSessionId = eventData.session_id;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `Session started: ${currentSessionId}` }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'status':
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: eventData.message }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'plan_created':
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `Planning complete. Tech stack: ${eventData.tech_stack}. Building files...` }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'file_created':
+                fileCount++;
+                const filename = eventData.filename;
+                const content = eventData.content;
+                streamedFiles[filename] = content;
+                
+                // Update bot message with progress
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `Generated ${fileCount} files. Latest: ${filename}` }
+                      : msg
+                  )
+                );
+
+                // Add file to sessionFiles immediately
+                setSessionFiles((prev) => {
+                  const updated = { ...prev, [filename]: content };
+                  
+                  // Auto-select first file
+                  if (fileCount === 1) {
+                    setSelectedFile(filename);
+                  }
+                  
+                  return updated;
+                });
+                break;
+
+              case 'complete':
+                setLoading(false);
+                
+                currentPreviewUrl = eventData.preview_url;
+                if (currentPreviewUrl) {
+                  setWebcontainerUrl(currentPreviewUrl);
+                  setWebcontainerReady(true);
+                } else if (streamedFiles['package.json']) {
+                  console.log('[WebContainer] No preview_url from backend. Initializing local WebContainer...');
+                  await initializeWebContainer(streamedFiles);
+                }
+
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `✅ Project complete! Generated ${fileCount} files.` }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'error':
+                setLoading(false);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { ...msg, text: `❌ Error: ${eventData.error}` }
+                      : msg
+                  )
+                );
+                break;
+            }
+          } catch (err) {
+            console.error('Error parsing SSE event:', err);
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error sending message:', error);
       const data = await response.json();
       
       if (data.session_id) {
@@ -725,6 +1035,13 @@ const Chat = () => {
       setMessages((prev) => [...prev, { id: Date.now() + 1, text: 'Error contacting agent.', sender: 'bot', timestamp: new Date() }]);
     } finally {
       setLoading(false);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMessageId
+            ? { ...msg, text: '❌ Error sending prompt. Please try again.' }
+            : msg
+        )
+      );
     }
   };
 
@@ -806,6 +1123,38 @@ const Chat = () => {
           <h1 className="text-2xl font-bold">Lock-In</h1>
         </div>
 
+        <div className="flex items-center gap-2">
+          {/* Menu Button */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-lg z-50">
+                <button 
+                  onClick={exportAsZip}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-t-lg"
+                >
+                  📦 Export as zip
+                </button>
+                <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-b-lg border-t border-white/5">
+                  🔗 Link to github
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Button */}
+          <button className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white font-semibold hover:opacity-80 transition-all">
+            A
+          </button>
+        </div>
+
         <div className="flex items-center gap-4">
           {currentSessionId && (
             <button 
@@ -867,17 +1216,35 @@ const Chat = () => {
             
             <div onMouseDown={() => setIsDraggingFileTree(true)} className="w-1 hover:bg-indigo-500/50 cursor-col-resize" />
 
-            <div className="flex-1 bg-[#050505] p-4">
-              {selectedFile ? (
-                <textarea
-                  value={sessionFiles[selectedFile] || ''}
-                  onChange={(e) => setSessionFiles({...sessionFiles, [selectedFile]: e.target.value})}
-                  className="w-full h-full bg-transparent font-mono text-xs outline-none resize-none"
-                  spellCheck={false}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-700">Select a file to edit</div>
-              )}
+                {/* Code Editor */}
+                <div className="flex-1 overflow-hidden bg-[#050505] flex flex-col">
+                  {selectedFile && sessionFiles[selectedFile] ? (
+                    <>
+                      {/* File Header */}
+                      <div className="bg-[#0a0a0a] border-b border-white/5 px-3 py-2">
+                        <span className="text-xs text-gray-400 font-mono">{selectedFile}</span>
+                      </div>
+                      
+                      {/* Code Editor Area */}
+                      <textarea
+                        value={sessionFiles[selectedFile]}
+                        onChange={(e) => handleCodeEdit(e.target.value)}
+                        className="flex-1 p-4 text-xs font-mono text-gray-300 bg-[#050505] border-none outline-none resize-none"
+                        spellCheck={false}
+                        style={{ 
+                          tabSize: 2,
+                          fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                          lineHeight: '1.5'
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-gray-600 text-sm">Select a file to view and edit code</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
