@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MoreHorizontal } from 'lucide-react';
+import { Send, Sparkles, MoreHorizontal, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
 import JSZip from 'jszip';
+import PropertyEditor from './PropertyEditor';
+import { createElementInspectorScript } from '../utils/elementInspector';
+import { processJsxFiles, resetIdTracking } from '../utils/astProcessor';
+import { updateElementStyles } from '../utils/codeUpdater';
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
@@ -13,6 +17,13 @@ const Chat = () => {
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // Visual Editing State
+  const [visualEditingEnabled, setVisualEditingEnabled] = useState(false);
+  const [selectedElement, setSelectedElement] = useState(null);
+  const [editorPanelOpen, setEditorPanelOpen] = useState(false);
+  const [elementIdMapping, setElementIdMapping] = useState({}); // Maps data-id to file info
+  
   const messagesEndRef = useRef(null);
   const iframeRef = useRef(null);
   const webcontainerRef = useRef(null);
@@ -42,6 +53,122 @@ const Chat = () => {
       };
     }
   }, [menuOpen]);
+
+  // Setup message listener for iframe communication
+  useEffect(() => {
+    const handleMessage = (e) => {
+      // Only accept messages from iframe
+      if (e.source !== iframeRef.current?.contentWindow) {
+        return;
+      }
+
+      if (e.data.type === 'ELEMENT_SELECTED') {
+        const elementData = e.data.data;
+        setSelectedElement(elementData);
+        setEditorPanelOpen(true);
+        console.log('[Visual Editor] Element selected:', elementData);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Toggle inspector when visual editing is enabled/disabled
+  useEffect(() => {
+    if (visualEditingEnabled) {
+      console.log('[Visual Editor] Edit Mode ON');
+      // Send message to iframe to activate inspector
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'TOGGLE_INSPECTOR',
+            active: true,
+          },
+          '*'
+        );
+      }
+    } else {
+      console.log('[Visual Editor] Edit Mode OFF');
+      // Send message to iframe to deactivate inspector
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'TOGGLE_INSPECTOR',
+            active: false,
+          },
+          '*'
+        );
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'CLEAR_INSPECTOR_HIGHLIGHT',
+          },
+          '*'
+        );
+      }
+      // Clear selection when turning off edit mode
+      setSelectedElement(null);
+      setEditorPanelOpen(false);
+    }
+  }, [visualEditingEnabled]);
+
+  // Handle style updates from PropertyEditor
+  const handleStyleUpdate = async (styles) => {
+    if (!selectedElement || !selectedElement.dataId) {
+      return;
+    }
+
+    try {
+      const { dataId } = selectedElement;
+      const elementInfo = elementIdMapping[dataId];
+
+      if (!elementInfo) {
+        console.warn('[Visual Editor] Element info not found in mapping:', dataId);
+        return;
+      }
+
+      const sourceFile = elementInfo.file;
+      const currentContent = sessionFiles[sourceFile];
+
+      if (!currentContent) {
+        console.error('[Visual Editor] Source file not found:', sourceFile);
+        return;
+      }
+
+      // Update the code using AST-based updater
+      const updatedContent = updateElementStyles(currentContent, dataId, styles);
+
+      // Update sessionFiles
+      setSessionFiles(prev => ({
+        ...prev,
+        [sourceFile]: updatedContent,
+      }));
+
+      // Write to WebContainer if it's a frontend file
+      if (webcontainerRef.current && !sourceFile.includes('.py')) {
+        try {
+          await webcontainerRef.current.fs.writeFile(sourceFile, updatedContent);
+          console.log('[Visual Editor] File updated in WebContainer:', sourceFile);
+        } catch (error) {
+          console.warn('[Visual Editor] Could not update in WebContainer:', error);
+        }
+      }
+
+      // Update the iframe immediately via postMessage
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'UPDATE_ELEMENT_STYLE',
+            dataId,
+            styles,
+          },
+          '*'
+        );
+      }
+    } catch (error) {
+      console.error('[Visual Editor] Error updating styles:', error);
+    }
+  };
 
   const exportAsZip = async () => {
     try {
@@ -109,11 +236,11 @@ const Chat = () => {
         if (dirPath) {
           await container.fs.mkdir(dirPath, { recursive: true });
         }
+        
         // Write file
         await container.fs.writeFile(filename, content);
       }
       console.log(`[WebContainer] Step 2/4 complete in ${(performance.now() - mountStart).toFixed(0)} ms`);
-
       const hasPackageJson = Boolean(files['package.json']);
       const hasPackageLockJson = Boolean(files['package-lock.json']);
       console.log(`[WebContainer] package.json present: ${hasPackageJson}`);
@@ -203,6 +330,68 @@ const Chat = () => {
     // Scroll to bottom of messages
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Helper function to preprocess JSX with data-id
+  const preprocessJsxWithIds = (jsxContent, filePath) => {
+    const result = processJsxFiles(
+      { [filePath]: jsxContent },
+      { strategy: 'all' }
+    );
+    
+    const processedContent = result.processedFiles[filePath];
+    const mapping = result.mapping || {};
+
+    // Transform mapping to include file info
+    const transformedMapping = {};
+    Object.entries(mapping).forEach(([dataId, info]) => {
+      transformedMapping[dataId] = {
+        file: filePath,
+        ...info,
+      };
+    });
+
+    return {
+      processedContent,
+      mapping: transformedMapping,
+    };
+  };
+
+  const injectInspectorScript = (htmlContent) => {
+    if (!htmlContent || htmlContent.includes('[Inspector] ✓ SCRIPT LOADED IN IFRAME - Ready to detect clicks')) {
+      return htmlContent;
+    }
+
+    const inspectorScript = createElementInspectorScript();
+    const insertPoint = htmlContent.lastIndexOf('</body>');
+
+    if (insertPoint === -1) {
+      return htmlContent;
+    }
+
+    const beforeBody = htmlContent.substring(0, insertPoint);
+    const afterBody = htmlContent.substring(insertPoint);
+    return beforeBody + '<script>\n' + inspectorScript + '\n</script>\n' + afterBody;
+  };
+
+  const shouldPreprocessJsxForInspector = (filename, content) => {
+    if (!['.jsx', '.tsx', '.js'].some(ext => filename.endsWith(ext))) {
+      return false;
+    }
+
+    if (!filename.startsWith('src/')) {
+      return false;
+    }
+
+    if (/\.test\.(jsx|tsx|js)$/.test(filename)) {
+      return false;
+    }
+
+    if (!content || content.includes('data-id=')) {
+      return false;
+    }
+
+    return true;
+  };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -320,7 +509,36 @@ const Chat = () => {
               case 'file_created':
                 fileCount++;
                 const filename = eventData.filename;
-                const content = eventData.content;
+                let content = eventData.content;
+                
+                console.log('[File Created] Event received - filename:', filename, 'visualEditingEnabled:', visualEditingEnabled);
+                
+                // Always inject inspector script into HTML (inspector is inactive by default)
+                if (filename.endsWith('index.html')) {
+                  try {
+                    content = injectInspectorScript(content);
+                    console.log('[Visual Editor] Inspector script ensured in index.html');
+                  } catch (error) {
+                    console.warn('[Visual Editor] Could not inject inspector into HTML:', error.message);
+                  }
+                }
+                
+                // Preprocess JSX files with data-id attributes for visual editing
+                if (shouldPreprocessJsxForInspector(filename, content)) {
+                  try {
+                    const { processedContent, mapping } = preprocessJsxWithIds(content, filename);
+                    content = processedContent;
+                    // Store the mapping for later use
+                    setElementIdMapping(prev => ({
+                      ...prev,
+                      ...mapping,
+                    }));
+                    console.log('[Visual Editor] Preprocessed', filename, 'with', Object.keys(mapping).length, 'element IDs');
+                  } catch (error) {
+                    console.warn('[Visual Editor] Could not preprocess', filename, ':', error.message);
+                  }
+                }
+                
                 streamedFiles[filename] = content;
                 
                 // Update bot message with progress
@@ -586,10 +804,10 @@ const Chat = () => {
                   onClick={exportAsZip}
                   className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-t-lg"
                 >
-                  📦 Export as zip
+                   Export as zip
                 </button>
                 <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-b-lg border-t border-white/5">
-                  🔗 Link to github
+                   Link to github
                 </button>
               </div>
             )}
@@ -692,12 +910,65 @@ const Chat = () => {
           <div style={{ width: `${rightPanelWidth}%` }} className="flex flex-col" id="right-panels">
             {/* Render Window Panel */}
             <div style={{ height: `${renderHeight}%` }} className="bg-[#0a0a0a] flex flex-col border-b border-white/5 overflow-hidden">
+              {/* Render Window Header */}
+              <div className="bg-[#0a0a0a]/80 border-b border-white/5 px-4 py-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-400 uppercase">Preview</span>
+                {webcontainerReady && webcontainerUrl && (
+                  <button
+                    onClick={() => {
+                      setVisualEditingEnabled(!visualEditingEnabled);
+                      if (!visualEditingEnabled) {
+                        resetIdTracking();
+                      }
+                    }}
+                    className={`text-xs px-3 py-1 rounded-md flex items-center gap-1 transition-all ${
+                      visualEditingEnabled
+                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/50'
+                        : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                    }`}
+                    title="Toggle visual element editing"
+                  >
+                    {visualEditingEnabled ? (
+                      <>
+                        <Eye className="w-3 h-3" />
+                        Edit Mode ON
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-3 h-3" />
+                        Edit Mode OFF
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
               {webcontainerReady && webcontainerUrl ? (
                 <>
                   <iframe
                     ref={iframeRef}
                     src={webcontainerUrl}
-                    className="w-full h-full border-none"
+                    onLoad={() => {
+                      if (iframeRef.current && iframeRef.current.contentWindow) {
+                        iframeRef.current.contentWindow.postMessage(
+                          {
+                            type: 'TOGGLE_INSPECTOR',
+                            active: visualEditingEnabled,
+                          },
+                          '*'
+                        );
+
+                        if (!visualEditingEnabled) {
+                          iframeRef.current.contentWindow.postMessage(
+                            {
+                              type: 'CLEAR_INSPECTOR_HIGHLIGHT',
+                            },
+                            '*'
+                          );
+                        }
+                      }
+                    }}
+                    className="w-full h-full border-none flex-1"
                     title="Live Preview"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                   />
@@ -782,6 +1053,17 @@ const Chat = () => {
             </div>
           </div>
         </div>
+
+        {/* Property Editor Panel */}
+        <PropertyEditor
+          selectedElement={selectedElement}
+          onUpdateStyle={handleStyleUpdate}
+          onClose={() => {
+            setEditorPanelOpen(false);
+            setSelectedElement(null);
+          }}
+          isOpen={editorPanelOpen && visualEditingEnabled}
+        />
       </div>
     </div>
   );

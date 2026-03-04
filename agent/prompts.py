@@ -255,6 +255,7 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         3. This file is the HTML entry point for Vite. Keep it simple and minimal.
         4. DO NOT include React code or component logic here - this is pure HTML.
         5. CRITICAL: Link to `/src/main.jsx`, NOT `/src/App.jsx`. main.jsx will handle importing App.jsx.
+        6. CRITICAL: ALWAYS include a <style> tag in the <head> with `body { background-color: white; }` by default. Users can override this with their own CSS if they specify a background color in their request.
         """
         
     #vite config rules
