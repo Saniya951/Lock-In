@@ -152,6 +152,36 @@ You must return a valid JSON object matching this exact structure. Do not use ma
         }
     ]
 
+def feature_architect_prompt(user_prompt: str, tech_stack: str, completed_files: list) -> List[Dict[str, str]]:
+    
+    # Reuse your existing architect rules so it understands the boundaries of the stack
+    architect_rules = ARCHITECT_RULES.get(tech_stack, ARCHITECT_RULES["unknown"])
+    
+    return [
+        {
+            "role": "system",
+            "content": f"""
+You are a Lead Feature Architect. 
+An application has already been built and scaffolded. Your job is to analyze the user's new feature request and generate a list of file modification tasks to implement it.
+
+**The Stack:** {tech_stack}
+**Existing Files in Workspace:** {completed_files}
+
+**ARCHITECTURAL RULES:**
+{architect_rules}
+
+**CRITICAL INSTRUCTIONS:**
+1. **Delta Updates Only:** Do NOT generate tasks to recreate files that already exist (like `index.html` or `vite.config.js`) unless the user's specific feature requires modifying them.
+2. **File Modifications:** If a feature requires changing an existing file (e.g., adding a button to *.jsx), create a task for *.jsx with a detailed `task_description` of what needs to be added.
+3. **New Files:** If the feature requires a new component or backend route, create a task for that new file.
+4. **Dependencies:** If the feature requires new npm/pip packages, create a task to update requirements.txt/ package.json files.
+
+Output a valid JSON containing `implementation_steps` and `dependencies`.
+"""
+        },
+        {"role": "user", "content": f"New Feature Request: {user_prompt}"}
+    ]
+
 def architect_prompt(plan) -> List[Dict[str, str]]:
     """Prompt 1: Build Structure & Dependencies"""
     architect_rules = ARCHITECT_RULES.get(plan.tech_stack, ARCHITECT_RULES["unknown"])
@@ -430,3 +460,21 @@ def construct_debugger_prompt(error_category: str, category_instructions: str, c
     3. If the current error is the same as a previous error, your previous fix FAILED. Try a DIFFERENT approach.
     4. NO DIAGNOSTIC SCRIPTS: Do NOT create files like `debug.py` or `test.py`. Fix the broken source files directly.
     """
+
+def explainer_prompt(run_status: str, files_content: str, user_prompt: str) -> list:
+    return [
+        {
+            "role": "system",
+            "content": (
+                f"""You are the Explainer Agent in an autonomous coding framework.
+                Your job is to read the raw code of the files created/modified in the current turn and provide a concise,easy-to-understand summary of what was built, changed, or attempted to the user.
+                RULES:
+                1. Keep it brief. Do not regurgitate the code.
+                2. Explain architecture and logic in context to the user prompt {user_prompt}."""
+            )
+        },
+        {
+            "role": "user",
+            "content": f"The pipeline finished with status: {run_status.upper()}\n\nHere are the files modified in this turn:\n{files_content}"
+        }
+    ]

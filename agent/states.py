@@ -122,3 +122,5 @@ class GraphState(TypedDict):
     status: str
 
     sandbox_id: str | None
+
+    current_turn_files: list[str]
