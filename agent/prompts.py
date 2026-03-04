@@ -11,12 +11,9 @@ BUILD_RULES = {
     """,
     "react_only": """
         - ENVIRONMENT: React using Vite.
-        - FOLDER STRUCTURE: Vite standard. `index.html`, `package.json`, and `vite.config.js` in the root. Source code in `src/`.
-        - FILE EXTENSIONS: All React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
-        - DEPENDENCY FILE: `package.json` in the root.
-        - CRITICAL CONFIG: You MUST generate a `vite.config.js` file that imports `@vitejs/plugin-react`. Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
-        - CRITICAL SCRIPTS: In `package.json`, the scripts MUST include: "dev": "vite", "build": "vite build", and "test": "vitest run".
-        - CRITICAL DEPENDENCIES: You MUST include `react` and `react-dom` in standard dependencies. You MUST include `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom` in devDependencies.
+        - SCAFFOLDING AWARENESS: The workspace ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these files.
+        - TASK GENERATION: Your task queue should start with modifying `src/App.jsx` according to user prompt and adding new components. If new npm packages are needed, create a task to MODIFY the existing `package.json`.
+        - FILE EXTENSIONS: All new React components MUST use `.jsx`.
     """,
     "node_backend": """
         - ENVIRONMENT: Pure JavaScript/Node.js.
@@ -28,11 +25,10 @@ BUILD_RULES = {
     "react_flask": """
         - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
         - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
-        - DEPENDENCY FILES: Create `frontend/package.json` AND `backend/requirements.txt`.
+        - FRONTEND SCAFFOLDING AWARENESS: The `frontend/` directory ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these.
+        - FRONTEND TASKS: Start by modifying `frontend/src/App.jsx`. To add npm packages, create a task to MODIFY `frontend/package.json`.
         - FILE EXTENSIONS: All React frontend components MUST use `.jsx`.
-        - FRONTEND CONFIG: You MUST generate a `frontend/vite.config.js` file using `@vitejs/plugin-react`.Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
-        - FRONTEND SCRIPTS: In `frontend/package.json`, include: "dev": "vite", "build": "vite build", and "test": "vitest run".
-        - FRONTEND DEPENDENCIES: MUST include `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom`.
+        - BACKEND TASKS: The `backend/` directory is EMPTY. You must generate all tasks to create `requirements.txt`, `app.py`, and routing logic from scratch.
     """,
     "unknown": "Use standard software development best practices."
 }
@@ -139,14 +135,14 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
 {build_rules}
 
 **Instructions:**
-1. **File List:** Translate high-level steps into specific files (package.json, app.py, App.jsx).
+1. **File List:** Translate high-level steps into specific files (app.py, App.jsx).
  **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.jsx`, `spec.jsx`).
 2. **Dependencies:** List ONLY the package names needed for `npm install` or `pip install`. 
    - DO NOT include version numbers. 
    - Example: ["flask", "flask-cors", "requests"] OR ["react", "axios", "framer-motion"].
 3.DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
-4. Instead output specific file tasks. 
-5. Ensure the order makes sense (Configs first -> Core Logic -> UI Components).
+4. Instead output specific file tasks according to the Project Goal . 
+5. Ensure the order makes sense (Core Logic -> UI Components).
 
 **Output Format:**
 Return a JSON with `implementation_steps` and `dependencies`.
@@ -235,7 +231,7 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         CRITICAL `package.json` RULES:
         1. Output VALID JSON only.
         2. Include all NPM packages requested in the task description.
-        3. MANDATORY: You MUST additionally include all scripts, frameworks, and configuration blocks (like Vite, Vitest) required by the BUILD RULES below.
+        3. MANDATORY: You MUST additionally include all scripts, frameworks, and configuration blocks (like Vite, Vitest) required by the BUILD RULES above.
         4. DO NOT write Python dependencies here.
         """
     #vite config rules
@@ -283,6 +279,32 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         Return ONLY the raw file content. Do NOT wrap it in ```markdown blocks. No explanations.
         """
     
+    elif mode == "modify":
+        return f"""
+        {prompt_header}
+        You are a Senior Developer.
+
+        BUILD RULES: {build_rules}
+        FILE SPECIFIC RULES: {file_specific_rules}
+        TARGET FILE: {filename}
+        
+        CURRENT SCAFFOLDED CODE:
+        ```
+        {existing_code}
+        ```
+        
+        TASK DESCRIPTION:
+        {task_desc}
+        
+        TASK: This file already exists from a boilerplate template. Your job is to UPDATE or APPEND to this existing code to fulfill the task description. 
+        - Do NOT delete the foundational configuration.
+        - For JSON files, merge the new data seamlessly.
+        - For JS/JSX files, inject the required imports and logic without breaking the existing structure.
+
+        OUTPUT FORMAT:
+        Return ONLY the full, updated raw file content. Do NOT wrap it in ```markdown blocks. No explanations.
+        """
+
     else: # mode == "build"
         return f"""
         {prompt_header}

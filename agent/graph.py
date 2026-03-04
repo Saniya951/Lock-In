@@ -1,6 +1,6 @@
 import os
 import sys 
-
+import shutil
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -127,6 +127,43 @@ def planner_agent(state: GraphState) -> dict:
         cprint(f"Error saving plan output: {e}", "red")
         
     return {"plan": response}
+
+def scaffolder_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Scaffolder (Boilerplate Injection)...", "cyan", attrs=["bold"])
+    
+    plan = state.get("plan")
+    session_id = state["session_id"]
+    tech_stack = plan.tech_stack if plan else "unknown"
+    completed_files = state.get("completed_files", [])
+    
+    user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+    template_dir = os.path.join(SCRIPT_DIR, "templates", tech_stack)
+    
+    scaffolded_list = []
+
+    if os.path.exists(template_dir):
+        cprint(f" Injecting {tech_stack} templates into workspace...", "green")
+        shutil.copytree(template_dir, user_code_dir, dirs_exist_ok=True)
+        
+        # Read the newly copied files to update the state
+        for root, _, files in os.walk(template_dir):
+            for file in files:
+                # Get the relative path exactly as it will appear in user_code_dir
+                rel_dir = os.path.relpath(root, template_dir)
+                if rel_dir == ".":
+                    rel_path = file
+                else:
+                    rel_path = os.path.join(rel_dir, file).replace("\\", "/")
+                scaffolded_list.append(rel_path)
+                
+        cprint(f" Scaffolded {len(scaffolded_list)} foundational files.", "green")
+    else:
+        cprint(f" No static templates found for {tech_stack}.", "red")
+        os.makedirs(user_code_dir, exist_ok=True)
+        
+    # Append the new files to whatever was already in completed_files
+    return {"completed_files": completed_files + scaffolded_list}
 
 def normalize_deps(deps: list[str]) -> set[str]:
     # to convert all dependencies into lower case and to remove any extra space before or after them
@@ -317,7 +354,7 @@ def coder_agent(state: GraphState) -> dict:
     # search_method = state.get("search_method", False)
     # doc_context = perform_jit_research(topic, search_method,approved_domains=official_domains)
 
-    # detect: is this a fix mode or build mode?
+    # detect: is this a fix mode, modify mode or build mode?
     error_report = state.get("error_report")
     
     file_exists = os.path.exists(file_path)
@@ -346,10 +383,19 @@ def coder_agent(state: GraphState) -> dict:
             existing_code = f.read()
 
     # if there's something in error report and that file happens to already exist too then we needa go in build mode
-    mode = "fix" if (error_report and file_exists) else "build"
+    # mode = "fix" if (error_report and file_exists) else "build"
     
+    if error_report and file_exists:
+        mode = "fix"
+    elif not error_report and file_exists:
+        mode = "modify"  # The file was scaffolded, we just need to append/edit
+    else:
+        mode = "build"
+        
     if mode == "fix":
         cprint("   [Mode] Repairing existing code based on error...", "yellow", attrs=["blink"])
+    elif mode == "modify":
+        cprint("   [Mode] Modifying scaffolded template...", "blue")
     else:
         cprint("   [Mode] Generating new code...", "green")
 
@@ -902,6 +948,7 @@ graph = StateGraph(GraphState)
 # all nodes 
 graph.add_node("router", route_query)
 graph.add_node("planner", planner_agent)
+graph.add_node("scaffolder", scaffolder_agent)
 graph.add_node("architect", architect_agent)
 graph.add_node("coder", coder_agent) 
 graph.add_node("researcher",researcher_agent)
@@ -927,6 +974,17 @@ def route_decision(state: GraphState) -> Literal["planner", "debugger", "learner
         return "learner"
     else:
         return "planner"
+
+def check_scaffold_status(state: GraphState) -> Literal["scaffolder", "architect"]:
+    plan = state.get("plan")
+    tech_stack = plan.tech_stack if plan else "unknown"
+    
+    if tech_stack in ["react_only", "react_flask"]:
+        cprint("   [Router] React stack detected. Routing to Scaffolder...", "yellow")
+        return "scaffolder"
+    else:
+        cprint("   [Router] Non-React stack detected. Bypassing Scaffolder -> Architect", "yellow")
+        return "architect"
 
 def check_queue_status(state: GraphState) -> Literal["coder", "qa_agent", "dependency_validator"]:
     queue = state.get("task_queue", [])
@@ -976,7 +1034,19 @@ graph.add_conditional_edges(
     }
 )
 
-graph.add_edge("planner", "architect")
+# graph.add_edge("planner", "architect")
+# graph.add_edge("planner", "scaffolder")
+# graph.add_edge("scaffolder", "architect")
+graph.add_conditional_edges(
+    "planner",
+    check_scaffold_status,
+    {
+        "scaffolder": "scaffolder",
+        "architect": "architect"
+    }
+)
+
+graph.add_edge("scaffolder", "architect")
 graph.add_edge("architect","researcher")
 graph.add_edge("researcher","coder")
 graph.add_conditional_edges(
