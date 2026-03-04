@@ -1,282 +1,275 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
-from motor.motor_asyncio import AsyncIOMotorClient
-from beanie import init_beanie
-from models import User, UserCreate, UserLogin, Token
-from pydantic import BaseModel
-import anyio
-import sys
-import ssl
-import os
-from pathlib import Path
-from contextlib import asynccontextmanager
-from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
-from config import MONGODB_URL, DATABASE_NAME
-import uvicorn
-from github_service import create_github_repo, push_to_github
-import httpx
-import certifi # Add this import
-from github_service import sync_to_github
+# from fastapi import FastAPI, Depends, HTTPException, status
+# from fastapi.security import OAuth2PasswordBearer
+# from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.responses import HTMLResponse, RedirectResponse
+# from motor.motor_asyncio import AsyncIOMotorClient
+# from beanie import init_beanie
+# from models import User, UserCreate, UserLogin, Token
+# from pydantic import BaseModel
+# import anyio
+# import sys
+# import ssl
+# import os
+# from pathlib import Path
+# from contextlib import asynccontextmanager
+# from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
+# from config import MONGODB_URL, DATABASE_NAME
+# import uvicorn
+# from github_service import create_github_repo, push_to_github
+# import httpx
+# import certifi # Add this import
+# from github_service import sync_to_github
 
 
-# Inside lifespan or where you define the client:
-client = AsyncIOMotorClient(
-    MONGODB_URL,
-    tlsCAFile=certifi.where(), # Add this line
-    tlsAllowInvalidCertificates=True,
-    serverSelectionTimeoutMS=5000
-)
+# # Inside lifespan or where you define the client:
+# client = AsyncIOMotorClient(
+#     MONGODB_URL,
+#     tlsCAFile=certifi.where(), # Add this line
+#     tlsAllowInvalidCertificates=True,
+#     serverSelectionTimeoutMS=5000
+# )
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+# ROOT_DIR = Path(__file__).resolve().parents[1]
+# if str(ROOT_DIR) not in sys.path:
+#     sys.path.append(str(ROOT_DIR))
 
-from agent.graph import run_graph
+# from agent.graph import run_graph
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    try:
-        # Create SSL context
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Startup
+#     try:
+#         # Create SSL context
+#         ssl_context = ssl.create_default_context()
+#         ssl_context.check_hostname = False
+#         ssl_context.verify_mode = ssl.CERT_NONE
         
-        client = AsyncIOMotorClient(
-            MONGODB_URL,
-            tlsAllowInvalidCertificates=True,
-            serverSelectionTimeoutMS=5000,
-            connectTimeoutMS=5000
-        )
-        await init_beanie(database=client[DATABASE_NAME], document_models=[User])
-        print("MongoDB connected successfully")
-    except Exception as e:
-        print(f"MongoDB connection failed: {e}")
-        print("Warning: Running without database. Auth endpoints will not work.")
-        client = None
+#         client = AsyncIOMotorClient(
+#             MONGODB_URL,
+#             tlsAllowInvalidCertificates=True,
+#             serverSelectionTimeoutMS=5000,
+#             connectTimeoutMS=5000
+#         )
+#         await init_beanie(database=client[DATABASE_NAME], document_models=[User])
+#         print("MongoDB connected successfully")
+#     except Exception as e:
+#         print(f"MongoDB connection failed: {e}")
+#         print("Warning: Running without database. Auth endpoints will not work.")
+#         client = None
     
-    yield
+#     yield
     
-    # Shutdown
-    if client:
-        client.close()
+#     # Shutdown
+#     if client:
+#         client.close()
 
-app = FastAPI(lifespan=lifespan)
+# app = FastAPI(lifespan=lifespan)
 
-@app.middleware("http")
-async def add_security_headers(request, call_next):
-    response = await call_next(request)
-    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless" # Better for iframes
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
-    return response
+# @app.middleware("http")
+# async def add_security_headers(request, call_next):
+#     response = await call_next(request)
+#     response.headers["Cross-Origin-Embedder-Policy"] = "credentialless" # Better for iframes
+#     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+#     return response
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-class GraphRequest(BaseModel):
-    prompt: str
-    search_method: bool = False  # False (0) for vectordb (default), True (1) for tavily
+# class GraphRequest(BaseModel):
+#     prompt: str
+#     search_method: bool = False  # False (0) for vectordb (default), True (1) for tavily
 
-@app.post("/signup", response_model=dict)
-async def signup(user: UserCreate):
-    # Check if user already exists
-    existing_user = await User.find_one(User.email == user.email)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+# @app.post("/signup", response_model=dict)
+# async def signup(user: UserCreate):
+#     # Check if user already exists
+#     existing_user = await User.find_one(User.email == user.email)
+#     if existing_user:
+#         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Hash password
-    hashed_password = get_password_hash(user.password)
+#     # Hash password
+#     hashed_password = get_password_hash(user.password)
     
-    # Generate verification token
-    token = generate_verification_token()
+#     # Generate verification token
+#     token = generate_verification_token()
     
-    # Create user
-    new_user = User(
-        email=user.email,
-        password=hashed_password,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        dob=user.dob,
-        profession=user.profession,
-        verification_token=token
-    )
-    await new_user.insert()
+#     # Create user
+#     new_user = User(
+#         email=user.email,
+#         password=hashed_password,
+#         first_name=user.first_name,
+#         last_name=user.last_name,
+#         dob=user.dob,
+#         profession=user.profession,
+#         verification_token=token
+#     )
+#     await new_user.insert()
     
-    # Send verification email
-    await send_verification_email(user.email, token)
+#     # Send verification email
+#     await send_verification_email(user.email, token)
     
-    return {"message": "Verification email sent"}
+#     return {"message": "Verification email sent"}
 
-@app.get("/verify/{token}", response_class=HTMLResponse)
-async def verify_email(token: str):
-    user = await User.find_one(User.verification_token == token)
-    if not user:
-        html_content = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Verification Failed</title>
-            <style>
-                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #050505; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }
-                .container { text-align: center; max-width: 500px; padding: 40px; }
-                h1 { font-size: 32px; margin-bottom: 16px; }
-                p { color: rgba(255,255,255,0.6); margin-bottom: 32px; }
-                a { display: inline-block; padding: 12px 32px; background: linear-gradient(to right, #6366f1, #22d3ee); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>❌ Invalid Verification Link</h1>
-                <p>This verification link is invalid or has already been used.</p>
-                <a href="http://localhost:5173">Return to Lock-In</a>
-            </div>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html_content, status_code=400)
+# @app.get("/verify/{token}", response_class=HTMLResponse)
+# async def verify_email(token: str):
+#     user = await User.find_one(User.verification_token == token)
+#     if not user:
+#         html_content = """
+#         <!DOCTYPE html>
+#         <html>
+#         <head>
+#             <title>Verification Failed</title>
+#             <style>
+#                 body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #050505; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }
+#                 .container { text-align: center; max-width: 500px; padding: 40px; }
+#                 h1 { font-size: 32px; margin-bottom: 16px; }
+#                 p { color: rgba(255,255,255,0.6); margin-bottom: 32px; }
+#                 a { display: inline-block; padding: 12px 32px; background: linear-gradient(to right, #6366f1, #22d3ee); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; }
+#             </style>
+#         </head>
+#         <body>
+#             <div class="container">
+#                 <h1>❌ Invalid Verification Link</h1>
+#                 <p>This verification link is invalid or has already been used.</p>
+#                 <a href="http://localhost:5173">Return to Lock-In</a>
+#             </div>
+#         </body>
+#         </html>
+#         """
+#         return HTMLResponse(content=html_content, status_code=400)
     
-    user.is_verified = True
-    user.verification_token = None
-    await user.save()
+#     user.is_verified = True
+#     user.verification_token = None
+#     await user.save()
     
-    # Generate JWT token for auto-login
-    access_token = create_access_token(data={"sub": user.email})
+#     # Generate JWT token for auto-login
+#     access_token = create_access_token(data={"sub": user.email})
     
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Email Verified</title>
-        <style>
-            body {{ margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #050505; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }}
-            .container {{ text-align: center; max-width: 500px; padding: 40px; }}
-            .logo {{ width: 64px; height: 64px; background: linear-gradient(to bottom right, #6366f1, #22d3ee); border-radius: 16px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; }}
-            h1 {{ font-size: 32px; margin-bottom: 16px; }}
-            p {{ color: rgba(255,255,255,0.6); margin-bottom: 32px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="logo">✨</div>
-            <h1>✅ Email Verified Successfully!</h1>
-            <p>Logging you in...</p>
-        </div>
-        <script>
-            window.location.href = 'http://localhost:5173?token={access_token}';
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+#     html_content = f"""
+#     <!DOCTYPE html>
+#     <html>
+#     <head>
+#         <title>Email Verified</title>
+#         <style>
+#             body {{ margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #050505; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }}
+#             .container {{ text-align: center; max-width: 500px; padding: 40px; }}
+#             .logo {{ width: 64px; height: 64px; background: linear-gradient(to bottom right, #6366f1, #22d3ee); border-radius: 16px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; }}
+#             h1 {{ font-size: 32px; margin-bottom: 16px; }}
+#             p {{ color: rgba(255,255,255,0.6); margin-bottom: 32px; }}
+#         </style>
+#     </head>
+#     <body>
+#         <div class="container">
+#             <div class="logo">✨</div>
+#             <h1>✅ Email Verified Successfully!</h1>
+#             <p>Logging you in...</p>
+#         </div>
+#         <script>
+#             window.location.href = 'http://localhost:5173?token={access_token}';
+#         </script>
+#     </body>
+#     </html>
+#     """
+#     return HTMLResponse(content=html_content)
 
-@app.post("/login", response_model=Token)
-async def login(user: UserLogin):
-    authenticated_user = await authenticate_user(user.email, user.password)
-    if not authenticated_user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+# @app.post("/login", response_model=Token)
+# async def login(user: UserLogin):
+#     authenticated_user = await authenticate_user(user.email, user.password)
+#     if not authenticated_user:
+#         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
-    if not authenticated_user.is_verified:
-        raise HTTPException(status_code=400, detail="Email not verified")
+#     if not authenticated_user.is_verified:
+#         raise HTTPException(status_code=400, detail="Email not verified")
     
-    access_token = create_access_token(data={"sub": authenticated_user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+#     access_token = create_access_token(data={"sub": authenticated_user.email})
+#     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/home")
-async def home(token: str = Depends(oauth2_scheme)):
-    return {"message": "Welcome to home page"}
+# @app.get("/home")
+# async def home(token: str = Depends(oauth2_scheme)):
+#     return {"message": "Welcome to home page"}
 
-@app.post("/prompt")
-async def run_graph_endpoint(payload: GraphRequest):
-    result = await anyio.to_thread.run_sync(run_graph, payload.prompt, payload.search_method)
+# @app.post("/prompt")
+# async def run_graph_endpoint(payload: GraphRequest):
+#     result = await anyio.to_thread.run_sync(run_graph, payload.prompt, payload.search_method)
     
-    # Extract session_id from result
-    session_id = result.get("session_id")
+#     # Extract session_id from result
+#     session_id = result.get("session_id")
     
-    # Return result with frontend files info
-    return {
-        "result": result,
-        "session_id": session_id,
-        "preview_url": result.get("preview_url"),
-        # "frontend_url": f"http://localhost:8000/session/{session_id}/frontend" if session_id else None
-    }
+#     # Return result with frontend files info
+#     return {
+#         "result": result,
+#         "session_id": session_id,
+#         "preview_url": result.get("preview_url"),
+#         # "frontend_url": f"http://localhost:8000/session/{session_id}/frontend" if session_id else None
+#     }
 
-@app.get("/session/{session_id}/files")
-async def get_session_files(session_id: str):
-    """Get all generated code files for a session (excluding plan directory)"""
-    code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+# @app.get("/session/{session_id}/files")
+# async def get_session_files(session_id: str):
+#     """Get all generated code files for a session (excluding plan directory)"""
+#     code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
     
-    if not os.path.exists(code_dir):
-        raise HTTPException(status_code=404, detail="Session not found")
+#     if not os.path.exists(code_dir):
+#         raise HTTPException(status_code=404, detail="Session not found")
     
-    files = {}
-    for root, _, filenames in os.walk(code_dir):
-        for filename in filenames:
-            filepath = os.path.join(root, filename)
-            rel_path = os.path.relpath(filepath, code_dir)
-            # Normalize to forward slashes for consistency
-            rel_path = rel_path.replace('\\', '/')
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    files[rel_path] = f.read()
-            except:
-                pass
+#     files = {}
+#     for root, _, filenames in os.walk(code_dir):
+#         for filename in filenames:
+#             filepath = os.path.join(root, filename)
+#             rel_path = os.path.relpath(filepath, code_dir)
+#             # Normalize to forward slashes for consistency
+#             rel_path = rel_path.replace('\\', '/')
+#             try:
+#                 with open(filepath, "r", encoding="utf-8") as f:
+#                     files[rel_path] = f.read()
+#             except:
+#                 pass
     
-    return {"files": files}
+#     return {"files": files}
 
-@app.get("/session/{session_id}/frontend")
-async def get_frontend_embed(session_id: str):
-    """Return HTML iframe embed for webcontainer with frontend files"""
-    output_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+# @app.get("/session/{session_id}/frontend")
+# async def get_frontend_embed(session_id: str):
+#     """Return HTML iframe embed for webcontainer with frontend files"""
+#     output_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
     
-    if not os.path.exists(output_dir):
-        raise HTTPException(status_code=404, detail="Session not found")
+#     if not os.path.exists(output_dir):
+#         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Get frontend files (React/Vue/etc)
-    frontend_files = {}
-    for root, _, filenames in os.walk(output_dir):
-        for filename in filenames:
-            # Only include frontend files
-            if filename.endswith(('.jsx', '.js', '.json', '.html', '.css', '.tsx', '.ts')):
-                filepath = os.path.join(root, filename)
-                rel_path = os.path.relpath(filepath, output_dir)
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        frontend_files[rel_path] = f.read()
-                except:
-                    pass
+#     # Get frontend files (React/Vue/etc)
+#     frontend_files = {}
+#     for root, _, filenames in os.walk(output_dir):
+#         for filename in filenames:
+#             # Only include frontend files
+#             if filename.endswith(('.jsx', '.js', '.json', '.html', '.css', '.tsx', '.ts')):
+#                 filepath = os.path.join(root, filename)
+#                 rel_path = os.path.relpath(filepath, output_dir)
+#                 try:
+#                     with open(filepath, "r", encoding="utf-8") as f:
+#                         frontend_files[rel_path] = f.read()
+#                 except:
+#                     pass
     
-    # Create StackBlitz embed link
-    # For now, return files that can be used to create embed
-    return {"files": frontend_files, "session_id": session_id}
+#     # Create StackBlitz embed link
+#     # For now, return files that can be used to create embed
+#     return {"files": frontend_files, "session_id": session_id}
 
 
-# 1. Start OAuth
+# # 1. Start OAuth
 # @app.get("/github/login")
 # async def github_login():
 #     client_id = os.getenv("GITHUB_CLIENT_ID")
-#     return {"url": f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo"}
-@app.get("/github/login")
-async def github_login():
-    client_id = os.getenv("GITHUB_CLIENT_ID")
-    # Redirect the user to GitHub's OAuth page
-    return RedirectResponse(
-        f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo"
-    )
+#     # Redirect the user to GitHub's OAuth page
+#     return RedirectResponse(
+#         f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo"
+#     )
 
-
-# 2. Callback (GitHub redirects here)
 # @app.get("/github/callback")
 # async def github_callback(code: str):
-#     # Exchange code for token
 #     async with httpx.AsyncClient() as client:
 #         res = await client.post(
 #             "https://github.com/login/oauth/access_token",
@@ -288,15 +281,175 @@ async def github_login():
 #             headers={"Accept": "application/json"}
 #         )
 #         token = res.json().get("access_token")
+
+#     # This script automates the handshake
+#     content = f"""
+#     <html>
+#         <body style="background: #050505; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh;">
+#             <div style="text-align: center;">
+#                 <h2 style="color: #6366f1;">✨ Connecting to Lock-In...</h2>
+#                 <p style="color: rgba(255,255,255,0.6);">Finalizing your GitHub secure link.</p>
+#             </div>
+#             <script>
+#                 (function() {{
+#                     const token = "{token}";
+#                     // 1. Check if the parent window exists
+#                     if (window.opener && !window.opener.closed) {{
+#                         // 2. Send the token to the main app (localhost:5173)
+#                         window.opener.postMessage({{ github_token: token }}, "http://localhost:5173");
+                        
+#                         // 3. Small delay to ensure the message arrives, then auto-close
+#                         setTimeout(() => {{ window.close(); }}, 800);
+#                     }} else {{
+#                         // Fallback: If communication fails, show the manual box
+#                         document.body.innerHTML = "<h2>Connection Link Lost</h2><p>Please refresh the main page and try again.</p>";
+#                     }}
+#                 }})();
+#             </script>
+#         </body>
+#     </html>
+#     """
+#     return HTMLResponse(content=content)
+
+# @app.post("/github/sync")
+# async def handle_github_sync(session_id: str, repo_name: str, token: str):
+#     # 1. Verify the code folder exists locally
+#     code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
     
-#     # We redirect back to frontend with a temporary token to identify the session
-#     # In a real app, you'd verify the JWT user and save this token to their DB record
-#     return HTMLResponse(f"""
-#         <script>
-#             window.opener.postMessage({{ github_token: "{token}" }}, "http://localhost:5173");
-#             window.close();
-#         </script>
-#     """)
+#     if not os.path.exists(code_dir):
+#         raise HTTPException(status_code=404, detail="Generated code folder not found.")
+
+#     async with httpx.AsyncClient() as client:
+#         # 2. Verify the GitHub token and get username
+#         headers = {"Authorization": f"token {token}", "Accept": "application/json"}
+#         user_res = await client.get("https://api.github.com/user", headers=headers)
+        
+#         if user_res.status_code != 200:
+#             raise HTTPException(status_code=401, detail="Invalid GitHub token. Please reconnect.")
+        
+#         user_data = user_res.json()
+#         if 'login' not in user_data:
+#             raise HTTPException(status_code=500, detail="Could not retrieve GitHub username.")
+            
+#         username = user_data['login']
+
+#     try:
+#         # 3. Call your service to create repo and push files
+#         from github_service import sync_to_github
+#         repo_url = await sync_to_github(token, repo_name, code_dir)
+#         return {"status": "success", "repo_url": repo_url}
+#     except Exception as e:
+#         print(f"Sync Error: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+        
+# if __name__ == "__main__":
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+# BEST WORKING CODE
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+from models import User, UserCreate, UserLogin, Token
+from pydantic import BaseModel
+import anyio
+import sys
+import os
+import httpx
+import certifi
+from pathlib import Path
+from contextlib import asynccontextmanager
+from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
+from config import MONGODB_URL, DATABASE_NAME
+import uvicorn
+from github_service import sync_to_github
+
+# Paths setup
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+from agent.graph import run_graph
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        client = AsyncIOMotorClient(
+            MONGODB_URL,
+            tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=True,
+            serverSelectionTimeoutMS=5000
+        )
+        await init_beanie(database=client[DATABASE_NAME], document_models=[User])
+        print("MongoDB connected successfully")
+        app.state.db_client = client
+    except Exception as e:
+        print(f"MongoDB connection failed: {e}")
+        app.state.db_client = None
+    yield
+    if app.state.db_client:
+        app.state.db_client.close()
+
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+    return response
+
+class GraphRequest(BaseModel):
+    prompt: str
+    search_method: bool = False
+
+@app.post("/signup")
+async def signup(user: UserCreate):
+    existing_user = await User.find_one(User.email == user.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_password = get_password_hash(user.password)
+    token = generate_verification_token()
+    new_user = User(
+        email=user.email, password=hashed_password, first_name=user.first_name,
+        last_name=user.last_name, dob=user.dob, profession=user.profession,
+        verification_token=token
+    )
+    await new_user.insert()
+    await send_verification_email(user.email, token)
+    return {"message": "Verification email sent"}
+
+@app.post("/login", response_model=Token)
+async def login(user: UserLogin):
+    authenticated_user = await authenticate_user(user.email, user.password)
+    if not authenticated_user:
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    if not authenticated_user.is_verified:
+        raise HTTPException(status_code=400, detail="Email not verified")
+    access_token = create_access_token(data={"sub": authenticated_user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/prompt")
+async def run_graph_endpoint(payload: GraphRequest):
+    result = await anyio.to_thread.run_sync(run_graph, payload.prompt, payload.search_method)
+    return {"result": result, "session_id": result.get("session_id"), "preview_url": result.get("preview_url")}
+
+@app.get("/github/login")
+async def github_login():
+    client_id = os.getenv("GITHUB_CLIENT_ID")
+    return RedirectResponse(f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo")
 
 @app.get("/github/callback")
 async def github_callback(code: str):
@@ -312,91 +465,29 @@ async def github_callback(code: str):
         )
         token = res.json().get("access_token")
 
-    # Use double {{ }} to escape the f-string for JavaScript logic
-    content = f"""
-    <html>
-        <body style="background: #050505; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center;">
-            <div>
-                <h2 style="color: #6366f1;">✨ Connection Successful!</h2>
-                <p>Syncing with Lock-In...</p>
-                <div id="manual-box" style="display:none; margin-top: 20px; padding: 20px; border: 1px border-white/10; border-radius: 10px;">
-                    <p style="font-size: 12px; color: #888;">If this window doesn't close, copy this token:</p>
-                    <code style="background: #222; padding: 5px; border-radius: 4px;">{token}</code>
-                </div>
-            </div>
-            <script>
-                (function() {{
-                    const token = "{token}";
-                    if (window.opener) {{
-                        // Send to any local port for maximum compatibility
-                        window.opener.postMessage({{ github_token: token }}, "*");
-                        setTimeout(() => {{ window.close(); }}, 1000);
-                    }} else {{
-                        document.getElementById("manual-box").style.display = "block";
-                        console.error("Main window reference lost.");
-                    }}
-                }})();
-            </script>
-        </body>
-    </html>
-    """
-    return HTMLResponse(content=content)
-
-# # 3. The Sync Endpoint
-# @app.post("/github/sync")
-# async def sync_repo(session_id: str, repo_name: str, token: str):
-#     # Get user info from GitHub
-#     async with httpx.AsyncClient() as client:
-#         user_res = await client.get("https://api.github.com/user", headers={"Authorization": f"token {token}"})
-#         username = user_res.json()['login']
-    
-#     # Create the repo
-#     await create_github_repo(token, repo_name)
-    
-#     # Path to your generated code
-#     code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
-    
-#     # Push files
-#     await push_to_github(token, username, repo_name, code_dir)
-    
-#     return {"status": "success", "repo_url": f"https://github.com/{username}/{repo_name}"}
-
-
-
-
-
+    # Redirect the popup back to the frontend with the token
+    frontend_url = f"http://localhost:5173?github_token={token}"
+    return RedirectResponse(url=frontend_url)
 
 @app.post("/github/sync")
 async def handle_github_sync(session_id: str, repo_name: str, token: str):
-    # 1. Verify the code folder exists locally
     code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
-    
     if not os.path.exists(code_dir):
         raise HTTPException(status_code=404, detail="Generated code folder not found.")
 
     async with httpx.AsyncClient() as client:
-        # 2. Verify the GitHub token and get username
         headers = {"Authorization": f"token {token}", "Accept": "application/json"}
         user_res = await client.get("https://api.github.com/user", headers=headers)
-        
         if user_res.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid GitHub token. Please reconnect.")
-        
-        user_data = user_res.json()
-        if 'login' not in user_data:
-            raise HTTPException(status_code=500, detail="Could not retrieve GitHub username.")
-            
-        username = user_data['login']
+            raise HTTPException(status_code=401, detail="Invalid GitHub token.")
+        username = user_res.json()['login']
 
     try:
-        # 3. Call your service to create repo and push files
-        from github_service import sync_to_github
         repo_url = await sync_to_github(token, repo_name, code_dir)
         return {"status": "success", "repo_url": repo_url}
     except Exception as e:
-        print(f"Sync Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-        
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

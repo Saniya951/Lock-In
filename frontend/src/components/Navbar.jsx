@@ -120,6 +120,8 @@
 
 
 
+
+// BEST WORKING CODE
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Github } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -134,50 +136,49 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 1. Initial Token Checks (URL and LocalStorage)
+    // 1. POPUP LOGIC: Check if this current window has a token in the URL
     const params = new URLSearchParams(window.location.search);
-    const urlToken = params.get('token');
-    
-    if (urlToken) {
-      localStorage.setItem('token', urlToken);
-      setIsAuthenticated(true);
+    const githubTokenFromUrl = params.get('github_token');
+
+    if (githubTokenFromUrl) {
+      console.log("✅ Token found in URL, saving and closing...");
+      localStorage.setItem('github_token', githubTokenFromUrl);
+      
+      // If we are in a popup, close it
+      if (window.opener || window.name === "GitHub Login") {
+        window.close();
+      }
+      
+      // Update state if we are in the main window
+      setIsGithubConnected(true);
       window.history.replaceState({}, '', window.location.pathname);
     }
 
+    // 2. MAIN WINDOW LOGIC: Listen for storage changes from other tabs/popups
+    const handleStorageChange = (e) => {
+      if (e.key === 'github_token' && e.newValue) {
+        console.log("🚀 Storage event detected! GitHub connected.");
+        setIsGithubConnected(true);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Initial Auth Sync
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
+    setIsGithubConnected(!!localStorage.getItem('github_token'));
 
-    // 2. LISTEN FOR GITHUB POPUP MESSAGE
-    const handleMessage = (event) => {
-    // Check if the data contains our token
-    if (event.data && event.data.github_token) {
-      console.log("Token received in React:", event.data.github_token);
-      localStorage.setItem('github_token', event.data.github_token);
-      setIsGithubConnected(true);
-    }
-  };
-
-    window.addEventListener("message", handleMessage);
-    
-    // Cleanup listener on unmount
-    return () => window.removeEventListener("message", handleMessage);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('github_token'); // Optional: clear github on logout
-    setIsAuthenticated(false);
-    setIsGithubConnected(false);
-  };
-
   const handleConnectGithub = () => {
-    // Define popup size and position
     const width = 600;
     const height = 700;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
 
-    // Open the FastAPI route in a popup window
+    // We name the window so we can identify it later
     window.open(
       "http://localhost:8000/github/login",
       "GitHub Login",
@@ -185,87 +186,66 @@ const Navbar = () => {
     );
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('github_token');
+    setIsAuthenticated(false);
+    setIsGithubConnected(false);
+    navigate('/');
+  };
+
   const handleStartCoding = () => {
-    if (!isAuthenticated) {
-      setShowLogin(true);
-    } else {
-      navigate('/chat');
-    }
+    if (!isAuthenticated) setShowLogin(true);
+    else navigate('/chat');
   };
 
   return (
-    <>
-      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-lg flex items-center justify-center">
-              <Sparkles className="text-white w-5 h-5" />
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">Lock-In</span>
+    <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-lg">
+      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-lg flex items-center justify-center">
+            <Sparkles className="text-white w-5 h-5" />
           </div>
-          
-          <div className="flex items-center gap-3">
-            {/* GitHub Connect Button - Always visible if authenticated, updates on state change */}
-            {isAuthenticated && (
-              <button 
-                onClick={handleConnectGithub}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#24292e] text-white font-semibold text-sm hover:bg-black transition-all duration-300"
-              >
-                <Github className="w-4 h-4" />
-                {isGithubConnected ? 'GitHub Connected' : 'Connect GitHub'}
-              </button>
-            )}
-
-            {!isAuthenticated ? (
-              <>
-                <button
-                  onClick={() => setShowLogin(true)}
-                  className="px-5 py-2.5 rounded-full bg-transparent text-white font-semibold text-sm border-2 border-transparent hover:border-gray-300 transition-all duration-300"
-                >
-                  Login
-                </button>
-
-                <button
-                  onClick={() => setShowSignup(true)}
-                  className="px-5 py-2.5 rounded-full bg-transparent text-white font-semibold text-sm border-2 border-transparent hover:border-gray-300 transition-all duration-300"
-                >
-                  Sign Up
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleLogout}
-                className="px-5 py-2.5 rounded-full bg-transparent text-white font-semibold text-sm border-2 border-transparent hover:border-gray-300 transition-all duration-300"
-              >
-                Logout
-              </button>
-            )}
-
-            <button 
-              onClick={handleStartCoding}
-              className="px-5 py-2.5 rounded-full bg-white text-black font-semibold text-sm hover:bg-gray-200 transition-all"
-            >
-              Start Coding
-            </button>
-          </div>
+          <span className="text-xl font-bold text-white tracking-tight">Lock-In</span>
         </div>
-      </nav>
+        
+        <div className="flex items-center gap-3">
+          {isAuthenticated && (
+            <button 
+              onClick={handleConnectGithub}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all duration-300 ${
+                isGithubConnected 
+                ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                : 'bg-[#24292e] text-white hover:bg-black'
+              }`}
+            >
+              <Github className="w-4 h-4" />
+              {isGithubConnected ? 'GitHub Connected' : 'Connect GitHub'}
+            </button>
+          )}
 
-      {showSignup && (
-        <Signup 
-          onClose={() => setShowSignup(false)} 
-          onSwitchToLogin={() => { setShowSignup(false); setShowLogin(true); }} 
-        />
-      )}
-      
-      {showLogin && (
-        <Login 
-          onClose={() => setShowLogin(false)} 
-          onSwitchToSignup={() => { setShowLogin(false); setShowSignup(true); }} 
-        />
-      )}
-    </>
+          {!isAuthenticated ? (
+            <>
+              <button onClick={() => setShowLogin(true)} className="px-5 py-2.5 text-white text-sm hover:opacity-70 transition-all">Login</button>
+              <button onClick={() => setShowSignup(true)} className="px-5 py-2.5 text-white text-sm hover:opacity-70 transition-all">Sign Up</button>
+            </>
+          ) : (
+            <button onClick={handleLogout} className="px-5 py-2.5 text-white text-sm hover:opacity-70 transition-all">Logout</button>
+          )}
+
+          <button onClick={handleStartCoding} className="px-5 py-2.5 rounded-full bg-white text-black font-semibold text-sm hover:bg-gray-200 transition-all">
+            Start Coding
+          </button>
+        </div>
+      </div>
+      {showSignup && <Signup onClose={() => setShowSignup(false)} onSwitchToLogin={() => { setShowSignup(false); setShowLogin(true); }} />}
+      {showLogin && <Login onClose={() => setShowLogin(false)} onSwitchToSignup={() => { setShowLogin(false); setShowSignup(true); }} />}
+    </nav>
   );
 };
 
 export default Navbar;
+
+
+
+
