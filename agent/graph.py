@@ -378,6 +378,8 @@ def coder_agent(state: GraphState) -> dict:
 
     user_prompt = state.get("user_prompt")
 
+    current_turn_files = state.get("current_turn_files", [])
+
     cprint(f" Processing File ({index+1}/{len(queue)}): {filename}", "cyan", attrs=["bold"])
 
     if needs_search and search_query:
@@ -439,7 +441,8 @@ def coder_agent(state: GraphState) -> dict:
         existing_code=existing_code,
         error_report=error_report,
         tech_stack=tech_stack,
-        user_prompt=user_prompt
+        user_prompt=user_prompt,
+        current_turn_files=current_turn_files
     )
 
     try:
@@ -1185,43 +1188,6 @@ graph.add_edge("explainer", END)
 
 
 agent = graph.compile(checkpointer=memory)
-
-# if __name__ == "__main__":
-        
-#     cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
-#     user_prompt = input("Please enter your project request: ")
-
-#     search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
-#     search_method = (search_method_input == "1")  # True for advance, False for default
-
-#     session_id = str(uuid.uuid4())
-#     cprint(f" Session ID generated: {session_id}", "cyan")
-
-
-#     #try not to comment any of the ones below or else the app /will/ crash
-#     initial_state: GraphState = {
-#         "session_id":session_id,
-#         "user_prompt": user_prompt,
-#         "route": None,
-#         "plan": None, 
-#         "task_queue":[],
-#         "dependencies": [],    
-#         "qa_plan": [],
-#         "completed_files": [],
-#         "current_task_index": 0, 
-#         "search_method": search_method,
-#         "iteration_count": 0, #count for exec-eval-debug loop
-#         "error_report": "",
-#         "status" : "fail",
-#         "sandbox_id": get_sandbox_for_session(session_id),
-#         "attempt_history":[]
-#     }
-#     result = agent.invoke(initial_state,config={"recursion_limit": 100})
-
-#     cprint(f"\n{'='*50}", "magenta")
-#     cprint("\n Agent workflow finished. Final state:", "green", attrs=["bold"])
-#     import pprint
-#     pprint.pprint(result)
 
 if __name__ == "__main__":
     cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])

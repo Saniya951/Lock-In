@@ -15,8 +15,12 @@ ARCHITECT_RULES = {
         - SCAFFOLDING AWARENESS: The workspace ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these files.
         - TASK GENERATION: Your task queue should start with modifying `src/App.jsx` and adding new components. If new npm packages are needed, create a task to MODIFY the existing `package.json`.
         - FILE EXTENSIONS: All new React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
-        - ORDER: Ensure the order makes sense (Core Logic -> UI Components).
-
+        - CRITICAL QUEUE ORDERING RULE:
+You must return the implementation steps in strict topological order. 
+1. Modify dependency files IF NEEDED first (e.g., config, utils, css).
+2. Build child components next (e.g., Header.jsx, Button.jsx).
+3. Build parent/entry components LAST (e.g., App.jsx).
+When writing the task description for the parent component, EXPLICITLY list the exact filenames of the child components it needs to import.
     """,
     "react_flask": """
         - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
@@ -25,6 +29,12 @@ ARCHITECT_RULES = {
         - FRONTEND TASKS: Start by modifying `frontend/src/App.jsx`. If new npm packages are needed create a task to MODIFY `frontend/package.json`.
         - BACKEND TASKS: The `backend/` directory is EMPTY. You must generate all tasks to create `requirements.txt`, `app.py`, and routing logic from scratch.
         - FILE EXTENSIONS: All new React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
+        -CRITICAL QUEUE ORDERING RULE:
+You must return the implementation steps in strict topological order. 
+1. Modify dependency files IF NEEDED first (e.g., config, utils, css).
+2. Build child components next (e.g., Header.jsx, Button.jsx).
+3. Build parent/entry components LAST (e.g., App.jsx).
+When writing the task description for the parent component, EXPLICITLY list the exact filenames of the child components it needs to import.         
     """,
     "node_backend": """
         - ENVIRONMENT: Pure JavaScript/Node.js.
@@ -283,7 +293,7 @@ Evaluate every file in the pending tasks list against the rules above. Output yo
 
 def construct_coder_prompt(filename: str, task_desc: str, doc_context: str, 
                            mode: str, existing_code: str = "", error_report: str = "", 
-                           tech_stack: str ="", user_prompt: str = "") -> str:
+                           tech_stack: str ="", user_prompt: str = "",current_turn_files: list =[]) -> str:
     """Constructs the prompt for the coder agent."""
     
     file_specific_rules = ""
@@ -325,8 +335,19 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
     else:
         coder_rules = CODER_RULES.get(tech_stack, CODER_RULES["unknown"])
 
+    available_files = "\n".join([f"- {f}" for f in current_turn_files])
+
+    project_context = (
+        f"PROJECT CONTEXT:\n"
+        f"The following files have been built or modified in this current iteration:\n"
+        f"{available_files}\n"
+        f"If you are writing a main entry file (like App.jsx or main.py), you MUST import and integrate the relevant files from this list."
+    )
+
     prompt_header = f"""
         Overarching Goal: {user_prompt}
+
+        {project_context}
     """
 
     if mode == "fix":
