@@ -314,7 +314,16 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         3. DO NOT add built-in Python libraries (math, os, sys).
         4. If no external dependencies are needed, YOU MUST RETURN EXACTLY AND ONLY THIS COMMENT: `# No dependencies required`. Do not output any other text or explanations."""
 
-    coder_rules = CODER_RULES.get(tech_stack, CODER_RULES["unknown"])
+    is_static_file = filename.endswith(('.css', '.html', '.md', '.txt', '.env'))
+    file_ext = filename.split('.')[-1].upper() if '.' in filename else "TEXT"
+
+    if is_static_file:
+        coder_rules = (
+            f"- ENVIRONMENT: Static Asset / Configuration\n"
+            f"- SYNTAX: Write EXACTLY and ONLY valid {file_ext} syntax.\n"
+        )
+    else:
+        coder_rules = CODER_RULES.get(tech_stack, CODER_RULES["unknown"])
 
     prompt_header = f"""
         Overarching Goal: {user_prompt}
