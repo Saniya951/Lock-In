@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@webcontainer/api": "^1.6.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.577.0"
+  }
+}
