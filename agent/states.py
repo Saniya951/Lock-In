@@ -26,7 +26,7 @@ class Plan(BaseModel):
 class FileTask(BaseModel):
     file_name: str = Field(description="The relative path to the file (e.g., 'src/components/TodoList.js').")
     task_description: str = Field(description="Precise instructions on what to write in this file.")
-    related_docs_topic: str = Field(description="The specific library/concept needed (e.g., 'React useState hook' or 'Flask SQLAlchemy').")
+    # related_docs_topic: str = Field(description="The specific library/concept needed (e.g., 'React useState hook' or 'Flask SQLAlchemy').")
 
 class TaskPlan(BaseModel):
     """The File Manifest."""
@@ -34,6 +34,15 @@ class TaskPlan(BaseModel):
     implementation_steps: List[FileTask] = Field(description="The ordered list of files to be created.")
     dependencies: List[str] = Field(description="A list of PACKAGE NAMES ONLY for pip or npm (e.g., ['flask', 'pandas', 'react', 'axios']).")
 
+class SearchDecision(BaseModel):
+    file_name: str = Field(description="The exact file name from the pending task list.")
+    needs_search: bool = Field(description="Set to True if the implementation requires understanding specific third-party library APIs, complex framework-specific hooks, external service integrations, or non-standard syntax. Set to False if the task involves foundational language features, standard package configurations, boilerplate scaffolding, or fundamental programmatic logic that relies solely on core language constructs.")
+    search_query: str = Field(description="The highly targeted search string to retrieve necessary documentation. This must be populated if needs_search is True. Leave completely empty if needs_search is False.")
+
+class ResearchPlan(BaseModel):
+    """A batch of research decisions for a list of tasks."""
+    research_tasks: List[SearchDecision] = Field(description="Research decisions for every file in the task queue.")
+    
 class QATask(BaseModel):
     test_file_name: str = Field(description="The path for the test file (e.g., 'test_utils.py').")
     target_file: str = Field(description="The existing source file being tested (e.g., 'src/utils.py').")
@@ -60,7 +69,7 @@ class DebugTask(BaseModel):
     file_name: str = Field(description="The exact relative path of the existing file to patch")
     bug_analysis: str = Field(description="Briefly explain exactly what line or concept is causing the error in this specific file.") # <-- Forces the LLM to think first
     task_description: str = Field(description="Precise, step-by-step instructions on what to change or replace to fix the specific error.")
-    related_docs_topic: str = Field(description="The specific library or syntax concept needed to fix the bug.")
+    # related_docs_topic: str = Field(description="The specific library or syntax concept needed to fix the bug.")
 
 class DebugPlan(BaseModel):
     """The Bug Fix Plan."""

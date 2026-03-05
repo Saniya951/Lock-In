@@ -1,5 +1,10 @@
+import os
+import sys 
+import shutil
 from dotenv import load_dotenv
 load_dotenv()
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
@@ -7,7 +12,6 @@ from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
 from pydantic import BaseModel, Field
 import json
-import os
 import re
 import uuid
 import time
@@ -43,6 +47,8 @@ test_llm = ChatGroq(model="mixtral-8x7b-32768")
 # completely ignoring where your terminal is currently pointing.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+# Save outputs to the user's home directory, completely escaping LangGraph's file watcher
+# OUTPUT_DIR = os.path.expanduser("~/lock_in_agent_outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 DB_PATH = os.path.join(SCRIPT_DIR, "chroma_db") 
@@ -91,7 +97,7 @@ TECH_STACK_DOCS = {
     ],
     "python_script": [
         "docs.python.org",
-        "pypi.org", # Good for finding package specific docs
+        "readthedocs.io"
     ],
     "react_only": [
         "react.dev",
@@ -161,6 +167,63 @@ def planner_agent(state: GraphState) -> dict:
         
     return {"plan": response}
 
+def scaffolder_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Scaffolder (Boilerplate Injection)...", "cyan", attrs=["bold"])
+    
+    plan = state.get("plan")
+    session_id = state["session_id"]
+    tech_stack = plan.tech_stack if plan else "unknown"
+    completed_files = state.get("completed_files", [])
+    
+    user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+    template_dir = os.path.join(SCRIPT_DIR, "templates", tech_stack)
+    
+    scaffolded_list = []
+
+    if os.path.exists(template_dir):
+        cprint(f" Injecting {tech_stack} templates into workspace...", "green")
+        shutil.copytree(template_dir, user_code_dir, dirs_exist_ok=True)
+        
+        # First, collect all files to get total count for progress tracking
+        all_files = []
+        for root, _, files in os.walk(template_dir):
+            for file in files:
+                rel_dir = os.path.relpath(root, template_dir)
+                if rel_dir == ".":
+                    rel_path = file
+                else:
+                    rel_path = os.path.join(rel_dir, file).replace("\\", "/")
+                all_files.append(rel_path)
+        
+        # Now emit events for each scaffolded file
+        for idx, rel_path in enumerate(all_files, 1):
+            scaffolded_list.append(rel_path)
+            
+            # Emit streaming event for scaffolded file
+            try:
+                file_full_path = os.path.join(user_code_dir, rel_path)
+                with open(file_full_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                
+                emit_file_event("file_created", {
+                    "session_id": session_id,
+                    "filename": rel_path,
+                    "content": content,
+                    "mode": "scaffold",
+                    "progress": f"{idx}/{len(all_files)} (scaffolding)"
+                })
+            except Exception as e:
+                cprint(f"   Warning: Could not emit event for {rel_path}: {e}", "yellow")
+                
+        cprint(f" Scaffolded {len(scaffolded_list)} foundational files.", "green")
+    else:
+        cprint(f" No static templates found for {tech_stack}.", "red")
+        os.makedirs(user_code_dir, exist_ok=True)
+        
+    # Append the new files to whatever was already in completed_files
+    return {"completed_files": completed_files + scaffolded_list}
+
 def normalize_deps(deps: list[str]) -> set[str]:
     # to convert all dependencies into lower case and to remove any extra space before or after them
     return {d.lower().strip() for d in deps}
@@ -222,6 +285,46 @@ def architect_agent(state: GraphState) -> dict:
         "error_report": ""
     }   
 
+def researcher_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Researcher (Context Gathering)...", "cyan", attrs=["bold"])
+    
+    queue = state.get("task_queue", [])
+    if not queue:
+        cprint(" No tasks in queue to research.", "yellow")
+        return {}
+        
+    plan = state.get("plan")
+    tech_stack = plan.tech_stack if plan else "unknown"
+    project_goal = plan.project_goal if plan else "A software project"
+    
+    prompt = construct_researcher_prompt(tech_stack, queue, project_goal)
+    
+    try:
+        response = llm.with_structured_output(ResearchPlan).invoke([{"role": "user", "content": prompt}])
+        
+        # Map the LLM's decisions back to the specific files
+        decisions_map = {d.file_name: d for d in response.research_tasks}
+        
+        updated_queue = []
+        for task in queue:
+            decision = decisions_map.get(task['file_name'])
+            # Inject the search data directly into the task dictionary
+            task['needs_search'] = decision.needs_search if decision else False
+            task['search_query'] = decision.search_query if decision else ""
+            updated_queue.append(task)
+            
+            if task['needs_search']:
+                cprint(f"   [Search Planned] {task['file_name']} -> {task['search_query']}", "blue")
+            else:
+                cprint(f"   [Skip Search] {task['file_name']}", "dark_grey")
+                
+        return {"task_queue": updated_queue}
+
+    except Exception as e:
+        cprint(f"   Researcher failed: {e}. Defaulting to no-search.", "red")
+        return {} 
+
 # below 2 functions are coder helpers: research and embed async 
 def perform_jit_research(topic: str, use_tavily: bool,approved_domains: list = None) -> str:
     """Performs Just-In-Time research using the selected method."""
@@ -230,15 +333,25 @@ def perform_jit_research(topic: str, use_tavily: bool,approved_domains: list = N
 
     if use_tavily:
         cprint(f"   [Tavily] Researching: {topic}...", "blue")
-        # if approved_domains:
-            # cprint(f"   [Filter] Restricting to: {approved_domains}", "cyan")
+        search_kwargs = {
+                "max_results": 3,
+                "search_depth": "advanced", # Forces deep scraping, not just meta tags
+                "include_answer": True # Asks Tavily to synthesize a direct answer
+            }   
+        if approved_domains:
+            cprint(f"   [Filter] Restricting to: {approved_domains}", "cyan")
+            search_kwargs["include_domains"] = approved_domains
         try:
-            results = tavily_client.search(topic, max_results=4)            
-            # results = tavily_client.search(topic, max_results=4,include_domains=approved_domains)
+            # results = tavily_client.search(topic, max_results=4)      
+            results = tavily_client.search(topic, **search_kwargs)
             context = []
+            # Tavily's synthesized answer is often better than the raw snippets
+            if results.get("answer"):
+                context.append(f"Tavily Summary:\n{results['answer']}\n")
             for res in results.get("results", []):
                 context.append(f"Source: {res['url']}\nContent: {res['content']}")
-            return "\n\n".join(context)
+            final_context = "\n\n".join(context)
+            return final_context if final_context else "No relevant official docs found."
         except Exception as e:
             cprint(f"   [Tavily] Failed: {e}. Falling back to VectorDB.", "red")
 
@@ -273,8 +386,11 @@ def coder_agent(state: GraphState) -> dict:
     current_step = queue[index]
     filename = current_step['file_name']
     task_desc = current_step['task_description']
-    topic = current_step['related_docs_topic']
+    # topic = current_step['related_docs_topic']
     
+    needs_search = current_step.get('needs_search', False)
+    search_query = current_step.get('search_query', "")
+
     session_id = state["session_id"]
     user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code") 
     file_path = os.path.join(user_code_dir, filename)
@@ -283,13 +399,21 @@ def coder_agent(state: GraphState) -> dict:
     tech_stack = plan.tech_stack if plan else "unknown"
     official_domains = TECH_STACK_DOCS.get(tech_stack, [])
 
+    user_prompt = state.get("user_prompt")
+
     cprint(f" Processing File ({index+1}/{len(queue)}): {filename}", "cyan", attrs=["bold"])
 
-    #retrieve from vector db or tavily
-    search_method = state.get("search_method", False)
-    doc_context = perform_jit_research(topic, search_method,approved_domains=official_domains)
+    if needs_search and search_query:
+        search_method = state.get("search_method", False)
+        doc_context = perform_jit_research(search_query, search_method, approved_domains=official_domains)
+    else:
+        doc_context = "Rely on the above rules and your internal knowledge. No external docs provided."
 
-    # detect: is this a fix mode or build mode?
+    # #retrieve from vector db or tavily
+    # search_method = state.get("search_method", False)
+    # doc_context = perform_jit_research(topic, search_method,approved_domains=official_domains)
+
+    # detect: is this a fix mode, modify mode or build mode?
     error_report = state.get("error_report")
     
     file_exists = os.path.exists(file_path)
@@ -318,10 +442,19 @@ def coder_agent(state: GraphState) -> dict:
             existing_code = f.read()
 
     # if there's something in error report and that file happens to already exist too then we needa go in build mode
-    mode = "fix" if (error_report and file_exists) else "build"
+    # mode = "fix" if (error_report and file_exists) else "build"
     
+    if error_report and file_exists:
+        mode = "fix"
+    elif not error_report and file_exists:
+        mode = "modify"  # The file was scaffolded, we just need to append/edit
+    else:
+        mode = "build"
+        
     if mode == "fix":
         cprint("   [Mode] Repairing existing code based on error...", "yellow", attrs=["blink"])
+    elif mode == "modify":
+        cprint("   [Mode] Modifying scaffolded template...", "blue")
     else:
         cprint("   [Mode] Generating new code...", "green")
 
@@ -332,7 +465,8 @@ def coder_agent(state: GraphState) -> dict:
         mode=mode,
         existing_code=existing_code,
         error_report=error_report,
-        tech_stack=tech_stack
+        tech_stack=tech_stack,
+        user_prompt=user_prompt
     )
 
     try:
@@ -425,6 +559,15 @@ def qa_agent(state: GraphState) -> dict:
             os.makedirs(os.path.dirname(test_path), exist_ok=True)
             with open(test_path, "w") as f:
                 f.write(test_code)
+            
+            # Emit file creation event for streaming test files
+            emit_file_event("file_created", {
+                "session_id": session_id,
+                "filename": test_filename,
+                "content": test_code,
+                "mode": "test",
+                "progress": f"{i + 1}/{len(qa_plan)} (test generation)"
+            })
             
             cprint(f"   Saved {test_filename}", "green")
             
@@ -895,8 +1038,10 @@ graph = StateGraph(GraphState)
 # all nodes 
 graph.add_node("router", route_query)
 graph.add_node("planner", planner_agent)
+graph.add_node("scaffolder", scaffolder_agent)
 graph.add_node("architect", architect_agent)
 graph.add_node("coder", coder_agent) 
+graph.add_node("researcher",researcher_agent)
 graph.add_node("qa_agent", qa_agent)
 graph.add_node("dependency_validator",dependency_validator_agent)
 graph.add_node("executor", executor_agent)
@@ -919,6 +1064,17 @@ def route_decision(state: GraphState) -> Literal["planner", "debugger", "learner
         return "learner"
     else:
         return "planner"
+
+def check_scaffold_status(state: GraphState) -> Literal["scaffolder", "architect"]:
+    plan = state.get("plan")
+    tech_stack = plan.tech_stack if plan else "unknown"
+    
+    if tech_stack in ["react_only", "react_flask"]:
+        cprint("   [Router] React stack detected. Routing to Scaffolder...", "yellow")
+        return "scaffolder"
+    else:
+        cprint("   [Router] Non-React stack detected. Bypassing Scaffolder -> Architect", "yellow")
+        return "architect"
 
 def check_queue_status(state: GraphState) -> Literal["coder", "qa_agent", "dependency_validator"]:
     queue = state.get("task_queue", [])
@@ -968,8 +1124,21 @@ graph.add_conditional_edges(
     }
 )
 
-graph.add_edge("planner", "architect")
-graph.add_edge("architect","coder")
+# graph.add_edge("planner", "architect")
+# graph.add_edge("planner", "scaffolder")
+# graph.add_edge("scaffolder", "architect")
+graph.add_conditional_edges(
+    "planner",
+    check_scaffold_status,
+    {
+        "scaffolder": "scaffolder",
+        "architect": "architect"
+    }
+)
+
+graph.add_edge("scaffolder", "architect")
+graph.add_edge("architect","researcher")
+graph.add_edge("researcher","coder")
 graph.add_conditional_edges(
     "coder",
     check_queue_status,
@@ -1000,8 +1169,10 @@ graph.add_conditional_edges(
     }
 )
 
-graph.add_edge("debugger", "coder") # close the loop!!!!!    
+graph.add_edge("debugger", "researcher") # close the loop!!!!!    
+graph.add_edge("researcher","coder")
 graph.add_edge("learner", END)
+
 
 agent = graph.compile()
 

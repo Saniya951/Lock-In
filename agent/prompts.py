@@ -3,28 +3,28 @@ from agent.states import *
 import json
 
 # stack specific rules to build and test 
-BUILD_RULES = {
+ARCHITECT_RULES = {
     "python_script": """
         - ENVIRONMENT: Pure Python.
         - FOLDER STRUCTURE: Flat directory. All files in the root.
-        - DEPENDENCY FILE: `requirements.txt` only.
+        - DEPENDENCY FILE: `requirements.txt` only. You MUST generate tasks to create this.
+        - ORDER: Ensure the order makes sense (Config -> Core Logic -> UI Components).    
     """,
     "react_only": """
         - ENVIRONMENT: React using Vite.
-        - FOLDER STRUCTURE: Vite standard. `index.html`, `package.json`, and `vite.config.js` in the root. Source code in `src/`.
-        - FILE EXTENSIONS: All React components MUST use `.jsx` (e.g., `App.jsx`, `main.jsx`). DO NOT use `.js` for React components.
-        - DEPENDENCY FILE: `package.json` in the root.
-        - MANDATORY FILES (IN THIS ORDER):
-          * `index.html` in the root - MUST contain a <div id="root"></div> and <script type="module" src="/src/main.jsx"></script>
-          * `src/main.jsx` - The React entry point that imports and renders App.jsx
-          * `src/App.jsx` - The main application component (imported by main.jsx)
-        - ENTRY FLOW: index.html → main.jsx → App.jsx (main.jsx MUST NOT BE SKIPPED)
-        - CRITICAL CONFIG: You MUST generate a `vite.config.js` file that imports `@vitejs/plugin-react`. Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
-        - CRITICAL SCRIPTS: In `package.json`, the scripts MUST include: "dev": "vite", "build": "vite build", and "test": "vitest run".
-        - CRITICAL DEPENDENCIES (EXACT VERSIONS MUST MATCH): 
-          * Standard deps: `react@^18.0.0`, `react-dom@^18.0.0`
-          * Dev deps: `vite@^5.0.0`, `@vitejs/plugin-react@^4.0.0`, `vitest@^1.0.0`, `jsdom@^23.0.0`, `@testing-library/react@^14.0.0`, `@testing-library/jest-dom@^6.0.0`
-          * Use these EXACT versions to avoid peer dependency conflicts.
+        - SCAFFOLDING AWARENESS: The workspace ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these files.
+        - TASK GENERATION: Your task queue should start with modifying `src/App.jsx` and adding new components. If new npm packages are needed, create a task to MODIFY the existing `package.json`.
+        - FILE EXTENSIONS: All new React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
+        - ORDER: Ensure the order makes sense (Core Logic -> UI Components).
+
+    """,
+    "react_flask": """
+        - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
+        - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
+        - FRONTEND SCAFFOLDING: The `frontend/` directory ALREADY CONTAINS boilerplate `index.html`, `src/main.jsx`, `package.json`, and `vite.config.js`. DO NOT generate tasks to create these.
+        - FRONTEND TASKS: Start by modifying `frontend/src/App.jsx`. If new npm packages are needed create a task to MODIFY `frontend/package.json`.
+        - BACKEND TASKS: The `backend/` directory is EMPTY. You must generate all tasks to create `requirements.txt`, `app.py`, and routing logic from scratch.
+        - FILE EXTENSIONS: All new React components MUST use `.jsx` (e.g., `App.jsx`). DO NOT use `.js` for React components.
     """,
     "node_backend": """
         - ENVIRONMENT: Pure JavaScript/Node.js.
@@ -33,21 +33,36 @@ BUILD_RULES = {
         - CRITICAL BOILERPLATE: MUST include "scripts": { "test": "vitest run" } in package.json.
         - CRITICAL DEPENDENCIES: MUST include `vitest` and `supertest` in devDependencies. ABSOLUTELY DO NOT install `jest`.
     """,
+    "unknown": "Use standard software development best practices."
+}
+
+CODER_RULES = {
+    "python_script": """
+        - ENVIRONMENT: Pure Python.
+        - FOLDER STRUCTURE: Flat directory. All files in the root.
+        - DEPENDENCY FILE: `requirements.txt` only. 
+    """,
+    "react_only": """
+        - ENVIRONMENT: React using Vite.
+        - SYNTAX: Use modern functional components and Hooks (useState, useEffect).
+        - IMPORTS: Use ES modules (`import`/`export`). Do NOT use CommonJS (`require`).
+        - CSS: Assume standard CSS is available if requested, but focus on the component logic.
+        - FILE EXTENSIONS: React components MUST be written as JSX.
+    """,
     "react_flask": """
         - ENVIRONMENT: Full-stack. React Frontend (Vite) + Python/Flask Backend.
-        - FOLDER STRUCTURE: You MUST split the app into two root folders: `frontend/` and `backend/`.
-        - DEPENDENCY FILES: Create `frontend/package.json` AND `backend/requirements.txt`.
+        - FRONTEND: React using Vite. Use functional components and ES module imports.
+        - BACKEND: Python/Flask. 
         - FILE EXTENSIONS: All React frontend components MUST use `.jsx`.
-        - MANDATORY FRONTEND FILES (IN THIS ORDER):
-          * `frontend/index.html` in the root - MUST contain a <div id="root"></div> and <script type="module" src="/src/main.jsx"></script>
-          * `frontend/src/main.jsx` - The React entry point that imports and renders App.jsx
-          * `frontend/src/App.jsx` - The main application component (imported by main.jsx)
-        - FRONTEND ENTRY FLOW: index.html → main.jsx → App.jsx (main.jsx MUST NOT BE SKIPPED)
-        - FRONTEND CONFIG: You MUST generate a `frontend/vite.config.js` file using `@vitejs/plugin-react`.Inside `defineConfig`, you MUST add a `test` block with exactly: `environment: "jsdom"` AND `globals: true`
-        - FRONTEND SCRIPTS: In `frontend/package.json`, include: "dev": "vite", "build": "vite build", and "test": "vitest run".
-        - FRONTEND DEPENDENCIES (EXACT VERSIONS MUST MATCH): 
-          * Standard deps: `react@^18.0.0`, `react-dom@^18.0.0`
-          * Dev deps: `vite@^5.0.0`, `@vitejs/plugin-react@^4.0.0`, `vitest@^1.0.0`, `jsdom@^23.0.0`, `@testing-library/react@^14.0.0`, `@testing-library/jest-dom@^6.0.0`
+        - API CALLS: If writing frontend API calls, assume the Flask backend is available via relative API routes or a configured proxy.
+        - CORS: If writing the Flask backend, ensure `flask-cors` is utilized so the React frontend can communicate with it.
+    """,
+    "node_backend": """
+        - ENVIRONMENT: Pure JavaScript/Node.js.
+        - FOLDER STRUCTURE: `src/` directory for logic, `src/routes/`, `src/controllers/`.
+        - DEPENDENCY FILE: `package.json` in the root.
+        - CRITICAL BOILERPLATE: MUST include "scripts": { "test": "vitest run" } in package.json.
+        - CRITICAL DEPENDENCIES: MUST include `vitest` and `supertest` in devDependencies. ABSOLUTELY DO NOT install `jest`.
     """,
     "unknown": "Use standard software development best practices."
 }
@@ -139,7 +154,7 @@ You must return a valid JSON object matching this exact structure. Do not use ma
 
 def architect_prompt(plan) -> List[Dict[str, str]]:
     """Prompt 1: Build Structure & Dependencies"""
-    build_rules = BUILD_RULES.get(plan.tech_stack, BUILD_RULES["unknown"])
+    architect_rules = ARCHITECT_RULES.get(plan.tech_stack, ARCHITECT_RULES["unknown"])
     return [
         {
             "role": "system",
@@ -150,26 +165,17 @@ Your goal is to break down the plan into a **granular list of FILE CREATION task
 **Project Goal:** {plan.project_goal}
 **Stack:** {plan.tech_stack}
 **Steps:** {plan.steps}
-**CRITICAL BUILD RULES:**
-{build_rules}
+**CRITICAL ARCHITECT RULES:**
+{architect_rules}
 
 **Instructions:**
-1. **File List:** Translate high-level steps into specific files (package.json, index.html, app.py, App.jsx).
-   - **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.jsx`, `spec.jsx`).
-   - **FOR REACT PROJECTS:** You MUST include these files in this exact order:
-     * `package.json` (dependencies)
-     * `vite.config.js` (Vite configuration)
-     * `index.html` (HTML entry point in root - MANDATORY)
-     * `src/main.jsx` (React entry point - MANDATORY - bridges index.html and App.jsx)
-     * `src/App.jsx` (main component - MANDATORY - imported by main.jsx)
-     * Other components as needed
+1. **File List:** Translate high-level steps into specific files (app.py, App.jsx).
+ **CRITICAL RULE:** Do NOT include test files here (e.g., `test_*.py`, `*.test.jsx`, `spec.jsx`).
 2. **Dependencies:** List ONLY the package names needed for `npm install` or `pip install`. 
    - DO NOT include version numbers. 
    - Example: ["flask", "flask-cors", "requests"] OR ["react", "axios", "framer-motion"].
-3. DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
-4. Instead output specific file tasks. 
-5. For `related_docs_topic`, be specific (e.g., "React Functional Components", "CSS Flexbox", "Node.js Express Setup").
-6. Ensure the order makes sense (Configs first -> HTML entry -> React entry (main.jsx) -> App component -> Other components).
+3.DO NOT output abstract tasks like "Design the UI" or "Run npx create-react-app".
+4. Instead output specific file tasks according to the Project Goal . 
 
 **Output Format:**
 Return a JSON with `implementation_steps` and `dependencies`.
@@ -180,7 +186,7 @@ Return a JSON with `implementation_steps` and `dependencies`.
 
 def qa_architect_prompt(plan, files_context:str) -> List[Dict[str, str]]:
     """Prompt 2: Test Strategy based on the Build Manifest"""
-    build_rules = BUILD_RULES.get(plan.tech_stack, BUILD_RULES["unknown"])
+    architect_rules = ARCHITECT_RULES.get(plan.tech_stack, ARCHITECT_RULES["unknown"])
     test_rules = TEST_RULES.get(plan.tech_stack, TEST_RULES["unknown"])
         
     return [
@@ -194,7 +200,7 @@ Your goal is to design a **Unit Testing Strategy** based on the files the Archit
 **Planned Source Files:**{files_context}
 
 **FOLDER STRUCTURE RULES (Where to place files):**
-{build_rules}
+{architect_rules}
 
 **TESTING RULES (How to write tests):**
 {test_rules}
@@ -202,6 +208,7 @@ Your goal is to design a **Unit Testing Strategy** based on the files the Archit
 **Instructions:**
 1.Create a `QATask` for every major logic/component file in the list above.
 2.DO NOT generate tests for configuration files like package.json, requirements.txt, .gitignore, or HTML files.
+3.DO NOT generate tests for boilerplate files like index.html, main.jsx etc.
 3.ABSOLUTELY NO SOURCE CODE. You are only designing test files.
 4.**Scenarios:** List 3-5 specific edge cases to test for each file.
 
@@ -212,9 +219,41 @@ Return a JSON with `qa_tasks`.
         {"role": "user", "content": "Generate the QA manifest."}
     ]
 
+def construct_researcher_prompt(tech_stack: str, task_queue: list, project_goal: str) -> str:
+    """Constructs the prompt for the Dedicated Researcher Node."""
+    
+    # Format the queue into a readable string
+    tasks_str = "\n".join([f"- File: {t['file_name']} | Task: {t['task_description']}" for t in task_queue])
+    
+    return f"""
+    You are a Lead Research Strategist. 
+    Your job is to analyze a queue of coding tasks and determine if external documentation is required to complete them successfully.
+    CRITICAL  RULES:
+1. THE CONFIG BAN: You MUST set `needs_search` to False for ALL dependency manifests and configuration files. This includes, but is not limited to: `package.json`, `requirements.txt`, `vite.config.js`, `vite.config.ts`, `tailwind.config.js`, `eslint`, `.env`, and `index.html`. 
+
+2. THE FOUNDATION BAN: You MUST set `needs_search` to False for foundational programmatic logic (e.g., standard React `useState`/`useEffect`, basic Flask routing, straightforward data parsing).
+
+3. THE STANDARD LIBRARY BAN: You MUST set `needs_search` to False for built-in language libraries that require no installation. For Python, this includes `os`, `sys`, `tkinter`, `unittest`, `mock`, `math`, `json`, etc. 
+
+4. QUERY ENGINEERING: When `needs_search` is True, your `search_query` MUST be optimized for finding official documentation, NOT beginner tutorials. 
+   - BAD QUERY: "how to use react router"
+   - GOOD QUERY: "React Router v6 createBrowserRouter exact syntax and API reference"
+   - BAD QUERY: "flask database setup"
+   - GOOD QUERY: "Flask-SQLAlchemy model definition query reference"
+
+INSTRUCTIONS:
+Evaluate every file in the pending tasks list against the rules above. Output your decisions mapping exactly to the filenames provided.
+    
+    PROJECT GOAL: {project_goal}
+    TECH STACK: {tech_stack}
+    
+    PENDING TASKS:
+    {tasks_str}
+    """
 
 def construct_coder_prompt(filename: str, task_desc: str, doc_context: str, 
-                           mode: str, existing_code: str = "", error_report: str = "", tech_stack: str ="") -> str:
+                           mode: str, existing_code: str = "", error_report: str = "", 
+                           tech_stack: str ="", user_prompt: str = "") -> str:
     """Constructs the prompt for the coder agent."""
     
     file_specific_rules = ""
@@ -226,38 +265,9 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         CRITICAL `package.json` RULES:
         1. Output VALID JSON only.
         2. Include all NPM packages requested in the task description.
-        3. MANDATORY: You MUST additionally include all scripts, frameworks, and configuration blocks (like Vite, Vitest) required by the BUILD RULES below.
+        3. MANDATORY: You MUST additionally include all scripts, frameworks, and configuration blocks (like Vite, Vitest) required by the BUILD RULES above.
         4. DO NOT write Python dependencies here.
         """
-        
-    #pip and python rules
-    elif "requirements.txt" in filename_lower:
-        file_specific_rules = """
-        CRITICAL `requirements.txt` RULES:
-        1. Output standard pip format (one package per line).
-        2. DO NOT put JavaScript, Vite, Node, NPM packages, or JSON configuration in this file. Pure Python packages ONLY.
-        3. Include all Python packages requested in the task description.
-        4. DO NOT add built-in Python libraries (math, os, sys).
-        5. If no external dependencies are needed, leave the file completely blank.
-        """
-    
-    #index.html rules for React/Vite projects
-    elif "index.html" in filename_lower:
-        file_specific_rules = """
-        CRITICAL `index.html` RULES:
-        1. Output a complete, valid HTML5 document.
-        2. MANDATORY structure:
-           - <!DOCTYPE html>
-           - <html lang="en">
-           - <head> with <meta charset="UTF-8">, viewport meta tag, and <title>
-           - <body> with a <div id="root"></div>
-           - <script type="module" src="/src/main.jsx"></script> right before closing </body>
-        3. This file is the HTML entry point for Vite. Keep it simple and minimal.
-        4. DO NOT include React code or component logic here - this is pure HTML.
-        5. CRITICAL: Link to `/src/main.jsx`, NOT `/src/App.jsx`. main.jsx will handle importing App.jsx.
-        6. CRITICAL: ALWAYS include a <style> tag in the <head> with `body { background-color: white; }` by default. Users can override this with their own CSS if they specify a background color in their request.
-        """
-        
     #vite config rules
     elif "vite.config" in filename_lower:
         file_specific_rules = """
@@ -298,16 +308,27 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         4. Keep the root component structure clean and pass props to child components as needed.
         """
 
-    build_rules = BUILD_RULES.get(tech_stack, BUILD_RULES["unknown"])
+    elif "requirements.txt" in filename_lower:
+        file_specific_rules = """
+        CRITICAL `requirements.txt` RULES:
+        1. Output standard pip format (one package per line).
+        2. DO NOT put JavaScript, Vite, Node, NPM packages, or JSON configuration. Pure Python ONLY.
+        3. DO NOT add built-in Python libraries (math, os, sys).
+        4. If no external dependencies are needed, YOU MUST RETURN EXACTLY AND ONLY THIS COMMENT: `# No dependencies required`. Do not output any other text or explanations."""
+
+    coder_rules = CODER_RULES.get(tech_stack, CODER_RULES["unknown"])
+
+    prompt_header = f"""
+        Overarching Goal: {user_prompt}
+    """
 
     if mode == "fix":
         return f"""
+        {prompt_header}
         You are a Senior Debugger.
 
-        FIX RULES: {build_rules}
-
-        FILE SPECIFIC RULES:{file_specific_rules}
-        
+        GENERAL RULES: {coder_rules}
+        FILE SPECIFIC RULES: {file_specific_rules}
         TARGET FILE: {filename}
         
         CURRENT CODE:
@@ -318,28 +339,49 @@ def construct_coder_prompt(filename: str, task_desc: str, doc_context: str,
         ERROR REPORT:
         {error_report}
         
-        TASK:
-        Fix the error in the code above. 
-        Use the provided documentation if needed.
-        
-        RELEVANT DOCS:
-        {doc_context}
-        
+        TASK: Fix the error in the code above.
+
         OUTPUT FORMAT:
         Return ONLY the raw file content. Do NOT wrap it in ```markdown blocks. No explanations.
         """
     
-    else: # mode == "build"
+    elif mode == "modify":
         return f"""
+        {prompt_header}
         You are a Senior Developer.
 
-        BUILD RULES: {build_rules}
+        GENERAL RULES: {coder_rules}
+        FILE SPECIFIC RULES: {file_specific_rules}
+        TARGET FILE: {filename}
         
+        CURRENT SCAFFOLDED CODE:
+        ```
+        {existing_code}
+        ```
+        
+        TASK DESCRIPTION:
+        {task_desc}
+        
+        TASK: This file already exists from a boilerplate template. Your job is to UPDATE or APPEND to this existing code to fulfill the task description. 
+        - Do NOT delete the foundational configuration.
+        - For JSON files, merge the new data seamlessly.
+        - For JS/JSX files, inject the required imports and logic without breaking the existing structure.
+
+        OUTPUT FORMAT:
+        Return ONLY the full, updated raw file content. Do NOT wrap it in ```markdown blocks. No explanations.
+        """
+
+    else: # mode == "build"
+        return f"""
+        {prompt_header}
+        You are a senior developer
+
+        BUILD RULES: {coder_rules}
+        FILE SPECIFIC RULES:{file_specific_rules}
         TARGET FILE: {filename}
         
         TASK DESCRIPTION:
         {task_desc}
-        {file_specific_rules}
         
         RELEVANT DOCS:
         {doc_context}

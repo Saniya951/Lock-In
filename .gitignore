@@ -68,3 +68,10 @@ dist-ssr
 # agent
 agent/__pycache__/
 agent/output
+agent/active_sandboxes.json
+
+
+# LangGraph Studio Local Config
+langgraph.json
+.langgraph_api/
+.langgraph.sqlite
