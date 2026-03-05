@@ -98,6 +98,7 @@ class GraphState(TypedDict):
 
     # try not to comment out any of these or else the app will break TT
     session_id: str
+    thread_id: str  # Persistent thread ID for multi-turn conversations
     user_prompt: str
 
     route: str | None
@@ -122,3 +123,5 @@ class GraphState(TypedDict):
     status: str
 
     sandbox_id: str | None
+
+    current_turn_files: list[str]

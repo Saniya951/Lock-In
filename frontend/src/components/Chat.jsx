@@ -17,6 +17,7 @@ const Chat = () => {
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [threadId, setThreadId] = useState(null); // Persistent thread ID for multi-turn conversations
   
   // Visual Editing State
   const [visualEditingEnabled, setVisualEditingEnabled] = useState(false);
@@ -210,14 +211,21 @@ const Chat = () => {
       const totalStart = performance.now();
       console.log('[WebContainer] Starting initialization...');
 
+      // Properly tear down existing container
       if (webcontainerRef.current) {
         console.log('[WebContainer] Tearing down existing container...');
         try {
-          webcontainerRef.current.teardown();
+          await webcontainerRef.current.teardown();
+          webcontainerRef.current = null;
         } catch (teardownError) {
           console.warn('[WebContainer] Teardown warning:', teardownError);
+          webcontainerRef.current = null;
         }
       }
+
+      // Reset states before booting new container
+      setWebcontainerUrl(null);
+      setWebcontainerReady(false);
 
       // Boot up WebContainer
       const bootStart = performance.now();
@@ -432,7 +440,8 @@ const Chat = () => {
         },
         body: JSON.stringify({ 
           prompt: userPrompt,
-          search_method: false 
+          search_method: false,
+          thread_id: threadId  // Send persistent thread ID
         }),
       });
 
@@ -444,9 +453,11 @@ const Chat = () => {
       const decoder = new TextDecoder();
       let buffer = '';
       let currentSessionId = null;
+      let currentThreadId = null;
       let currentPreviewUrl = null;
       let fileCount = 0;
       const streamedFiles = {};
+      let finalExplanation = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -477,10 +488,14 @@ const Chat = () => {
             switch (eventType) {
               case 'session_start':
                 currentSessionId = eventData.session_id;
+                currentThreadId = eventData.thread_id;
+                if (currentThreadId) {
+                  setThreadId(currentThreadId);
+                }
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === botMessageId
-                      ? { ...msg, text: `Session started: ${currentSessionId}` }
+                      ? { ...msg, text: `Session started. Processing your request...` }
                       : msg
                   )
                 );
@@ -563,22 +578,49 @@ const Chat = () => {
                 });
                 break;
 
+              case 'explanation_complete':
+                finalExplanation = eventData.content;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botMessageId
+                      ? { 
+                          ...msg, 
+                          text: finalExplanation || `✅ Project complete! Generated ${fileCount} files.`,
+                          explanation: finalExplanation
+                        }
+                      : msg
+                  )
+                );
+                break;
+
               case 'complete':
                 setLoading(false);
+                
+                // Update thread ID from response
+                if (eventData.thread_id) {
+                  setThreadId(eventData.thread_id);
+                }
                 
                 currentPreviewUrl = eventData.preview_url;
                 if (currentPreviewUrl) {
                   setWebcontainerUrl(currentPreviewUrl);
                   setWebcontainerReady(true);
-                } else if (streamedFiles['package.json']) {
-                  console.log('[WebContainer] No preview_url from backend. Initializing local WebContainer...');
+                } else if (Object.keys(streamedFiles).length > 0 && streamedFiles['package.json']) {
+                  // Use streamedFiles if it has fresh content from this turn
+                  console.log('[WebContainer] No preview_url from backend. Initializing local WebContainer with new files...');
                   await initializeWebContainer(streamedFiles);
+                } else if (Object.keys(sessionFiles).length > 0 && sessionFiles['package.json']) {
+                  // Fallback: use sessionFiles (useful for follow-up turns)
+                  console.log('[WebContainer] Using cached sessionFiles to reinitialize WebContainer...');
+                  await initializeWebContainer(sessionFiles);
                 }
 
+                // Use explanation if available, otherwise show completion message
+                const completionMsg = finalExplanation || `✅ Project complete! Generated ${fileCount} files.`;
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === botMessageId
-                      ? { ...msg, text: `✅ Project complete! Generated ${fileCount} files.` }
+                      ? { ...msg, text: completionMsg, explanation: finalExplanation }
                       : msg
                   )
                 );

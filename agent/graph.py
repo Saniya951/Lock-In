@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import Chroma
 from pydantic import BaseModel, Field
@@ -31,6 +32,8 @@ from concurrent.futures import ThreadPoolExecutor
 # Small pool is enough; HF API is the bottleneck anyway
 embedding_executor = ThreadPoolExecutor(max_workers=2)
 
+# to persist memory after the first run(enables conversation)
+memory = MemorySaver()
 
 # different llms:
 # llm = ChatGroq(model="openai/gpt-oss-120b")
@@ -117,6 +120,8 @@ def route_query(state: GraphState) -> dict:
     cprint(" Entering Router...", "cyan", attrs=["bold"])
     
     users_prompt = state["user_prompt"]
+    thread_id = state.get("thread_id")
+    cprint(f" Thread ID: {thread_id}", "cyan")
     cprint(f" Routing query: {users_prompt[:100]}...", "yellow")
     response = llm.with_structured_output(QueryRoute).invoke(router_prompt(users_prompt))
     
@@ -125,7 +130,10 @@ def route_query(state: GraphState) -> dict:
         return {"route": "build"}
         
     cprint(f" Decision: Route -> {response.route}", "green")
-    return {"route": response.route}
+    return {
+        "route": response.route,
+        "thread_id": thread_id  # Preserve thread_id through routing
+    }
 
 def planner_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
@@ -224,6 +232,36 @@ def scaffolder_agent(state: GraphState) -> dict:
     # Append the new files to whatever was already in completed_files
     return {"completed_files": completed_files + scaffolded_list}
 
+def feature_architect_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Feature Architect (Delta Planning)...", "cyan", attrs=["bold"])
+    
+    users_prompt = state["user_prompt"]   #new followup prompt
+    plan = state.get("plan")  #plan from first run
+    completed_files = state.get("completed_files", [])
+    tech_stack = plan.tech_stack if plan else "unknown"
+    
+    # Generate the delta tasks
+    response = llm.with_structured_output(TaskPlan).invoke(
+        feature_architect_prompt(users_prompt, tech_stack, completed_files)
+    )
+    
+    if response is None:
+        raise ValueError("Feature Architect failed to generate a task plan.")
+        
+    queue_steps = [step.model_dump() for step in response.implementation_steps]
+    current_turn_files = [step["file_name"] for step in queue_steps] #for explainer
+
+    cprint(f" Feature Architect generated {len(queue_steps)} file modification tasks.", "green")
+
+    return {
+        "task_queue": queue_steps,
+        "current_task_index": 0,  # Reset so coder starts from the top of the new queue
+        "iteration_count": 0,     # Reset so executor runs tests for the new features
+        "error_report": ""  ,      # Clear any leftover errors from turn 1
+        "current_turn_files": current_turn_files
+    }
+
 def normalize_deps(deps: list[str]) -> set[str]:
     # to convert all dependencies into lower case and to remove any extra space before or after them
     return {d.lower().strip() for d in deps}
@@ -276,13 +314,17 @@ def architect_agent(state: GraphState) -> dict:
     except Exception as e:
         cprint(f"Error saving architect output: {e}", "red")
 
+    # for explainer
+    current_turn_files = [step["file_name"] for step in queue_steps]
+
     return {
         "task_queue": queue_steps,    # for coder
         "dependencies": normalize_deps(task_response.dependencies),
         "qa_plan": qa_tasks,          # for qa agent
         "current_task_index": 0,
         "completed_files": [],
-        "error_report": ""
+        "error_report": "",
+        "current_turn_files": current_turn_files, #for explainer
     }   
 
 def researcher_agent(state: GraphState) -> dict:
@@ -386,7 +428,6 @@ def coder_agent(state: GraphState) -> dict:
     current_step = queue[index]
     filename = current_step['file_name']
     task_desc = current_step['task_description']
-    # topic = current_step['related_docs_topic']
     
     needs_search = current_step.get('needs_search', False)
     search_query = current_step.get('search_query', "")
@@ -408,10 +449,6 @@ def coder_agent(state: GraphState) -> dict:
         doc_context = perform_jit_research(search_query, search_method, approved_domains=official_domains)
     else:
         doc_context = "Rely on the above rules and your internal knowledge. No external docs provided."
-
-    # #retrieve from vector db or tavily
-    # search_method = state.get("search_method", False)
-    # doc_context = perform_jit_research(topic, search_method,approved_domains=official_domains)
 
     # detect: is this a fix mode, modify mode or build mode?
     error_report = state.get("error_report")
@@ -1032,6 +1069,94 @@ def learner_agent(state: GraphState) -> dict:
     cprint(" Entering Learner Agent (Placeholder)...", "cyan", attrs=["bold"])
     return {} 
 
+def explainer_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Explainer Agent (Final Review)...", "cyan", attrs=["bold"])
+    
+    session_id = state.get("session_id")
+    current_files = state.get("current_turn_files", [])
+    status = state.get("status", "unknown")
+    user_prompt = state.get("user_prompt")
+    
+    current_files = list(set(current_files))  #remove duplicates
+    
+    if not current_files:
+        cprint(" No files were modified in this turn to explain.", "yellow")
+        # Emit empty explanation event
+        emit_file_event("explanation_complete", {
+            "session_id": session_id,
+            "content": "",
+            "status": status
+        })
+        return {}
+
+    user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+    files_content = ""
+    
+    # Read the contents of the modified files off the disk
+    for filename in current_files:
+        # Handling the nested frontend/backend paths you set up earlier
+        file_path = os.path.join(user_code_dir, filename)
+        
+        # Fallback search if exact path fails (for frontend backend folders)
+        if not os.path.exists(file_path):
+            for root, _, local_files in os.walk(user_code_dir):
+                for f in local_files:
+                    full_path = os.path.join(root, f)
+                    if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+                        file_path = full_path
+                        break
+        
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    files_content += f"\n--- {filename} ---\n{content}\n"
+            except Exception as e:
+                cprint(f"   Could not read {filename} for explanation: {e}", "red")
+        else:
+            cprint(f"   File {filename} not found on disk for explanation.", "red")
+
+    if not files_content.strip():
+        cprint(" None of the tracked files could be read.", "yellow")
+        # Emit empty explanation event
+        emit_file_event("explanation_complete", {
+            "session_id": session_id,
+            "content": "",
+            "status": status
+        })
+        return {}
+
+    cprint(f" Generating explanation for {len(current_files)} files...", "yellow")
+    
+    prompt = explainer_prompt(run_status=status, files_content=files_content, user_prompt=user_prompt)
+    
+    try:
+        response = llm.invoke(prompt)
+        explanation_text = response.content.strip()
+        
+        cprint(f"\n=== TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
+        print(explanation_text)
+        cprint("==================================\n", "green", attrs=["bold"])
+        
+        # Emit the explanation for streaming to the frontend
+        emit_file_event("explanation_complete", {
+            "session_id": session_id,
+            "content": explanation_text,
+            "status": status
+        })
+        
+    except Exception as e:
+        cprint(f" Explainer LLM failed: {e}", "red")
+        emit_file_event("explanation_complete", {
+            "session_id": session_id,
+            "content": f"Explanation generation failed: {str(e)}",
+            "status": "error"
+        })
+
+    # clear current_turn_files so it doesn't bleed into the next REPL input turn
+    return {"current_turn_files": []}
+
 #graph definition
 graph = StateGraph(GraphState)
 
@@ -1048,16 +1173,24 @@ graph.add_node("executor", executor_agent)
 graph.add_node("evaluator", evaluator_agent)
 graph.add_node("debugger", debugger_agent)
 graph.add_node("learner", learner_agent)
-
+graph.add_node("feature_architect", feature_architect_agent)
+graph.add_node("explainer", explainer_agent)
 
 # entry point is router
 graph.set_entry_point("router")
 
 #conditional edge functionals called by conditional edges
-def route_decision(state: GraphState) -> Literal["planner", "debugger", "learner"]:
+def route_decision(state: GraphState) -> Literal["planner", "feature_architect", "debugger", "learner"]:
     route = state.get("route")
+    completed_files = state.get("completed_files", [])
+
     if route == "build":
-        return "planner"
+        if len(completed_files) > 0:
+            cprint("   [Router] Existing codebase detected. Routing to Feature Architect...", "yellow")
+            return "feature_architect"
+        else:
+            cprint("   [Router] No codebase detected. Routing to Planner...", "yellow")
+            return "planner"
     elif route == "debug":
         return "debugger"
     elif route == "learn":
@@ -1110,8 +1243,7 @@ def check_evaluation(state: GraphState) -> Literal["debugger", END]:
     
     if status == "fail" and count < 3: # Limit retries to 3
         return "debugger"
-    return END
-
+    return "explainer"
 
 #edges and conditional edges
 graph.add_conditional_edges(
@@ -1119,14 +1251,13 @@ graph.add_conditional_edges(
     route_decision,
     {
         "planner": "planner",
+        "feature_architect": "feature_architect",
         "debugger": "debugger",
         "learner": "learner"
     }
 )
+graph.add_edge("feature_architect", "researcher")
 
-# graph.add_edge("planner", "architect")
-# graph.add_edge("planner", "scaffolder")
-# graph.add_edge("scaffolder", "architect")
 graph.add_conditional_edges(
     "planner",
     check_scaffold_status,
@@ -1165,98 +1296,195 @@ graph.add_conditional_edges(
     check_evaluation,
     {
         "debugger": "debugger", 
-        END: END
+        "explainer": "explainer" # <-- Connect to explainer instead of END
     }
 )
 
 graph.add_edge("debugger", "researcher") # close the loop!!!!!    
 graph.add_edge("researcher","coder")
-graph.add_edge("learner", END)
+graph.add_edge("learner", "explainer")
+graph.add_edge("explainer", END)
 
 
-agent = graph.compile()
+agent = graph.compile(checkpointer=memory)
 
-def run_graph(user_prompt: str, search_method: bool = False) -> dict:
+# if __name__ == "__main__":
+        
+#     cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
+#     user_prompt = input("Please enter your project request: ")
+
+#     search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
+#     search_method = (search_method_input == "1")  # True for advance, False for default
+
+#     session_id = str(uuid.uuid4())
+#     cprint(f" Session ID generated: {session_id}", "cyan")
+
+
+#     #try not to comment any of the ones below or else the app /will/ crash
+#     initial_state: GraphState = {
+#         "session_id":session_id,
+#         "user_prompt": user_prompt,
+#         "route": None,
+#         "plan": None, 
+#         "task_queue":[],
+#         "dependencies": [],    
+#         "qa_plan": [],
+#         "completed_files": [],
+#         "current_task_index": 0, 
+#         "search_method": search_method,
+#         "iteration_count": 0, #count for exec-eval-debug loop
+#         "error_report": "",
+#         "status" : "fail",
+#         "sandbox_id": get_sandbox_for_session(session_id),
+#         "attempt_history":[]
+#     }
+#     result = agent.invoke(initial_state,config={"recursion_limit": 100})
+
+#     cprint(f"\n{'='*50}", "magenta")
+#     cprint("\n Agent workflow finished. Final state:", "green", attrs=["bold"])
+#     import pprint
+#     pprint.pprint(result)
+
+def run_graph(user_prompt: str, search_method: bool = False, thread_id: str = None) -> dict:
     """
     Run the agent graph with the given user prompt and search method.
     
     Args:
         user_prompt: The user's project request
         search_method: False (default) for vectordb, True for tavily live search
+        thread_id: Optional persistent thread ID for multi-turn conversations. 
+                   If not provided, a new one is created.
     
     Returns:
         dict: The final state of the agent workflow
     """
-    session_id = str(uuid.uuid4())
+    # Use provided thread_id or create a new one
+    if not thread_id:
+        thread_id = str(uuid.uuid4())
+    
+    # For backwards compatibility, session_id = thread_id (used for file paths)
+    session_id = thread_id
+    
     cprint(f"\n{'='*50}", "magenta")
-    cprint(f" Starting new session: {session_id}", "cyan", attrs=["bold"])
+    cprint(f" Thread ID: {thread_id}", "cyan", attrs=["bold"])
     cprint(f" User prompt: {user_prompt}", "yellow")
     cprint(f" Search method: {'Tavily (Live)' if search_method else 'VectorDB (Default)'}", "yellow")
     
     # Emit session start event
     emit_file_event("session_start", {
+        "thread_id": thread_id,
         "session_id": session_id,
         "prompt": user_prompt
     })
     
+    # Get current state from checkpointer if thread exists
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        current_state = agent.get_state(config).values
+        # If state exists, we're in a follow-up turn
+        cprint(f" Resuming thread with existing state...", "yellow")
+    except:
+        # First turn for this thread
+        current_state = {}
+        cprint(f" Starting new thread...", "yellow")
+    
+    # Build input for this turn
     initial_state: GraphState = {
         "session_id": session_id,
+        "thread_id": thread_id,
         "user_prompt": user_prompt,
         "route": None,
-        "plan": None, 
-        "task_queue": [],
-        "dependencies": [],    
-        "qa_plan": [],
-        "completed_files": [],
+        "plan": current_state.get("plan"),
+        "task_queue": current_state.get("task_queue", []),
+        "dependencies": current_state.get("dependencies", []),    
+        "qa_plan": current_state.get("qa_plan", []),
+        "completed_files": current_state.get("completed_files", []),
         "current_task_index": 0, 
         "search_method": search_method,
         "iteration_count": 0,
         "error_report": "",
         "status": "fail",
         "sandbox_id": get_sandbox_for_session(session_id),
-        "attempt_history": []
+        "attempt_history": [],
+        "current_turn_files": []
     }
     
-    result = agent.invoke(initial_state, config={"recursion_limit": 100})
+    # Merge with the provided input instead of creating fresh
+    final_config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 100}
+    
+    result = agent.invoke(initial_state, config=final_config)
     
     cprint(f"\n{'='*50}", "magenta")
     cprint(" Agent workflow finished.", "green", attrs=["bold"])
     
+    # Ensure the result includes thread_id for frontend session management
+    result["thread_id"] = thread_id
+    result["session_id"] = session_id
+    
     return result
 
 if __name__ == "__main__":
-        
     cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
-    user_prompt = input("Please enter your project request: ")
-
+    
     search_method_input = input("Choose search method: 0 for 'default' (vector DB) or 1 for 'advance' (Live Search): ").strip()
-    search_method = (search_method_input == "1")  # True for advance, False for default
+    search_method = (search_method_input == "1")
 
-    session_id = str(uuid.uuid4())
-    cprint(f" Session ID generated: {session_id}", "cyan")
+    # Generate ONE thread_id for the entire conversation
+    thread_id = str(uuid.uuid4())
+    cprint(f" Thread ID generated: {thread_id}", "cyan")
+    
+    # LangGraph requires the thread_id to be passed in the config, not just the state
+    config = {"configurable": {"thread_id": thread_id}}
 
-
-    #try not to comment any of the ones below or else the app /will/ crash
-    initial_state: GraphState = {
-        "session_id":session_id,
-        "user_prompt": user_prompt,
-        "route": None,
-        "plan": None, 
-        "task_queue":[],
-        "dependencies": [],    
-        "qa_plan": [],
-        "completed_files": [],
-        "current_task_index": 0, 
+    # We still need the session_id in the state for your file paths to work
+    initial_state = {
+        "session_id": thread_id, 
         "search_method": search_method,
-        "iteration_count": 0, #count for exec-eval-debug loop
-        "error_report": "",
-        "status" : "fail",
-        "sandbox_id": get_sandbox_for_session(session_id),
-        "attempt_history":[]
+        "task_queue": [],
+        "completed_files": [],
+        "iteration_count": 0,
+        "sandbox_id": get_sandbox_for_session(thread_id),
+        "attempt_history": []
     }
-    result = agent.invoke(initial_state,config={"recursion_limit": 100})
 
-    cprint(f"\n{'='*50}", "magenta")
-    cprint("\n Agent workflow finished. Final state:", "green", attrs=["bold"])
-    import pprint
-    pprint.pprint(result)
+    first_run = True
+
+    # an infinite loop
+    while True:
+        try:
+            user_prompt = input("\n Please enter your project request (or to exit type 'exit'/'quit'): ")
+            if user_prompt.lower() in ['exit', 'quit']:
+                cprint("Exiting Lock-In...", "yellow")
+                break
+                
+            if not user_prompt.strip():
+                continue
+
+            # Update the state with the new prompt
+            current_input = {"user_prompt": user_prompt}
+            
+            # Merge the initial setup variables only on the very first run
+            # on the second run, the first_run will be false obv so it wont initialize with the initial state
+            if first_run:
+                current_input.update(initial_state)
+                first_run = False
+
+            cprint(f"\n{'='*50}", "magenta")
+            cprint(" Invoking Agent...", "cyan", attrs=["bold"])
+            
+            # The checkpointer automatically loads the past state using the config
+            # Then it merges our current_input (the new prompt) into that state
+            for event in agent.stream(current_input, config=config, stream_mode="values"):
+                # This lets you see the state updating in real time in your terminal
+                pass 
+            
+            # Fetch the final state after the run completes
+            final_state = agent.get_state(config).values
+            cprint(f"\n Run complete. Current Route: {final_state.get('route')}", "green")
+            
+        except KeyboardInterrupt:
+            cprint("\nExiting...", "yellow")
+            break
+        except Exception as e:
+            cprint(f"\nFatal Error: {e}", "red")
+            break

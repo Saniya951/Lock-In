@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from models import User, UserCreate, UserLogin, Token
 from pydantic import BaseModel
+from typing import Optional
 import anyio
 import sys
 import ssl
@@ -74,6 +75,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 class GraphRequest(BaseModel):
     prompt: str
     search_method: bool = False  # False (0) for vectordb (default), True (1) for tavily
+    thread_id: Optional[str] = None  # Optional persistent thread ID for multi-turn conversations
 
 @app.post("/signup", response_model=dict)
 async def signup(user: UserCreate):
@@ -185,36 +187,48 @@ async def home(token: str = Depends(oauth2_scheme)):
 
 @app.post("/prompt")
 async def run_graph_endpoint(payload: GraphRequest):
-    result = await anyio.to_thread.run_sync(run_graph, payload.prompt, payload.search_method)
+    result = await anyio.to_thread.run_sync(
+        run_graph, 
+        payload.prompt, 
+        payload.search_method,
+        payload.thread_id
+    )
     
-    # Extract session_id from result
+    # Extract thread_id and session_id from result
+    thread_id = result.get("thread_id")
     session_id = result.get("session_id")
     
-    # Return result with frontend files info
+    # Return result with thread management info
     return {
         "result": result,
+        "thread_id": thread_id,
         "session_id": session_id,
         "preview_url": result.get("preview_url"),
-        # "frontend_url": f"http://localhost:8000/session/{session_id}/frontend" if session_id else None
     }
 
 @app.post("/prompt/stream")
 async def run_graph_stream_endpoint(payload: GraphRequest):
-    """Stream file creation events in real-time using Server-Sent Events"""
+    """Stream file creation events in real-time using Server-Sent Events with persistent thread support"""
     
     async def event_generator():
         file_queue = asyncio.Queue()
-        session_id_holder = {}
+        session_info = {"thread_id": None, "session_id": None}
+        explanation_holder = {"summary": ""}
         
         # Get the current event loop for the callback to use
         loop = asyncio.get_event_loop()
         
-        def file_callback(event_type: str, data: dict):
-            """Callback function that runs in the agent thread"""
+        def streaming_callback(event_type: str, data: dict):
+            """Enhanced callback that captures explainer output"""
             try:
                 filename = data.get('filename', 'N/A')
                 print(f"[BACKEND CALLBACK] Received event: {event_type}, file: {filename}")
-                # Use the captured event loop to safely put data from worker thread
+                
+                # Capture explanation output
+                if event_type == "explanation_complete":
+                    explanation_holder["summary"] = data.get("content", "")
+                
+                # Queue all events for streaming
                 asyncio.run_coroutine_threadsafe(
                     file_queue.put({"type": event_type, "data": data}),
                     loop
@@ -224,28 +238,32 @@ async def run_graph_stream_endpoint(payload: GraphRequest):
                 print(f"Error in callback: {e}")
         
         # Set the callback for this request
-        set_file_callback(file_callback)
+        set_file_callback(streaming_callback)
         
         # Run the agent in a background thread
         async def run_agent():
             try:
                 result = await anyio.to_thread.run_sync(
-                    run_graph, 
+                    run_graph,
                     payload.prompt, 
-                    payload.search_method
+                    payload.search_method,
+                    payload.thread_id
                 )
+                thread_id = result.get('thread_id')
                 session_id = result.get('session_id')
                 preview_url = result.get('preview_url')
-                session_id_holder['id'] = session_id
-                session_id_holder['preview_url'] = preview_url
+                session_info['thread_id'] = thread_id
+                session_info['session_id'] = session_id
                 
-                # Only send serializable data in complete event
+                # Send completion event with thread info
                 await file_queue.put({
                     "type": "complete", 
                     "data": {
+                        "thread_id": thread_id,
                         "session_id": session_id,
                         "preview_url": preview_url,
-                        "status": result.get("status", "unknown")
+                        "status": result.get("status", "unknown"),
+                        "explanation": explanation_holder.get("summary", "")
                     }
                 })
             except Exception as e:
