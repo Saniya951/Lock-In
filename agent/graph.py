@@ -442,6 +442,8 @@ def coder_agent(state: GraphState) -> dict:
 
     user_prompt = state.get("user_prompt")
 
+    current_turn_files = state.get("current_turn_files", [])
+
     cprint(f" Processing File ({index+1}/{len(queue)}): {filename}", "cyan", attrs=["bold"])
 
     if needs_search and search_query:
@@ -503,7 +505,8 @@ def coder_agent(state: GraphState) -> dict:
         existing_code=existing_code,
         error_report=error_report,
         tech_stack=tech_stack,
-        user_prompt=user_prompt
+        user_prompt=user_prompt,
+        current_turn_files=current_turn_files
     )
 
     try:

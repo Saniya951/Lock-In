@@ -11,37 +11,117 @@
 let idCounter = 0;
 let idMapping = {}; // Maps data-id -> { file, line, tagName, attributes }
 
+function isIdentifierStart(char) {
+  return /[A-Za-z]/.test(char);
+}
+
+function getLineNumber(content, index) {
+  return content.substring(0, index).split('\n').length;
+}
+
+function scanJsxOpeningTags(content) {
+  const tags = [];
+
+  for (let index = 0; index < content.length; index += 1) {
+    if (content[index] !== '<' || !isIdentifierStart(content[index + 1] || '')) {
+      continue;
+    }
+
+    let cursor = index + 1;
+    while (cursor < content.length && /[A-Za-z0-9.-]/.test(content[cursor])) {
+      cursor += 1;
+    }
+
+    const tagName = content.slice(index + 1, cursor);
+    let braceDepth = 0;
+    let quoteChar = null;
+    let tagEnd = -1;
+
+    for (; cursor < content.length; cursor += 1) {
+      const char = content[cursor];
+      const previousChar = content[cursor - 1];
+
+      if (quoteChar) {
+        if (char === quoteChar && previousChar !== '\\') {
+          quoteChar = null;
+        }
+        continue;
+      }
+
+      if (char === '"' || char === "'") {
+        quoteChar = char;
+        continue;
+      }
+
+      if (char === '{') {
+        braceDepth += 1;
+        continue;
+      }
+
+      if (char === '}') {
+        braceDepth = Math.max(0, braceDepth - 1);
+        continue;
+      }
+
+      if (char === '>' && braceDepth === 0) {
+        tagEnd = cursor;
+        break;
+      }
+    }
+
+    if (tagEnd === -1) {
+      continue;
+    }
+
+    const rawAttributes = content.slice(index + 1 + tagName.length, tagEnd);
+    const isSelfClosing = /\/\s*$/.test(rawAttributes);
+    const attributes = isSelfClosing ? rawAttributes.replace(/\/\s*$/, '') : rawAttributes;
+
+    tags.push({
+      start: index,
+      end: tagEnd + 1,
+      tagName,
+      attributes,
+      isSelfClosing,
+      line: getLineNumber(content, index),
+    });
+
+    index = tagEnd;
+  }
+
+  return tags;
+}
+
 /**
- * Simple regex-based fallback for JSX ID injection
+ * Simple scanner-based fallback for JSX ID injection
  * Used when Babel is not available
  */
 function regexBasedIdInjection(jsxContent, filePath) {
   const mapping = {};
   let counter = 0;
-  
-  // Pattern for JSX opening tags (simplified)
-  // Matches: <Component or <div or <span, etc.
-  const tagPattern = /<([A-Z][a-zA-Z0-9]*|[a-z][a-zA-Z0-9-]*)(\s[^>]*)?>/g;
-  
-  let modifiedContent = jsxContent;
-  let offset = 0;
 
-  modifiedContent = modifiedContent.replace(tagPattern, (match, tagName, attributes = '', offsetIndex) => {
+  const tags = scanJsxOpeningTags(jsxContent);
+  let modifiedContent = '';
+  let lastIndex = 0;
+
+  tags.forEach((tag) => {
+    const { start, end, tagName, attributes, isSelfClosing, line } = tag;
     const id = `uid-${++counter}`;
-    const isSelfClosing = /\/\s*>$/.test(match);
-    const cleanedAttributes = attributes.replace(/\s*\/\s*$/, '');
+    const cleanedAttributes = attributes;
     
     // Store mapping info
     mapping[id] = {
       file: filePath,
       tagName,
       attributes: cleanedAttributes || '',
-      line: jsxContent.substring(0, offsetIndex).split('\n').length,
+      line,
     };
 
     // Skip if already has data-id
     if (attributes && attributes.includes('data-id=')) {
-      return match;
+      modifiedContent += jsxContent.slice(lastIndex, end);
+      lastIndex = end;
+      return;
     }
 
     // Inject data-id
@@ -49,12 +129,20 @@ function regexBasedIdInjection(jsxContent, filePath) {
       ? `${cleanedAttributes} data-id="${id}"`
       : ` data-id="${id}"`;
 
-    if (isSelfClosing) {
-      return `<${tagName}${attrWithId} />`;
-    }
+    const replacement = isSelfClosing
+      ? `<${tagName}${attrWithId} />`
+      : `<${tagName}${attrWithId}>`;
 
-    return `<${tagName}${attrWithId}>`;
+    modifiedContent += jsxContent.slice(lastIndex, start);
+    modifiedContent += replacement;
+    lastIndex = end;
   });
+
+  if (lastIndex === 0) {
+    modifiedContent = jsxContent;
+  } else {
+    modifiedContent += jsxContent.slice(lastIndex);
+  }
 
   return { modifiedContent, mapping, counter };
 }
@@ -175,18 +263,10 @@ export function getElementInfo(dataId) {
  * Helper to extract all JSX elements from content (for debugging/preview)
  */
 export function extractJsxElements(content) {
-  const elements = [];
-  const tagPattern = /<([A-Z][a-zA-Z0-9]*|[a-z][a-zA-Z0-9-]*)(\s[^>]*)?>/g;
-  
-  let match;
-  while ((match = tagPattern.exec(content)) !== null) {
-    elements.push({
-      tagName: match[1],
-      attributes: match[2] || '',
-      position: match.index,
-      line: content.substring(0, match.index).split('\n').length,
-    });
-  }
-
-  return elements;
+  return scanJsxOpeningTags(content).map((tag) => ({
+    tagName: tag.tagName,
+    attributes: tag.attributes || '',
+    position: tag.start,
+    line: tag.line,
+  }));
 }

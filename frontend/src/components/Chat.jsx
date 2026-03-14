@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MoreHorizontal, Eye, EyeOff } from 'lucide-react';
+import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
 import JSZip from 'jszip';
@@ -18,6 +18,7 @@ const Chat = () => {
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [threadId, setThreadId] = useState(null); // Persistent thread ID for multi-turn conversations
+  const [isDarkMode, setIsDarkMode] = useState(true); // Theme state
   
   // Visual Editing State
   const [visualEditingEnabled, setVisualEditingEnabled] = useState(false);
@@ -757,7 +758,9 @@ const Chat = () => {
       const item = tree[name];
       return (
         <div key={`folder-${name}`} style={{ marginLeft: `${depth * 12}px` }}>
-          <div className="text-xs font-semibold text-gray-400 py-1 px-2 hover:bg-white/5 rounded">
+          <div className={`text-xs font-semibold py-1 px-2 rounded transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-200'
+          }`}>
             📁 {name}
           </div>
           {renderFileTree(item.children, depth + 1)}
@@ -773,8 +776,12 @@ const Chat = () => {
           onClick={() => setSelectedFile(item.path)}
           className={`block w-full text-left px-2 py-1 text-xs truncate transition-colors rounded ${
             selectedFile === item.path
-              ? 'bg-indigo-500/20 text-indigo-400 border-l-2 border-indigo-500'
-              : 'text-gray-400 hover:bg-white/5'
+              ? isDarkMode
+                ? 'bg-indigo-500/20 text-indigo-400 border-l-2 border-indigo-500'
+                : 'bg-indigo-100 text-indigo-700 border-l-2 border-indigo-500'
+              : isDarkMode
+              ? 'text-gray-400 hover:bg-white/5'
+              : 'text-gray-600 hover:bg-gray-200'
           }`}
           style={{ marginLeft: `${depth * 12}px` }}
           title={item.path}
@@ -819,36 +826,71 @@ const Chat = () => {
   }, [selectedFile, sessionFiles]);
 
   return (
-    <div className="h-screen bg-[#050505] text-white flex flex-col">
+    <div className={`h-screen flex flex-col transition-colors duration-300 ${
+      isDarkMode ? 'bg-[#050505] text-white' : 'bg-white text-gray-900'
+    }`}>
       {/* Header */}
-      <div className="border-b border-white/5 bg-[#050505]/80 backdrop-blur-lg px-6 py-4 flex items-center justify-between">
+      <div className={`border-b px-6 py-4 flex items-center justify-between backdrop-blur-lg transition-colors duration-300 ${
+        isDarkMode ? 'border-white/5 bg-[#050505]/80' : 'border-gray-200 bg-white/80'
+      }`}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-lg flex items-center justify-center">
             <Sparkles className="text-white w-5 h-5" />
           </div>
-          <h1 className="text-2xl font-bold">Lock-In</h1>
+          <h1 className={`text-2xl font-bold transition-colors duration-300 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>Lock-In</h1>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Theme Toggle Button */}
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+              isDarkMode 
+                ? 'text-gray-400 hover:text-white hover:bg-white/10' 
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+
           {/* Menu Button */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all"
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                isDarkMode 
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
 
             {/* Dropdown Menu */}
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-lg z-50">
+              <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50 transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'bg-[#1a1a1a] border border-white/10' 
+                  : 'bg-white border border-gray-200'
+              }`}>
                 <button 
                   onClick={exportAsZip}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-t-lg"
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-t-lg ${
+                    isDarkMode 
+                      ? 'text-gray-300 hover:bg-white/5 hover:text-white' 
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
                 >
                    Export as zip
                 </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-b-lg border-t border-white/5">
+                <button className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-b-lg border-t ${
+                  isDarkMode 
+                    ? 'text-gray-300 hover:bg-white/5 hover:text-white border-white/5' 
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 border-gray-200'
+                }`}>
                    Link to github
                 </button>
               </div>
@@ -866,14 +908,20 @@ const Chat = () => {
       <div className="flex-1 overflow-hidden" id="panels-container">
         <div className="flex h-full">
           {/* Chat Panel */}
-          <div style={{ width: `${chatWidth}%` }} className="bg-[#050505] flex flex-col border-r border-white/5">
+          <div style={{ width: `${chatWidth}%` }} className={`flex flex-col border-r transition-colors duration-300 ${
+            isDarkMode ? 'bg-[#050505] border-white/5' : 'bg-gray-50 border-gray-200'
+          }`}>
             {/* Messages Container */}
             <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center">
                   <div className="space-y-3">
-                    <h2 className="text-lg font-semibold">Start Coding</h2>
-                    <p className="text-gray-400 text-xs max-w-xs">
+                    <h2 className={`text-lg font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>Start Coding</h2>
+                    <p className={`text-xs max-w-xs transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
                       Send a message to get started with your coding assistant.
                     </p>
                   </div>
@@ -886,14 +934,20 @@ const Chat = () => {
                       className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                        className={`max-w-xs px-3 py-2 rounded-lg text-sm transition-colors duration-300 ${
                           message.sender === 'user'
-                            ? 'bg-indigo-500/20 border border-indigo-500/50 text-white'
-                            : 'bg-gray-800/50 border border-gray-700/50 text-gray-100'
+                            ? isDarkMode
+                              ? 'bg-indigo-500/20 border border-indigo-500/50 text-white'
+                              : 'bg-indigo-100 border border-indigo-300 text-indigo-900'
+                            : isDarkMode
+                            ? 'bg-gray-800/50 border border-gray-700/50 text-gray-100'
+                            : 'bg-white border border-gray-300 text-gray-900'
                         }`}
                       >
                         <p className="whitespace-pre-wrap break-words">{message.text}</p>
-                        <span className="text-xs text-gray-500 mt-1 block">
+                        <span className={`text-xs mt-1 block transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                        }`}>
                           {message.timestamp.toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -904,11 +958,21 @@ const Chat = () => {
                   ))}
                   {loading && (
                     <div className="flex justify-start">
-                      <div className="bg-gray-800/50 border border-gray-700/50 px-3 py-2 rounded-lg">
+                      <div className={`px-3 py-2 rounded-lg transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-gray-800/50 border border-gray-700/50' 
+                          : 'bg-white border border-gray-300'
+                      }`}>
                         <div className="flex gap-2">
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                          <div className={`w-2 h-2 rounded-full animate-bounce transition-colors duration-300 ${
+                            isDarkMode ? 'bg-gray-500' : 'bg-gray-400'
+                          }`}></div>
+                          <div className={`w-2 h-2 rounded-full animate-bounce transition-colors duration-300 ${
+                            isDarkMode ? 'bg-gray-500' : 'bg-gray-400'
+                          }`} style={{ animationDelay: '0.2s' }}></div>
+                          <div className={`w-2 h-2 rounded-full animate-bounce transition-colors duration-300 ${
+                            isDarkMode ? 'bg-gray-500' : 'bg-gray-400'
+                          }`} style={{ animationDelay: '0.4s' }}></div>
                         </div>
                       </div>
                     </div>
@@ -919,7 +983,9 @@ const Chat = () => {
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-white/5 bg-[#050505]/80 backdrop-blur-lg px-4 py-3">
+            <div className={`border-t backdrop-blur-lg px-4 py-3 transition-colors duration-300 ${
+              isDarkMode ? 'border-white/5 bg-[#050505]/80' : 'border-gray-200 bg-white/80'
+            }`}>
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
@@ -927,7 +993,11 @@ const Chat = () => {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Type your message..."
                   disabled={loading}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-all disabled:opacity-50"
+                  className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all disabled:opacity-50 ${
+                    isDarkMode 
+                      ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-indigo-500/50 focus:bg-white/10' 
+                      : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:bg-white'
+                  }`}
                 />
                 <button
                   type="submit"
@@ -943,18 +1013,28 @@ const Chat = () => {
           {/* Resize Handle - Chat/Right Panels */}
           <div
             onMouseDown={handleMouseDownChat}
-            className="w-3 bg-white/5 hover:bg-white/10 cursor-col-resize transition-colors flex items-center justify-center"
+            className={`w-3 cursor-col-resize transition-colors flex items-center justify-center ${
+              isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-200 hover:bg-gray-300'
+            }`}
           >
-            <span className="w-1.5 h-6 rounded-full bg-white/70"></span>
+            <span className={`w-1.5 h-6 rounded-full ${
+              isDarkMode ? 'bg-white/70' : 'bg-gray-400'
+            }`}></span>
           </div>
 
           {/* Right Panels Container - Render and Coding stacked vertically */}
           <div style={{ width: `${rightPanelWidth}%` }} className="flex flex-col" id="right-panels">
             {/* Render Window Panel */}
-            <div style={{ height: `${renderHeight}%` }} className="bg-[#0a0a0a] flex flex-col border-b border-white/5 overflow-hidden">
+            <div style={{ height: `${renderHeight}%` }} className={`flex flex-col border-b overflow-hidden transition-colors duration-300 ${
+              isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-gray-100 border-gray-200'
+            }`}>
               {/* Render Window Header */}
-              <div className="bg-[#0a0a0a]/80 border-b border-white/5 px-4 py-2 flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-400 uppercase">Preview</span>
+              <div className={`border-b px-4 py-2 flex items-center justify-between transition-colors duration-300 ${
+                isDarkMode ? 'bg-[#0a0a0a]/80 border-white/5' : 'bg-gray-50/80 border-gray-200'
+              }`}>
+                <span className={`text-xs font-semibold uppercase transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>Preview</span>
                 {webcontainerReady && webcontainerUrl && (
                   <button
                     onClick={() => {
@@ -1019,14 +1099,20 @@ const Chat = () => {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-gray-400 text-sm">Starting dev server...</p>
+                    <p className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>Starting dev server...</p>
                   </div>
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm font-medium">Render Window</p>
-                    <p className="text-gray-600 text-xs mt-2">Generated code will appear here</p>
+                    <p className={`text-sm font-medium transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>Render Window</p>
+                    <p className={`text-xs mt-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-600' : 'text-gray-500'
+                    }`}>Generated code will appear here</p>
                   </div>
                 </div>
               )}
@@ -1035,24 +1121,36 @@ const Chat = () => {
             {/* Resize Handle - Render/Coding */}
             <div
               onMouseDown={handleMouseDownRender}
-              className="h-3 bg-white/5 hover:bg-white/10 cursor-row-resize transition-colors flex items-center justify-center"
+              className={`h-3 cursor-row-resize transition-colors flex items-center justify-center ${
+                isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-200 hover:bg-gray-300'
+              }`}
             >
-              <span className="w-6 h-1.5 rounded-full bg-white/70"></span>
+              <span className={`w-6 h-1.5 rounded-full ${
+                isDarkMode ? 'bg-white/70' : 'bg-gray-400'
+              }`}></span>
             </div>
 
             {/* Code and File Window Panel */}
-            <div style={{ height: `${codingHeight}%` }} className="bg-[#0a0a0a] flex flex-col overflow-hidden" id="code-panel">
+            <div style={{ height: `${codingHeight}%` }} className={`flex flex-col overflow-hidden transition-colors duration-300 ${
+              isDarkMode ? 'bg-[#0a0a0a]' : 'bg-gray-100'
+            }`} id="code-panel">
               <div className="flex h-full">
                 {/* File Tree */}
-                <div style={{ width: `${fileTreeWidth}px` }} className="bg-[#0a0a0a] border-r border-white/5 overflow-y-auto flex-shrink-0">
+                <div style={{ width: `${fileTreeWidth}px` }} className={`border-r overflow-y-auto flex-shrink-0 transition-colors duration-300 ${
+                  isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-gray-50 border-gray-200'
+                }`}>
                   <div className="p-2">
-                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Files</p>
+                    <p className={`text-xs font-semibold uppercase mb-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>Files</p>
                     {Object.keys(sessionFiles).length > 0 ? (
                       <div className="space-y-0.5">
                         {renderFileTree(fileTree)}
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-600">No files yet</p>
+                      <p className={`text-xs transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-600' : 'text-gray-500'
+                      }`}>No files yet</p>
                     )}
                   </div>
                 </div>
@@ -1060,23 +1158,33 @@ const Chat = () => {
                 {/* Resize Handle - File Tree/Code */}
                 <div
                   onMouseDown={handleMouseDownFileTree}
-                  className="w-1 bg-white/5 hover:bg-indigo-500/50 cursor-col-resize transition-colors"
+                  className={`w-1 cursor-col-resize transition-colors ${
+                    isDarkMode ? 'bg-white/5 hover:bg-indigo-500/50' : 'bg-gray-200 hover:bg-indigo-400'
+                  }`}
                 />
 
                 {/* Code Editor */}
-                <div className="flex-1 overflow-hidden bg-[#050505] flex flex-col">
+                <div className={`flex-1 overflow-hidden flex flex-col transition-colors duration-300 ${
+                  isDarkMode ? 'bg-[#050505]' : 'bg-white'
+                }`}>
                   {selectedFile && sessionFiles[selectedFile] ? (
                     <>
                       {/* File Header */}
-                      <div className="bg-[#0a0a0a] border-b border-white/5 px-3 py-2">
-                        <span className="text-xs text-gray-400 font-mono">{selectedFile}</span>
+                      <div className={`border-b px-3 py-2 transition-colors duration-300 ${
+                        isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <span className={`text-xs font-mono transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>{selectedFile}</span>
                       </div>
                       
                       {/* Code Editor Area */}
                       <textarea
                         value={sessionFiles[selectedFile]}
                         onChange={(e) => handleCodeEdit(e.target.value)}
-                        className="flex-1 p-4 text-xs font-mono text-gray-300 bg-[#050505] border-none outline-none resize-none"
+                        className={`flex-1 p-4 text-xs font-mono border-none outline-none resize-none transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-300 bg-[#050505]' : 'text-gray-900 bg-white'
+                        }`}
                         spellCheck={false}
                         style={{ 
                           tabSize: 2,
@@ -1087,7 +1195,9 @@ const Chat = () => {
                     </>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-gray-600 text-sm">Select a file to view and edit code</p>
+                      <p className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-600' : 'text-gray-500'
+                      }`}>Select a file to view and edit code</p>
                     </div>
                   )}
                 </div>
