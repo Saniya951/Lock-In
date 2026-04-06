@@ -12,6 +12,7 @@ const PropertyEditor = ({
   selectedElement,
   onUpdateStyle,
   onClose,
+  isDarkMode = true,
   isOpen = false,
 }) => {
   const [expandedSections, setExpandedSections] = useState({
@@ -134,7 +135,7 @@ const PropertyEditor = ({
             className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500"
           >
             {property.options.map(opt => (
-              <option key={opt} value={opt} className="bg-[#1a1a1a]">
+              <option key={opt} value={opt} className={isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'}>
                 {opt || 'None'}
               </option>
             ))}
@@ -163,7 +164,7 @@ const PropertyEditor = ({
       />
 
       {/* Panel */}
-      <div className="property-editor-panel">
+      <div className={`property-editor-panel ${isDarkMode ? 'theme-dark' : 'theme-light'}`}>
         {/* Header */}
         <div className="property-editor-header">
           <div className="flex-1">
@@ -180,7 +181,9 @@ const PropertyEditor = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-white/10 rounded transition-colors"
+            className={`p-1 rounded transition-colors ${
+              isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-100'
+            }`}
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>

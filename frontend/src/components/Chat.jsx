@@ -29,8 +29,82 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const iframeRef = useRef(null);
   const webcontainerRef = useRef(null);
+  const projectRootRef = useRef('');
   const menuRef = useRef(null);
   const navigate = useNavigate();
+
+  const normalizeProjectPath = (path = '') =>
+    path
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
+      .replace(/^\/+/, '');
+
+  const getProjectRootFromFiles = (files) => {
+    const normalizedPaths = Object.keys(files).map(normalizeProjectPath);
+
+    if (normalizedPaths.includes('package.json')) {
+      return '';
+    }
+
+    const nestedPackageJsonPaths = normalizedPaths
+      .filter((p) => p.endsWith('/package.json'))
+      .sort((a, b) => a.length - b.length);
+
+    if (nestedPackageJsonPaths.length === 0) {
+      return '';
+    }
+
+    return nestedPackageJsonPaths[0].replace(/\/package\.json$/, '');
+  };
+
+  const resolveProjectFile = (root, file) => {
+    const normalizedFile = normalizeProjectPath(file);
+    return root ? `${root}/${normalizedFile}` : normalizedFile;
+  };
+
+  const isPathWithinRoot = (path, root) => {
+    if (!root) {
+      return true;
+    }
+
+    return path === root || path.startsWith(`${root}/`);
+  };
+
+  const shouldLiveInProjectRoot = (path) => {
+    const appRelativeFiles = [
+      'index.html',
+      'package.json',
+      'package-lock.json',
+      'vite.config.js',
+      'vite.config.ts',
+      'next.config.js',
+      'postcss.config.js',
+      'tailwind.config.js',
+      'eslint.config.js',
+      'tsconfig.json',
+      'jsconfig.json',
+    ];
+
+    if (appRelativeFiles.includes(path)) {
+      return true;
+    }
+
+    return path.startsWith('src/') || path.startsWith('public/');
+  };
+
+  const toContainerProjectPath = (path, root = projectRootRef.current) => {
+    const normalizedPath = normalizeProjectPath(path);
+
+    if (!root || isPathWithinRoot(normalizedPath, root)) {
+      return normalizedPath;
+    }
+
+    if (shouldLiveInProjectRoot(normalizedPath)) {
+      return `${root}/${normalizedPath}`;
+    }
+
+    return normalizedPath;
+  };
 
   useEffect(() => {
     // Check if user is authenticated
@@ -129,8 +203,9 @@ const Chat = () => {
         return;
       }
 
-      const sourceFile = elementInfo.file;
-      const currentContent = sessionFiles[sourceFile];
+      const sourceFile = normalizeProjectPath(elementInfo.file);
+      const containerSourceFile = toContainerProjectPath(sourceFile);
+      const currentContent = sessionFiles[sourceFile] ?? sessionFiles[elementInfo.file];
 
       if (!currentContent) {
         console.error('[Visual Editor] Source file not found:', sourceFile);
@@ -144,13 +219,14 @@ const Chat = () => {
       setSessionFiles(prev => ({
         ...prev,
         [sourceFile]: updatedContent,
+        ...(containerSourceFile !== sourceFile ? { [containerSourceFile]: updatedContent } : {}),
       }));
 
       // Write to WebContainer if it's a frontend file
       if (webcontainerRef.current && !sourceFile.includes('.py')) {
         try {
-          await webcontainerRef.current.fs.writeFile(sourceFile, updatedContent);
-          console.log('[Visual Editor] File updated in WebContainer:', sourceFile);
+          await webcontainerRef.current.fs.writeFile(containerSourceFile, updatedContent);
+          console.log('[Visual Editor] File updated in WebContainer:', containerSourceFile);
         } catch (error) {
           console.warn('[Visual Editor] Could not update in WebContainer:', error);
         }
@@ -212,6 +288,22 @@ const Chat = () => {
       const totalStart = performance.now();
       console.log('[WebContainer] Starting initialization...');
 
+      const normalizedFiles = {};
+      Object.entries(files).forEach(([filename, content]) => {
+        normalizedFiles[normalizeProjectPath(filename)] = content;
+      });
+
+      const projectRoot = getProjectRootFromFiles(normalizedFiles);
+      projectRootRef.current = projectRoot;
+      const projectCwd = projectRoot ? `/${projectRoot}` : '/';
+      console.log(`[WebContainer] Resolved project root: ${projectRoot || '(root)'}`);
+
+      const preparedFiles = {};
+      Object.entries(normalizedFiles).forEach(([filename, content]) => {
+        const containerPath = toContainerProjectPath(filename, projectRoot);
+        preparedFiles[containerPath] = content;
+      });
+
       // Properly tear down existing container
       if (webcontainerRef.current) {
         console.log('[WebContainer] Tearing down existing container...');
@@ -238,8 +330,8 @@ const Chat = () => {
       
       // Write files to the container
       const mountStart = performance.now();
-      console.log(`[WebContainer] Step 2/4: Mounting ${Object.keys(files).length} files...`);
-      for (const [filename, content] of Object.entries(files)) {
+      console.log(`[WebContainer] Step 2/4: Mounting ${Object.keys(preparedFiles).length} files...`);
+      for (const [filename, content] of Object.entries(preparedFiles)) {
         // Create directory structure
         const dirPath = filename.substring(0, filename.lastIndexOf('/'));
         if (dirPath) {
@@ -250,8 +342,8 @@ const Chat = () => {
         await container.fs.writeFile(filename, content);
       }
       console.log(`[WebContainer] Step 2/4 complete in ${(performance.now() - mountStart).toFixed(0)} ms`);
-      const hasPackageJson = Boolean(files['package.json']);
-      const hasPackageLockJson = Boolean(files['package-lock.json']);
+      const hasPackageJson = Boolean(preparedFiles[resolveProjectFile(projectRoot, 'package.json')]);
+      const hasPackageLockJson = Boolean(preparedFiles[resolveProjectFile(projectRoot, 'package-lock.json')]);
       console.log(`[WebContainer] package.json present: ${hasPackageJson}`);
       console.log(`[WebContainer] package-lock.json present: ${hasPackageLockJson}`);
       
@@ -259,7 +351,9 @@ const Chat = () => {
       if (hasPackageJson) {
         const installStart = performance.now();
         console.log('[WebContainer] Step 3/4: Running npm install...');
-        const installProcess = await container.spawn('npm', ['install', '--legacy-peer-deps']);
+        const installProcess = await container.spawn('npm', ['install', '--legacy-peer-deps'], {
+          cwd: projectCwd,
+        });
 
         const installOutputPromise = installProcess.output.pipeTo(
           new WritableStream({
@@ -294,12 +388,17 @@ const Chat = () => {
       });
 
       let devProcess;
-      if (files['vite.config.js'] || files['vite.config.ts']) {
-        devProcess = await container.spawn('npm', ['run', 'dev', '--', '--host', '0.0.0.0']);
-      } else if (files['next.config.js']) {
-        devProcess = await container.spawn('npm', ['run', 'dev']);
+      if (
+        preparedFiles[resolveProjectFile(projectRoot, 'vite.config.js')] ||
+        preparedFiles[resolveProjectFile(projectRoot, 'vite.config.ts')]
+      ) {
+        devProcess = await container.spawn('npm', ['run', 'dev', '--', '--host', '0.0.0.0'], {
+          cwd: projectCwd,
+        });
+      } else if (preparedFiles[resolveProjectFile(projectRoot, 'next.config.js')]) {
+        devProcess = await container.spawn('npm', ['run', 'dev'], { cwd: projectCwd });
       } else if (hasPackageJson) {
-        devProcess = await container.spawn('npm', ['start']);
+        devProcess = await container.spawn('npm', ['start'], { cwd: projectCwd });
       }
 
       if (devProcess) {
@@ -524,7 +623,7 @@ const Chat = () => {
 
               case 'file_created':
                 fileCount++;
-                const filename = eventData.filename;
+                const filename = normalizeProjectPath(eventData.filename);
                 let content = eventData.content;
                 
                 console.log('[File Created] Event received - filename:', filename, 'visualEditingEnabled:', visualEditingEnabled);
@@ -603,17 +702,26 @@ const Chat = () => {
                 }
                 
                 currentPreviewUrl = eventData.preview_url;
-                if (currentPreviewUrl) {
-                  setWebcontainerUrl(currentPreviewUrl);
-                  setWebcontainerReady(true);
-                } else if (Object.keys(streamedFiles).length > 0 && streamedFiles['package.json']) {
+                const streamedHasPackageJson = Object.keys(streamedFiles).some(
+                  (path) => normalizeProjectPath(path) === 'package.json' || normalizeProjectPath(path).endsWith('/package.json')
+                );
+
+                const sessionHasPackageJson = Object.keys(sessionFiles).some(
+                  (path) => normalizeProjectPath(path) === 'package.json' || normalizeProjectPath(path).endsWith('/package.json')
+                );
+
+                if (Object.keys(streamedFiles).length > 0 && streamedHasPackageJson) {
                   // Use streamedFiles if it has fresh content from this turn
                   console.log('[WebContainer] No preview_url from backend. Initializing local WebContainer with new files...');
                   await initializeWebContainer(streamedFiles);
-                } else if (Object.keys(sessionFiles).length > 0 && sessionFiles['package.json']) {
+                } else if (Object.keys(sessionFiles).length > 0 && sessionHasPackageJson) {
                   // Fallback: use sessionFiles (useful for follow-up turns)
                   console.log('[WebContainer] Using cached sessionFiles to reinitialize WebContainer...');
                   await initializeWebContainer(sessionFiles);
+                } else if (currentPreviewUrl) {
+                  // Final fallback when we don't have enough files for local boot
+                  setWebcontainerUrl(currentPreviewUrl);
+                  setWebcontainerReady(true);
                 }
 
                 // Use explanation if available, otherwise show completion message
@@ -797,14 +905,23 @@ const Chat = () => {
   // Handle code editing
   const handleCodeEdit = (newCode) => {
     if (selectedFile) {
+      const normalizedSelectedFile = normalizeProjectPath(selectedFile);
+      const containerSelectedFile = toContainerProjectPath(normalizedSelectedFile);
+
       setSessionFiles((prev) => ({
         ...prev,
         [selectedFile]: newCode,
+        ...(normalizedSelectedFile !== selectedFile ? { [normalizedSelectedFile]: newCode } : {}),
+        ...(containerSelectedFile !== normalizedSelectedFile ? { [containerSelectedFile]: newCode } : {}),
       }));
       
       // Update webcontainer file if it's a frontend file
-      if (webcontainerRef.current && !selectedFile.includes('.py')) {
-        webcontainerRef.current.fs.writeFile(selectedFile, newCode);
+      if (webcontainerRef.current && !normalizedSelectedFile.includes('.py')) {
+        webcontainerRef.current.fs
+          .writeFile(containerSelectedFile, newCode)
+          .catch((error) => {
+            console.error('[WebContainer] Failed to write edited file:', containerSelectedFile, error);
+          });
       }
     }
   };
@@ -1214,6 +1331,7 @@ const Chat = () => {
             setEditorPanelOpen(false);
             setSelectedElement(null);
           }}
+          isDarkMode={isDarkMode}
           isOpen={editorPanelOpen && visualEditingEnabled}
         />
       </div>
