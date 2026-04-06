@@ -86,9 +86,28 @@ TEST_RULES = {
         - TESTING FRAMEWORK: Use `vitest` and `@testing-library/react`. 
         - FILE NAMING: Test files must end in `.test.jsx`. DO NOT use `.js`.
         - FOLDER STRUCTURE (CO-LOCATION): Place the test file in the EXACT SAME directory as the component it tests. Do not create a separate tests folder.
-        - CRITICAL IMPORTS: You MUST explicitly import `describe`, `it`, and `expect` from `vitest` at the top of every test file.
-        - DOM ASSERTIONS: You MUST explicitly import `@testing-library/jest-dom` at the top of every test file to use DOM matchers like `.toBeInTheDocument()`.
-        - CRITICAL MOCKING RULE: DO NOT use the `jest` object. Use Vitest's `vi` object (e.g., `vi.fn()`). ABSOLUTELY DO NOT import `@jest/globals` or `jest`. The ONLY time you are allowed to type the word "jest" is when importing `@testing-library/jest-dom`.""",    
+        - Match this exact pattern:
+```jsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import TargetComponent from './TargetComponent';
+
+// Mock external dependencies
+global.fetch = vi.fn();
+
+describe('TargetComponent', () => {
+  it('renders correctly', () => {
+    // Provide full mock prop objects
+    const mockProps = { data: { title: "Test" } };
+    render(<TargetComponent {...mockProps} />);
+    
+    // Query resiliently using regex for text or test IDs
+    expect(screen.getByText(/Test/i)).toBeInTheDocument();
+  });
+});
+
+""",
     "node_backend": """
         - TESTING FRAMEWORK: Use `vitest` and `supertest`. ABSOLUTELY DO NOT use `jest`. 
         - FILE NAMING: Test files must end in `.test.js`.
@@ -108,10 +127,12 @@ def router_prompt(user_prompt: str) -> List[Dict[str, str]]:
         {
             "role": "system",
             "content": (
-                """You are an expert query classifier. Your job is to analyze the user's prompt and route it to the correct workflow.
-                If the user wants to build, create, or generate something (e.g., 'build a UI', 'make a tool'), route to 'build'.
-                If the user provides an error message, stack trace, or asks to 'fix' or 'debug' code, route to 'debug'.\n"
-                If the user is asking a question, wants to 'learn' something, or needs an explanation, route to 'learn'."""
+                "You are an expert query classifier. Analyze the user's prompt and route it to the exact workflow required based on these strict rules:\n\n"
+                "1. 'build' -> The user wants to create, add, or generate new features or projects (e.g., 'build a UI', 'add a login page').\n"
+                "2. 'debug' -> The user wants to fix or modify files in the current workspace. If the prompt contains file names with extensions (e.g., 'app.jsx', 'main.py'), error stack traces, or general complaints about the app's behavior, route here.\n"
+                "3. 'snippet_fix' -> The user pasted ACTUAL RAW CODE BLOCKS directly into the prompt (e.g., 'fix this function: def foo():...') and wants it fixed in isolation. DO NOT select this if the user only provides a file name without the raw code.\n"
+                "4. 'learn' -> The user is asking a conceptual question, wants to learn something, or needs an explanation.\n\n"
+                "CRITICAL RULE: If you are torn between 'debug' and 'snippet_fix', check for raw code. If there is no raw code, you MUST choose 'debug'."
             )
         },
         {

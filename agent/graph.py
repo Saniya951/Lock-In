@@ -129,7 +129,7 @@ def planner_agent(state: GraphState) -> dict:
     except Exception as e:
         cprint(f"Error saving plan output: {e}", "red")
         
-    return {"plan": response}
+    return {"plan": response, "is_feature_update": False}
 
 def scaffolder_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
@@ -195,8 +195,53 @@ def feature_architect_agent(state: GraphState) -> dict:
         "current_task_index": 0,  # Reset so coder starts from the top of the new queue
         "iteration_count": 0,     # Reset so executor runs tests for the new features
         "error_report": ""  ,      # Clear any leftover errors from turn 1
-        "current_turn_files": current_turn_files
+        "current_turn_files": current_turn_files,
+        "is_feature_update": True
     }
+
+def snippet_fixer_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Snippet Fixer (Isolated Scope)...", "cyan", attrs=["bold"])
+    
+    user_prompt = state.get("user_prompt", "")
+    session_id = state.get("session_id")
+    
+    prompt = (
+        "You are an expert developer. The user has provided a standalone code snippet "
+        "and an error or request. Fix the code. "
+        "Do NOT assume any external project context. Just provide the fixed code snippet.\n\n"
+        f"User Prompt:\n{user_prompt}"
+    )
+    
+    try:
+        response = llm.invoke(prompt)
+        code_content = response.content.strip()
+        
+        # Cleanup Markdown
+        if code_content.startswith("```"):
+            code_content = re.sub(r"^```[a-zA-Z]*\n", "", code_content)
+            code_content = re.sub(r"\n```$", "", code_content)
+            
+        # Save to disk so the explainer can read it
+        filename = "snippet_fix_result.txt" # Or .py/.js if you want syntax highlighting later
+        user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+        os.makedirs(user_code_dir, exist_ok=True)
+        
+        file_path = os.path.join(user_code_dir, filename)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(code_content)
+            
+        cprint(f" Snippet fixed and saved to {filename} for explanation.", "green")
+        
+        # Pass the filename to the state so the Explainer picks it up
+        return {
+            "current_turn_files": [filename],
+            "status": "snippet_fixed" # Gives the explainer a bit of context
+        }
+        
+    except Exception as e:
+        cprint(f" Snippet Fixer failed: {e}", "red")
+        return {}
 
 def normalize_deps(deps: list[str]) -> set[str]:
     # to convert all dependencies into lower case and to remove any extra space before or after them
@@ -635,6 +680,37 @@ def runtime_selector(state: GraphState) -> dict:
 
     return {"runtime_template": template}
 
+# After running tests, before building ExecutionResult:
+def _react_tests_passed(logs: str) -> bool:
+    """
+    Vitest always prints a summary line like:
+      'Test Files  7 failed (7)' or 'Test Files  3 passed (3)'
+    We look for that line explicitly.
+    """
+    # If any explicit failure markers exist, it's a fail
+    fail_patterns = [
+        r"test files\s+\d+ failed",   # 'Test Files  7 failed (7)'
+        r"tests\s+\d+ failed",         # 'Tests  11 failed | 11 passed (22)'
+        r"FAIL\s+src/",                # Jest-style
+        r"✗",                          # alternate failure glyph
+    ]
+    logs_lower = logs.lower()
+    for pattern in fail_patterns:
+        if re.search(pattern, logs_lower):
+            return False
+    # Also require at least one positive pass signal to avoid false positives
+    # on empty test runs
+    pass_patterns = [r"test files\s+\d+ passed", r"tests\s+\d+ passed", r"✓"]
+    return any(re.search(p, logs_lower) for p in pass_patterns)
+
+def _python_tests_passed(logs: str) -> bool:
+    logs_lower = logs.lower()
+    if re.search(r"\d+ failed", logs_lower):
+        return False
+    if "error" in logs_lower and "passed" not in logs_lower:
+        return False
+    return bool(re.search(r"\d+ passed", logs_lower))
+
 def executor_agent(state: GraphState) -> dict:
     cprint(" Entering Executor...", "cyan", attrs=["bold"])
 
@@ -723,12 +799,14 @@ def executor_agent(state: GraphState) -> dict:
             cprint("   Running Python tests...", "yellow")
             result = sandbox.commands.run("cd /home/user/app && python -m pytest -q", timeout=30)
             combined_logs = result.stdout + result.stderr
+            actually_passed = _python_tests_passed(combined_logs)
             
         elif template_string == "node-base":
             cprint("   Running Node tests...", "yellow")
             result = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
             combined_logs = result.stdout + result.stderr
-            
+            actually_passed = _react_tests_passed(combined_logs)
+
         elif template_string == "node-python-base":
             cprint("   Running Frontend Tests...", "blue")
             res_node = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
@@ -737,14 +815,29 @@ def executor_agent(state: GraphState) -> dict:
             cprint("   Running Backend Tests...", "blue")
             res_py = sandbox.commands.run("cd /home/user/app && PYTHONPATH=. python3 -m pytest -q", timeout=60)
             combined_logs += "\n=== BACKEND LOGS ===\n" + res_py.stdout + res_py.stderr
-            
+            actually_passed = (
+                _react_tests_passed(combined_logs) and 
+                _python_tests_passed(combined_logs)
+            )
+
+        else:
+            actually_passed = False
+
         execution = ExecutionResult(
             tests_ran=True,
-            tests_passed=True,
+            tests_passed=actually_passed,   # <-- was hardcoded True
             exit_code=0,
             logs=combined_logs,
             environment_ok=True
         )
+        
+        # execution = ExecutionResult(
+        #     tests_ran=True,
+        #     tests_passed=True,
+        #     exit_code=0,
+        #     logs=combined_logs,
+        #     environment_ok=True
+        # )
 
     except Exception as e:
         # E2B throws an exception immediately if a test fails (Exit Code > 0).
@@ -905,8 +998,19 @@ def debugger_agent(state: dict) -> dict:
     cprint(" Entering Debugger...", "cyan", attrs=["bold"])
     
     session_id = state.get("session_id")
-    current_error = state.get("error_report")
-    error_category = state.get("error_category", "runtime")
+
+    is_manual_debug = state.get("route") == "debug"
+    
+    if is_manual_debug:
+        # User specifically complained about a file, so we override the error report
+        current_error = f"User manually reported an issue with the generated code: {state.get('user_prompt')}"
+        error_category = "logical" # Default to logical for user complaints
+        cprint("   [Mode] Manual User-Initiated Debugging", "blue")
+    else:
+        # Standard automated evaluation loop
+        current_error = state.get("error_report")
+        error_category = state.get("error_category", "runtime")
+
     iteration = state.get("iteration_count", 1)
     past_attempts = state.get("attempt_history", [])
     plan = state.get("plan")
@@ -1055,6 +1159,7 @@ graph.add_node("evaluator", evaluator_agent)
 graph.add_node("debugger", debugger_agent)
 graph.add_node("learner", learner_agent)
 graph.add_node("feature_architect", feature_architect_agent)
+graph.add_node("snippet_fixer", snippet_fixer_agent)
 graph.add_node("explainer", explainer_agent)
 
 # entry point is router
@@ -1073,7 +1178,11 @@ def route_decision(state: GraphState) -> Literal["planner", "feature_architect",
             cprint("   [Router] No codebase detected. Routing to Planner...", "yellow")
             return "planner"
     elif route == "debug":
-        return "debugger"
+        cprint("   [Router] Manual debug requested. Routing to Debugger...", "yellow")
+        return "debugger"     # <--- Routes Case 2 here
+    elif route == "snippet_fix":
+        cprint("   [Router] Standalone snippet detected. Routing to Snippet Fixer...", "yellow")
+        return "snippet_fixer"
     elif route == "learn":
         return "learner"
     else:
@@ -1094,12 +1203,17 @@ def check_queue_status(state: GraphState) -> Literal["coder", "qa_agent", "depen
     queue = state.get("task_queue", [])
     index = state.get("current_task_index", 0)
     iteration = state.get("iteration_count", 0)
+    is_feature = state.get("is_feature_update", False)
     
     if index < len(queue):
         return "coder"  
     else: #done to ensure the qa agent runs only once
+        # If this is a feature update, skip writing new tests and go straight to validation/execution
+        if is_feature:
+            cprint("   [Router] Feature patch complete. Bypassing QA -> Validator...", "yellow")
+            return "dependency_validator"
         # If iteration is 0, we haven't executed yet. Go to QA to write tests.
-        if iteration == 0:
+        elif iteration == 0:
             cprint("   [Router] Initial build complete. Moving to QA Agent...", "yellow")
             return "qa_agent"
         # If iteration > 0, we are in a repair loop. Skip QA, go straight to Validator.
@@ -1134,7 +1248,8 @@ graph.add_conditional_edges(
         "planner": "planner",
         "feature_architect": "feature_architect",
         "debugger": "debugger",
-        "learner": "learner"
+        "learner": "learner",
+        "snippet_fixer": "snippet_fixer"
     }
 )
 graph.add_edge("feature_architect", "researcher")
@@ -1184,8 +1299,8 @@ graph.add_conditional_edges(
 graph.add_edge("debugger", "researcher") # close the loop!!!!!    
 graph.add_edge("researcher","coder")
 graph.add_edge("learner", "explainer")
+graph.add_edge("snippet_fixer", "explainer")
 graph.add_edge("explainer", END)
-
 
 agent = graph.compile(checkpointer=memory)
 

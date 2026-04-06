@@ -6,12 +6,13 @@ from enum import Enum
 # pydantic models for llm output
 class QueryRoute(BaseModel):
     """The routing decision for the user's query."""
-    route: Literal["build", "debug", "learn"] = Field(
+    route: Literal["build", "debug", "learn","snippet_fix"] = Field(
         description=(
             "The category of the user's request. "
             "'build' for new features or code. "
-            "'debug' for fixing errors. "
+            "'debug' when the user explicitly complains about code generated in the current project."
             "'learn' for general questions."
+            "'snippet_fix' for isolated code snippet repairs."
         )
     )
 
@@ -124,3 +125,5 @@ class GraphState(TypedDict):
     sandbox_id: str | None
 
     current_turn_files: list[str]
+
+    is_feature_update: bool | None
