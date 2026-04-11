@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon, Database, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
 import JSZip from 'jszip';
@@ -19,6 +19,7 @@ const Chat = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [threadId, setThreadId] = useState(null); // Persistent thread ID for multi-turn conversations
   const [isDarkMode, setIsDarkMode] = useState(true); // Theme state
+  const [useDeepSearch, setUseDeepSearch] = useState(false); // False: vector search, True: Tavily deep search
   
   // Visual Editing State
   const [visualEditingEnabled, setVisualEditingEnabled] = useState(false);
@@ -540,7 +541,7 @@ const Chat = () => {
         },
         body: JSON.stringify({ 
           prompt: userPrompt,
-          search_method: false,
+          search_method: useDeepSearch,
           thread_id: threadId  // Send persistent thread ID
         }),
       });
@@ -1116,6 +1117,33 @@ const Chat = () => {
                       : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:bg-white'
                   }`}
                 />
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setUseDeepSearch((prev) => !prev)}
+                    disabled={loading}
+                    title={useDeepSearch ? 'Deep Search is ON (Tavily).' : 'Default Vector Search is ON.'}
+                    aria-label={useDeepSearch ? 'Deep search is on. Click to switch to default vector search' : 'Default vector search is on. Click to switch to deep Tavily search'}
+                    className={`rounded-lg px-3 py-2 border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      useDeepSearch
+                        ? isDarkMode
+                          ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30'
+                          : 'bg-cyan-100 border-cyan-400 text-cyan-700 hover:bg-cyan-200'
+                        : isDarkMode
+                        ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {useDeepSearch ? <Globe className="w-4 h-4" /> : <Database className="w-4 h-4" />}
+                  </button>
+                  <span className={`pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity ${
+                    isDarkMode
+                      ? 'bg-gray-900 text-gray-100 border border-gray-700'
+                      : 'bg-white text-gray-800 border border-gray-300'
+                  }`}>
+                    {useDeepSearch ? 'Mode: Deep Search (Tavily)' : 'Mode: Default Vector Search'}
+                  </span>
+                </div>
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
