@@ -38,5 +38,6 @@ langgraph.json
 .langgraph_api/
 .langgraph.sqlite
 
+# node modules that i have no idea where they came from
 node_modules/
 frontend/node_modules/
