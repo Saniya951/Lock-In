@@ -746,7 +746,7 @@ def executor_agent(state: GraphState) -> dict:
             local = os.path.join(root, file)
             # so from that local we take out the relative path (first arg in the below function is sumn like: user/bin/python and second arg is sumn like user. so the output is bin/python. we do this to get the file path from the code folder only like src/components/app.jsx while ignoring everything that came before it)
             # remote = f"/home/user/app/{os.path.relpath(local, code_dir)}"
-            safe_rel_path = os.path.relpath(local_path, user_code_dir).replace("\\", "/") 
+            safe_rel_path = os.path.relpath(local, user_code_dir).replace("\\", "/") 
             remote_path = f"/home/user/app/{safe_rel_path}"
             sandbox.files.write(remote, open(local, "rb"))
 
@@ -1308,6 +1308,7 @@ graph.add_edge("snippet_fixer", "explainer")
 graph.add_edge("explainer", END)
 
 agent = graph.compile(checkpointer=memory)
+# agent = graph.compile()
 
 if __name__ == "__main__":
     cprint("\nWelcome to Lock-In", "yellow", attrs=["bold"])
