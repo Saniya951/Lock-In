@@ -37,3 +37,6 @@ agent/active_sandboxes.json
 langgraph.json
 .langgraph_api/
 .langgraph.sqlite
+
+node_modules/
+frontend/node_modules/
