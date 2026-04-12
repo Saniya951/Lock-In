@@ -491,20 +491,107 @@ def construct_debugger_prompt(error_category: str, category_instructions: str, c
     4. NO DIAGNOSTIC SCRIPTS: Do NOT create files like `debug.py` or `test.py`. Fix the broken source files directly.
     """
 
-def explainer_prompt(run_status: str, files_content: str, user_prompt: str) -> list:
+# def explainer_prompt(run_status: str, files_content: str, user_prompt: str) -> list:
+#     return [
+#         {
+#             "role": "system",
+#             "content": (
+#                 f"""You are the Explainer Agent in an autonomous coding framework.
+#                 Your job is to read the raw code of the files created/modified in the current turn and provide a concise,easy-to-understand summary of what was built, changed, or attempted to the user.
+#                 RULES:
+#                 1. Keep it brief. Do not regurgitate the code.
+#                 2. Explain architecture and logic in context to the user prompt {user_prompt}."""
+#             )
+#         },
+#         {
+#             "role": "user",
+#             "content": f"The pipeline finished with status: {run_status.upper()}\n\nHere are the files modified in this turn:\n{files_content}"
+#         }
+#     ]
+
+
+# def knowledge_extraction_prompt(code_context):
+#     return f"""
+#     You are a Senior Technical Architect. Analyze the provided codebase and extract a structured technical profile.
+    
+#     HIERARCHY RULES:
+#     1. TechStack: Broad frameworks or languages (e.g., React, Node.js, Python, MongoDB, TailwindCSS).
+#     2. Concepts: Specific features, syntax, or libraries belonging to a TechStack (e.g., useState, JWT Authentication, List Comprehensions, Aggregation Pipelines).
+#     3. NEVER create a TechStack for a sub-feature (e.g., 'React Hooks' is NOT a TechStack, it is a Concept under 'React').
+    
+#     Code Context:
+#     {code_context}
+
+#     Return ONLY a JSON object:
+#     {{
+#         "tech_stacks": [
+#             {{ 
+#                 "name": "Primary Tech Name", 
+#                 "concepts": ["Concept A", "Concept B"] 
+#             }}
+#         ]
+#     }}
+#     """
+
+
+def explainer_prompt(run_status: str, files_content: str, user_prompt: str, known_context: list) -> list:
+    # Format the mastered concepts for the LLM
+    known_str = ", ".join(known_context) if known_context else "First-time user (Beginner Level)"
+
     return [
         {
             "role": "system",
             "content": (
-                f"""You are the Explainer Agent in an autonomous coding framework.
-                Your job is to read the raw code of the files created/modified in the current turn and provide a concise,easy-to-understand summary of what was built, changed, or attempted to the user.
-                RULES:
-                1. Keep it brief. Do not regurgitate the code.
-                2. Explain architecture and logic in context to the user prompt {user_prompt}."""
+                f"""You are a Senior Technical Mentor and Lead Architect. Your goal is to explain code changes by aligning them with the user's specific Mastery Level.
+
+                USER MASTERY PROFILE (Historical Data):
+                {known_context}
+
+                PEDAGOGICAL RULES:
+                1. HIGH MASTERY (Count > 3): DO NOT define these concepts. Focus exclusively on advanced implementation nuances, design patterns, or optimization. Use these as anchors for analogies (e.g., "Just as you used 'useState' for local data...").
+                2. LOW MASTERY (Count 1-2): Briefly reinforce the 'Why' behind the implementation. Provide a high-level refresher on best practices for these tools.
+                3. NEW CONCEPTS (Not in Profile): Provide a full 'What/Why/How' deep-dive:
+                   - WHAT: Define it clearly.
+                   - WHY: Explain the specific problem it solves in this project context.
+                   - HOW: Detail its specific implementation in the current files.
+                4. CONTEXTUAL ALIGNMENT: Directly link every part of the explanation to the user's original intent: "{user_prompt}".
+
+                OUTPUT STRUCTURE:
+                - 🚀 **Mastery Integration**: How tools you've already practiced were used to solve architectural problems.
+                - 💡 **New Learning Milestones**: In-depth breakdown of concepts you are seeing for the first time (or reinforcing).
+                - 🏗️ **System Architecture**: A summary of the 'Big Picture'—how these files interact with the existing codebase.
+                - ⚠️ **Pipeline Insight**: (Only if status is 'fail') Diagnose the error logically and explain the steps taken (or needed) to stabilize the build.
+                """
             )
         },
         {
             "role": "user",
-            "content": f"The pipeline finished with status: {run_status.upper()}\n\nHere are the files modified in this turn:\n{files_content}"
+            "content": f"PIPELINE STATUS: {run_status.upper()}\n\nFILES MODIFIED/CONTEXT:\n{files_content}"
         }
     ]
+
+
+
+def knowledge_extraction_prompt(code_context):
+    return f"""
+    You are a Senior Technical Architect. Analyze the codebase and generate a structured JSON map.
+    
+    STRICT RULES:
+    1. TECHSTACK: Must be a core technology (e.g., REACT, JAVASCRIPT, CSS, VITE, VITEST, AXIOS).
+    2. CONCEPTS: These are sub-features of the TechStack.
+    3. NO DUPLICATES: Do not list 'React Hooks' as a TechStack if 'React' is already a TechStack. 
+    4. MAPPING: 
+       - If you see 'useState', it goes under 'REACT'.
+       - If you see '.get()' or '.post()', it goes under 'AXIOS'.
+       - If you see 'it()' or 'expect()', it goes under 'VITEST'.
+
+    Code Context:
+    {code_context}
+
+    Return ONLY JSON:
+    {{
+        "tech_stacks": [
+            {{ "name": "REACT", "concepts": ["JSX", "State Management", "Components"] }}
+        ]
+    }}
+    """

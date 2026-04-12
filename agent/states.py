@@ -124,3 +124,4 @@ class GraphState(TypedDict):
     sandbox_id: str | None
 
     current_turn_files: list[str]
+    project_summary: Dict[str, Any]

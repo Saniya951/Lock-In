@@ -28,6 +28,8 @@ from memory import CodeMemory
 from sandbox_registry import get_sandbox_for_session, register_sandbox
 
 from concurrent.futures import ThreadPoolExecutor
+from knowledge_graph import KnowledgeGraphManager
+
 
 # Small pool is enough; HF API is the bottleneck anyway
 embedding_executor = ThreadPoolExecutor(max_workers=2)
@@ -977,66 +979,275 @@ def learner_agent(state: GraphState) -> dict:
     cprint(" Entering Learner Agent (Placeholder)...", "cyan", attrs=["bold"])
     return {} 
 
+# def explainer_agent(state: GraphState) -> dict:
+#     cprint(f"\n{'='*50}", "magenta")
+#     cprint(" Entering Explainer Agent (Final Review)...", "cyan", attrs=["bold"])
+    
+#     session_id = state.get("session_id")
+
+
+#     current_files = state.get("current_turn_files", [])
+#     status = state.get("status", "unknown")
+#     user_prompt = state.get("user_prompt")
+    
+#     current_files = list(set(current_files))  #remove duplicates
+    
+#     if not current_files:
+#         cprint(" No files were modified in this turn to explain.", "yellow")
+#         return {}
+
+#     user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+#     files_content = ""
+    
+#     # Read the contents of the modified files off the disk
+#     for filename in current_files:
+#         # Handling the nested frontend/backend paths you set up earlier
+#         file_path = os.path.join(user_code_dir, filename)
+        
+#         # Fallback search if exact path fails (for frontend backend folders)
+#         if not os.path.exists(file_path):
+#             for root, _, local_files in os.walk(user_code_dir):
+#                 for f in local_files:
+#                     full_path = os.path.join(root, f)
+#                     if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+#                         file_path = full_path
+#                         break
+        
+#         if os.path.exists(file_path):
+#             try:
+#                 with open(file_path, "r", encoding="utf-8") as f:
+#                     content = f.read()
+#                     files_content += f"\n--- {filename} ---\n{content}\n"
+#             except Exception as e:
+#                 cprint(f"   Could not read {filename} for explanation: {e}", "red")
+#         else:
+#             cprint(f"   File {filename} not found on disk for explanation.", "red")
+
+#     if not files_content.strip():
+#         cprint(" None of the tracked files could be read.", "yellow")
+#         return {}
+
+#     cprint(f" Generating explanation for {len(current_files)} files...", "yellow")
+    
+#     prompt = explainer_prompt(run_status=status, files_content=files_content, user_prompt=user_prompt)
+    
+#     try:
+#         response = llm.invoke(prompt)
+#         cprint(f"\n=== TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
+#         print(response.content.strip())
+#         cprint("==================================\n", "green", attrs=["bold"])
+#     except Exception as e:
+#         cprint(f" Explainer LLM failed: {e}", "red")
+
+#     # clear current_turn_files so it doesn't bleed into the next REPL input turn
+#     return {"current_turn_files": []}
+def knowledge_indexer_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Knowledge Indexer...", "cyan", attrs=["bold"])
+    
+    session_id = state["session_id"]
+    # Get the code content using your existing helper
+    code_context = search_codebase_filesystem(session_id, "") 
+    
+    # 1. Summarize code with LLM
+    response = llm.invoke(knowledge_extraction_prompt(code_context))
+    try:
+        # Clean markdown and parse
+        clean_content = re.sub(r"```json|```", "", response.content).strip()
+        summary = json.loads(clean_content)
+        # --- NEW: DEBUG LOGGING FOR SUMMARIZER ---
+        print("\n" + "="*40)
+        print("🏗️  EXTRACTING KNOWLEDGE FOR GRAPH")
+        print("="*40)
+        for stack in summary.get("tech_stacks", []):
+            print(f"📦 TechStack: {stack['name'].upper()}")
+            for concept in stack['concepts']:
+                print(f"   ∟ 💡 Concept: {concept}")
+        print("="*40 + "\n")
+        # ----------------------------------------
+    except Exception as e:
+        cprint(f" Failed to parse summary: {e}", "red")
+        return {}
+
+    # 2. Update Neo4j
+    try:
+        kg = KnowledgeGraphManager()
+        kg.update_user_knowledge(session_id, summary)
+        kg.close()
+        cprint(" Knowledge Graph updated successfully.", "green")
+    except Exception as e:
+        cprint(f" Neo4j Update Error: {e}", "red")
+
+    return {"project_summary": summary}
+
+
+
+# def explainer_agent(state: GraphState) -> dict:
+#     cprint(f"\n{'='*50}", "magenta")
+#     cprint(" Entering Personalized Explainer Agent...", "cyan", attrs=["bold"])
+    
+#     session_id = state.get("session_id")
+#     current_files = state.get("current_turn_files", [])
+#     status = state.get("status", "unknown")
+#     user_prompt = state.get("user_prompt")
+    
+#     # --- 1. Fetch User Knowledge Level from Neo4j ---
+#     cprint(" Fetching user knowledge graph context...", "yellow")
+#     known_concepts = []
+#     try:
+#         kg = KnowledgeGraphManager()
+#         known_concepts = kg.get_user_level(session_id)
+#         kg.close()
+#         cprint(f" Found {len(known_concepts)} previously mastered concepts.", "green")
+#     except Exception as e:
+#         cprint(f" Could not retrieve Neo4j context: {e}. Defaulting to generic explanation.", "red")
+
+#     # --- 2. Gather File Content ---
+#     current_files = list(set(current_files))  # remove duplicates
+#     if not current_files:
+#         cprint(" No files were modified in this turn to explain.", "yellow")
+#         return {}
+
+#     user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+#     files_content = ""
+    
+#     for filename in current_files:
+#         file_path = os.path.join(user_code_dir, filename)
+        
+#         # Fallback search for nested folders
+#         if not os.path.exists(file_path):
+#             for root, _, local_files in os.walk(user_code_dir):
+#                 for f in local_files:
+#                     full_path = os.path.join(root, f)
+#                     if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+#                         file_path = full_path
+#                         break
+        
+#         if os.path.exists(file_path):
+#             try:
+#                 with open(file_path, "r", encoding="utf-8") as f:
+#                     content = f.read()
+#                     files_content += f"\n--- {filename} ---\n{content}\n"
+#             except Exception as e:
+#                 cprint(f"   Could not read {filename}: {e}", "red")
+#         else:
+#             cprint(f"   File {filename} not found on disk.", "red")
+
+#     if not files_content.strip():
+#         cprint(" None of the tracked files could be read.", "yellow")
+#         return {}
+
+#     # --- 3. Generate Personalized Explanation ---
+#     cprint(f" Generating tailored explanation for {len(current_files)} files...", "yellow")
+    
+#     # Ensure your prompts.py:explainer_prompt accepts known_context
+#     prompt = explainer_prompt(
+#         run_status=status, 
+#         files_content=files_content, 
+#         user_prompt=user_prompt,
+#         known_context=known_concepts
+#     )
+    
+#     try:
+#         response = llm.invoke(prompt)
+#         cprint(f"\n=== PERSONALIZED TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
+#         print(response.content.strip())
+#         cprint("===========================================\n", "green", attrs=["bold"])
+#     except Exception as e:
+#         cprint(f" Explainer LLM failed: {e}", "red")
+
+#     # Clear current_turn_files so it doesn't bleed into the next REPL turn
+#     return {"current_turn_files": []}
+
+
 def explainer_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Explainer Agent (Final Review)...", "cyan", attrs=["bold"])
+    cprint(" Entering Personalized Explainer Agent...", "cyan", attrs=["bold"])
     
     session_id = state.get("session_id")
     current_files = state.get("current_turn_files", [])
     status = state.get("status", "unknown")
     user_prompt = state.get("user_prompt")
     
-    current_files = list(set(current_files))  #remove duplicates
-    
-    if not current_files:
-        cprint(" No files were modified in this turn to explain.", "yellow")
-        return {}
-
-    user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
-    files_content = ""
-    
-    # Read the contents of the modified files off the disk
-    for filename in current_files:
-        # Handling the nested frontend/backend paths you set up earlier
-        file_path = os.path.join(user_code_dir, filename)
-        
-        # Fallback search if exact path fails (for frontend backend folders)
-        if not os.path.exists(file_path):
-            for root, _, local_files in os.walk(user_code_dir):
-                for f in local_files:
-                    full_path = os.path.join(root, f)
-                    if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
-                        file_path = full_path
-                        break
-        
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    files_content += f"\n--- {filename} ---\n{content}\n"
-            except Exception as e:
-                cprint(f"   Could not read {filename} for explanation: {e}", "red")
+    # --- 1. Fetch User Knowledge Level from Neo4j ---
+    cprint(" Fetching user knowledge graph context...", "yellow")
+    known_concepts = []
+    mastery_context = ""
+    try:
+        kg = KnowledgeGraphManager()
+        known_data = kg.get_user_level(session_id)
+        kg.close()
+        # Format the data into a readable string for the LLM
+        # Example: "- useState (implemented 5 times), - useEffect (implemented 1 time)"
+        if known_data:
+            mastery_context = "\n".join([
+                f"- {item['name']} (Mastery Level: {item['count']} implementations)" 
+                for item in known_data
+            ])
         else:
-            cprint(f"   File {filename} not found on disk for explanation.", "red")
+            mastery_context = "User is a beginner; no prior concepts recorded."
+        # cprint(f" Found {len(known_concepts)} previously mastered concepts.", "green")
+    except Exception as e:
+        cprint(f" Could not retrieve Neo4j context: {e}", "red")
+        mastery_context = "Generic knowledge profile."
+
+    # --- 2. Gather Context (Files or Theoretical Prompt) ---
+    current_files = list(set(current_files))  # remove duplicates
+    files_content = ""
+
+    if not current_files:
+        # PIVOT: If no files changed, we are likely in 'Learn' mode. 
+        # We use the prompt itself as the context for explanation.
+        cprint(" No files modified. Switching to theoretical explanation mode...", "yellow")
+        files_content = f"The user is asking a theoretical/architectural question: {user_prompt}"
+    else:
+        # Standard build mode logic
+        user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+        for filename in current_files:
+            file_path = os.path.join(user_code_dir, filename)
+            
+            # Fallback search for nested folders
+            if not os.path.exists(file_path):
+                for root, _, local_files in os.walk(user_code_dir):
+                    for f in local_files:
+                        full_path = os.path.join(root, f)
+                        if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+                            file_path = full_path
+                            break
+            
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        files_content += f"\n--- {filename} ---\n{content}\n"
+                except Exception as e:
+                    cprint(f"   Could not read {filename}: {e}", "red")
 
     if not files_content.strip():
-        cprint(" None of the tracked files could be read.", "yellow")
+        cprint(" No context available for explanation.", "yellow")
         return {}
 
-    cprint(f" Generating explanation for {len(current_files)} files...", "yellow")
+    # --- 3. Generate Personalized Explanation ---
+    cprint(f" Generating tailored explanation...", "yellow")
     
-    prompt = explainer_prompt(run_status=status, files_content=files_content, user_prompt=user_prompt)
+    prompt = explainer_prompt(
+        run_status=status, 
+        files_content=files_content, 
+        user_prompt=user_prompt,
+        known_context=mastery_context
+    )
     
     try:
         response = llm.invoke(prompt)
-        cprint(f"\n=== TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
+        cprint(f"\n=== PERSONALIZED TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
         print(response.content.strip())
-        cprint("==================================\n", "green", attrs=["bold"])
+        cprint("===========================================\n", "green", attrs=["bold"])
     except Exception as e:
         cprint(f" Explainer LLM failed: {e}", "red")
 
-    # clear current_turn_files so it doesn't bleed into the next REPL input turn
+    # Clear current_turn_files for the next turn
     return {"current_turn_files": []}
+
 
 #graph definition
 graph = StateGraph(GraphState)
@@ -1056,7 +1267,7 @@ graph.add_node("debugger", debugger_agent)
 graph.add_node("learner", learner_agent)
 graph.add_node("feature_architect", feature_architect_agent)
 graph.add_node("explainer", explainer_agent)
-
+graph.add_node("knowledge_indexer", knowledge_indexer_agent)
 # entry point is router
 graph.set_entry_point("router")
 
@@ -1118,13 +1329,21 @@ def check_validation_status(state: GraphState) -> Literal["executor", "evaluator
     # Otherwise, packages are real, go to the sandbox
     return "executor"
 
-def check_evaluation(state: GraphState) -> Literal["debugger", END]:
+def check_evaluation(state: GraphState) -> Literal["debugger", "knowledge_indexer"]:
     status = state.get("status")
     count = state.get("iteration_count", 0)
     
     if status == "fail" and count < 3: # Limit retries to 3
         return "debugger"
-    return "explainer"
+    return "knowledge_indexer"
+
+
+
+
+
+
+
+
 
 #edges and conditional edges
 graph.add_conditional_edges(
@@ -1177,13 +1396,16 @@ graph.add_conditional_edges(
     check_evaluation,
     {
         "debugger": "debugger", 
-        "explainer": "explainer" # <-- Connect to explainer instead of END
+        # "explainer": "explainer" # <-- Connect to explainer instead of END
+        "knowledge_indexer": "knowledge_indexer"
     }
 )
 
 graph.add_edge("debugger", "researcher") # close the loop!!!!!    
 graph.add_edge("researcher","coder")
-graph.add_edge("learner", "explainer")
+graph.add_edge("learner", "knowledge_indexer")
+graph.add_edge("knowledge_indexer", "explainer")
+
 graph.add_edge("explainer", END)
 
 
