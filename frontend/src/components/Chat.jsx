@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon, Database, Globe } from 'lucide-react';
+import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon, Database, Globe, PanelLeftClose, PanelLeftOpen, MessageSquarePlus, FolderOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
 import JSZip from 'jszip';
@@ -8,12 +8,21 @@ import { createElementInspectorScript } from '../utils/elementInspector';
 import { processJsxFiles, resetIdTracking } from '../utils/astProcessor';
 import { updateElementStyles } from '../utils/codeUpdater';
 
+const API_BASE = 'http://localhost:8000';
+
 const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sessionFiles, setSessionFiles] = useState({});
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [files, setFiles] = useState({});
+  const [activeFile, setActiveFile] = useState(null);
+  const [fileContent, setFileContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -32,7 +41,278 @@ const Chat = () => {
   const webcontainerRef = useRef(null);
   const projectRootRef = useRef('');
   const menuRef = useRef(null);
+  const creatingProjectPromiseRef = useRef(null);
+  const authErrorShownRef = useRef(false);
   const navigate = useNavigate();
+
+  const handleAuthFailure = () => {
+    if (authErrorShownRef.current) {
+      return;
+    }
+
+    authErrorShownRef.current = true;
+    localStorage.removeItem('token');
+    alert('Your session has expired. Please log in again.');
+    navigate('/');
+  };
+
+  const startNewChat = () => {
+    setCurrentProjectId(null);
+    localStorage.removeItem('lockin.currentProjectId');
+    setThreadId(null);
+    setMessages([]);
+    setFiles({});
+    setActiveFile(null);
+    setFileContent('');
+    setIsDirty(false);
+    setWebcontainerReady(false);
+    setWebcontainerUrl(null);
+  };
+
+  const createProjectByName = async (projectName) => {
+    const trimmedName = (projectName || '').trim();
+    if (!trimmedName) {
+      return null;
+    }
+
+    const response = await fetch(`${API_BASE}/projects`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ name: trimmedName }),
+    });
+
+    if (response.status === 401) {
+      handleAuthFailure();
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to create project: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.project || null;
+  };
+
+  const promptProjectNameAndCreate = async () => {
+    if (creatingProjectPromiseRef.current) {
+      return creatingProjectPromiseRef.current;
+    }
+
+    creatingProjectPromiseRef.current = (async () => {
+      const enteredName = window.prompt('Enter a project name to save this chat');
+      if (!enteredName || !enteredName.trim()) {
+        return null;
+      }
+
+      try {
+        const project = await createProjectByName(enteredName);
+        if (!project) {
+          return null;
+        }
+
+        setProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+        setCurrentProjectId(project.id);
+        localStorage.setItem('lockin.currentProjectId', project.id);
+        return project.id;
+      } catch (error) {
+        console.error('[Projects] Failed to create project during first save:', error);
+        return null;
+      }
+    })();
+
+    const resolvedProjectId = await creatingProjectPromiseRef.current;
+    creatingProjectPromiseRef.current = null;
+    return resolvedProjectId;
+  };
+
+  const persistGeneratedFiles = async (projectId, generatedFiles) => {
+    if (!projectId || !generatedFiles) {
+      return;
+    }
+
+    for (const [path, content] of Object.entries(generatedFiles)) {
+      await persistFile(projectId, path, content);
+    }
+  };
+
+  const authHeaders = () => {
+    const token = localStorage.getItem('token');
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      : {
+          'Content-Type': 'application/json',
+        };
+  };
+
+  const guessLanguageFromPath = (path = '') => {
+    const normalizedPath = normalizeProjectPath(path).toLowerCase();
+
+    if (normalizedPath.endsWith('.jsx')) return 'javascriptreact';
+    if (normalizedPath.endsWith('.tsx')) return 'typescriptreact';
+    if (normalizedPath.endsWith('.ts')) return 'typescript';
+    if (normalizedPath.endsWith('.js')) return 'javascript';
+    if (normalizedPath.endsWith('.py')) return 'python';
+    if (normalizedPath.endsWith('.css')) return 'css';
+    if (normalizedPath.endsWith('.html')) return 'html';
+    if (normalizedPath.endsWith('.json')) return 'json';
+    return '';
+  };
+
+  const filesToMap = (fileList = []) => {
+    const mapped = {};
+    fileList.forEach((fileDoc) => {
+      mapped[normalizeProjectPath(fileDoc.path)] = fileDoc.content;
+    });
+    return mapped;
+  };
+
+  const persistFile = async (projectId, path, content) => {
+    if (!projectId || !path) {
+      return null;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/files`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          project_id: projectId,
+          path,
+          content,
+          language: guessLanguageFromPath(path),
+        }),
+      });
+
+      if (response.status === 401) {
+        handleAuthFailure();
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to save file: ${response.status}`);
+      }
+
+      setIsDirty(false);
+      return await response.json();
+    } catch (error) {
+      console.error('[Projects] Failed to persist file:', error);
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const response = await fetch(`${API_BASE}/projects`, {
+        headers: authHeaders(),
+      });
+
+      if (response.status === 401) {
+        handleAuthFailure();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to load projects: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const projectList = data.projects || [];
+      setProjects(projectList);
+
+      const storedProjectId = localStorage.getItem('lockin.currentProjectId');
+      const persistedProject = projectList.find((project) => project.id === storedProjectId) || null;
+
+      if (persistedProject) {
+        setCurrentProjectId(persistedProject.id);
+        await loadProjectFiles(persistedProject.id);
+        return;
+      }
+
+      setCurrentProjectId(null);
+      setThreadId(null);
+      setMessages([]);
+      setFiles({});
+      setActiveFile(null);
+      setFileContent('');
+    } catch (error) {
+      console.error('[Projects] Failed to load projects:', error);
+      setProjects([]);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const loadProjectFiles = async (projectId) => {
+    if (!projectId) {
+      setFiles({});
+      setActiveFile(null);
+      setFileContent('');
+      setIsDirty(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/projects/${projectId}/files`, {
+        headers: authHeaders(),
+      });
+
+      if (response.status === 401) {
+        handleAuthFailure();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to load project files: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const fileMap = filesToMap(data.files || []);
+      setFiles(fileMap);
+
+      const firstFile = Object.keys(fileMap)[0] || null;
+      setActiveFile(firstFile);
+      setFileContent(firstFile ? fileMap[firstFile] : '');
+      setIsDirty(false);
+
+      if (Object.keys(fileMap).length > 0) {
+        const hasPackageJson = Object.keys(fileMap).some((path) => normalizeProjectPath(path).endsWith('package.json'));
+        if (hasPackageJson) {
+          await initializeWebContainer(fileMap);
+        }
+      } else {
+        setWebcontainerUrl(null);
+        setWebcontainerReady(false);
+      }
+    } catch (error) {
+      console.error('[Projects] Failed to load files:', error);
+      setFiles({});
+      setActiveFile(null);
+      setFileContent('');
+      setWebcontainerUrl(null);
+      setWebcontainerReady(false);
+    }
+  };
+
+  const handleSelectProject = async (projectId) => {
+    if (!projectId || projectId === currentProjectId) {
+      return;
+    }
+
+    setCurrentProjectId(projectId);
+    localStorage.setItem('lockin.currentProjectId', projectId);
+    setThreadId(null);
+    setMessages([]);
+    await loadProjectFiles(projectId);
+  };
 
   const normalizeProjectPath = (path = '') =>
     path
@@ -114,6 +394,16 @@ const Chat = () => {
       navigate('/');
     }
   }, [navigate]);
+
+  // Intentionally run once on mount to hydrate project state.
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadProjects();
+    }
+  }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -206,7 +496,7 @@ const Chat = () => {
 
       const sourceFile = normalizeProjectPath(elementInfo.file);
       const containerSourceFile = toContainerProjectPath(sourceFile);
-      const currentContent = sessionFiles[sourceFile] ?? sessionFiles[elementInfo.file];
+      const currentContent = files[sourceFile] ?? files[elementInfo.file];
 
       if (!currentContent) {
         console.error('[Visual Editor] Source file not found:', sourceFile);
@@ -216,12 +506,17 @@ const Chat = () => {
       // Update the code using AST-based updater
       const updatedContent = updateElementStyles(currentContent, dataId, styles);
 
-      // Update sessionFiles
-      setSessionFiles(prev => ({
+      // Update files
+      setFiles(prev => ({
         ...prev,
         [sourceFile]: updatedContent,
         ...(containerSourceFile !== sourceFile ? { [containerSourceFile]: updatedContent } : {}),
       }));
+
+      if (activeFile && normalizeProjectPath(activeFile) === sourceFile) {
+        setFileContent(updatedContent);
+        setIsDirty(true);
+      }
 
       // Write to WebContainer if it's a frontend file
       if (webcontainerRef.current && !sourceFile.includes('.py')) {
@@ -251,15 +546,15 @@ const Chat = () => {
 
   const exportAsZip = async () => {
     try {
-      if (Object.keys(sessionFiles).length === 0) {
+      if (Object.keys(files).length === 0) {
         alert('No files to export');
         return;
       }
 
       const zip = new JSZip();
 
-      // Add all sessionFiles to the zip
-      Object.entries(sessionFiles).forEach(([filename, content]) => {
+      // Add all files to the zip
+      Object.entries(files).forEach(([filename, content]) => {
         zip.file(filename, content);
       });
 
@@ -534,7 +829,7 @@ const Chat = () => {
       setWebcontainerReady(false);
 
       // Use fetch with streaming for POST requests
-      const response = await fetch('http://localhost:8000/prompt/stream', {
+      const response = await fetch(`${API_BASE}/prompt/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -553,7 +848,6 @@ const Chat = () => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let currentSessionId = null;
       let currentThreadId = null;
       let currentPreviewUrl = null;
       let fileCount = 0;
@@ -588,7 +882,6 @@ const Chat = () => {
 
             switch (eventType) {
               case 'session_start':
-                currentSessionId = eventData.session_id;
                 currentThreadId = eventData.thread_id;
                 if (currentThreadId) {
                   setThreadId(currentThreadId);
@@ -622,7 +915,7 @@ const Chat = () => {
                 );
                 break;
 
-              case 'file_created':
+              case 'file_created': {
                 fileCount++;
                 const filename = normalizeProjectPath(eventData.filename);
                 let content = eventData.content;
@@ -666,18 +959,25 @@ const Chat = () => {
                   )
                 );
 
-                // Add file to sessionFiles immediately
-                setSessionFiles((prev) => {
+                // Add file to files immediately
+                setFiles((prev) => {
                   const updated = { ...prev, [filename]: content };
                   
                   // Auto-select first file
                   if (fileCount === 1) {
-                    setSelectedFile(filename);
+                    setActiveFile(filename);
+                    setFileContent(content);
+                    setIsDirty(false);
                   }
                   
                   return updated;
                 });
+
+                if (currentProjectId) {
+                  void persistFile(currentProjectId, filename, content);
+                }
                 break;
+              }
 
               case 'explanation_complete':
                 finalExplanation = eventData.content;
@@ -694,7 +994,7 @@ const Chat = () => {
                 );
                 break;
 
-              case 'complete':
+              case 'complete': {
                 setLoading(false);
                 
                 // Update thread ID from response
@@ -707,7 +1007,7 @@ const Chat = () => {
                   (path) => normalizeProjectPath(path) === 'package.json' || normalizeProjectPath(path).endsWith('/package.json')
                 );
 
-                const sessionHasPackageJson = Object.keys(sessionFiles).some(
+                const sessionHasPackageJson = Object.keys(files).some(
                   (path) => normalizeProjectPath(path) === 'package.json' || normalizeProjectPath(path).endsWith('/package.json')
                 );
 
@@ -715,14 +1015,21 @@ const Chat = () => {
                   // Use streamedFiles if it has fresh content from this turn
                   console.log('[WebContainer] No preview_url from backend. Initializing local WebContainer with new files...');
                   await initializeWebContainer(streamedFiles);
-                } else if (Object.keys(sessionFiles).length > 0 && sessionHasPackageJson) {
-                  // Fallback: use sessionFiles (useful for follow-up turns)
-                  console.log('[WebContainer] Using cached sessionFiles to reinitialize WebContainer...');
-                  await initializeWebContainer(sessionFiles);
+                } else if (Object.keys(files).length > 0 && sessionHasPackageJson) {
+                  // Fallback: use saved files (useful for follow-up turns)
+                  console.log('[WebContainer] Using cached files to reinitialize WebContainer...');
+                  await initializeWebContainer(files);
                 } else if (currentPreviewUrl) {
                   // Final fallback when we don't have enough files for local boot
                   setWebcontainerUrl(currentPreviewUrl);
                   setWebcontainerReady(true);
+                }
+
+                if (!currentProjectId && Object.keys(streamedFiles).length > 0) {
+                  const projectIdForSave = await promptProjectNameAndCreate();
+                  if (projectIdForSave) {
+                    await persistGeneratedFiles(projectIdForSave, streamedFiles);
+                  }
                 }
 
                 // Use explanation if available, otherwise show completion message
@@ -735,6 +1042,7 @@ const Chat = () => {
                   )
                 );
                 break;
+              }
 
               case 'error':
                 setLoading(false);
@@ -837,7 +1145,7 @@ const Chat = () => {
       let current = tree;
       parts.forEach((part, index) => {
         if (index === parts.length - 1) {
-          // It's a file - store exact key from sessionFiles
+          // It's a file - store exact key from files
           current[part] = { type: 'file', path: path };
         } else {
           // It's a folder
@@ -854,7 +1162,37 @@ const Chat = () => {
     return tree;
   };
 
-  const fileTree = buildFileTree(sessionFiles);
+  const fileTree = buildFileTree(files);
+
+  useEffect(() => {
+    if (!activeFile) {
+      setFileContent('');
+      return;
+    }
+
+    const normalizedActiveFile = normalizeProjectPath(activeFile);
+    const nextContent = files[normalizedActiveFile] ?? files[activeFile] ?? '';
+    setFileContent(nextContent);
+  }, [activeFile, files]);
+
+  // Debounced autosave for active file changes.
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => {
+    if (!activeFile || !isDirty || !currentProjectId) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const saveCurrentFile = async () => {
+        await persistFile(currentProjectId, normalizeProjectPath(activeFile), fileContent);
+      };
+
+      void saveCurrentFile();
+    }, 4000);
+
+    return () => clearTimeout(timeout);
+  }, [fileContent, activeFile, isDirty, currentProjectId]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Render file tree recursively with proper folder/file separation
   const renderFileTree = (tree, depth = 0) => {
@@ -882,9 +1220,9 @@ const Chat = () => {
       return (
         <button
           key={`file-${item.path}`}
-          onClick={() => setSelectedFile(item.path)}
+          onClick={() => setActiveFile(item.path)}
           className={`block w-full text-left px-2 py-1 text-xs truncate transition-colors rounded ${
-            selectedFile === item.path
+            activeFile === item.path
               ? isDarkMode
                 ? 'bg-indigo-500/20 text-indigo-400 border-l-2 border-indigo-500'
                 : 'bg-indigo-100 text-indigo-700 border-l-2 border-indigo-500'
@@ -903,18 +1241,18 @@ const Chat = () => {
     return [...renderedFolders, ...renderedFiles];
   };
 
-  // Handle code editing
   const handleCodeEdit = (newCode) => {
-    if (selectedFile) {
-      const normalizedSelectedFile = normalizeProjectPath(selectedFile);
+    if (activeFile) {
+      const normalizedSelectedFile = normalizeProjectPath(activeFile);
       const containerSelectedFile = toContainerProjectPath(normalizedSelectedFile);
 
-      setSessionFiles((prev) => ({
+      setFiles((prev) => ({
         ...prev,
-        [selectedFile]: newCode,
-        ...(normalizedSelectedFile !== selectedFile ? { [normalizedSelectedFile]: newCode } : {}),
+        [normalizedSelectedFile]: newCode,
         ...(containerSelectedFile !== normalizedSelectedFile ? { [containerSelectedFile]: newCode } : {}),
       }));
+      setFileContent(newCode);
+      setIsDirty(true);
       
       // Update webcontainer file if it's a frontend file
       if (webcontainerRef.current && !normalizedSelectedFile.includes('.py')) {
@@ -926,22 +1264,6 @@ const Chat = () => {
       }
     }
   };
-
-  // Debug: log selectedFile and available keys
-  useEffect(() => {
-    if (selectedFile) {
-      const fileExists = selectedFile in sessionFiles;
-      const content = sessionFiles[selectedFile];
-      console.log('=== FILE SELECTION DEBUG ===');
-      console.log('Selected file:', selectedFile);
-      console.log('File exists in sessionFiles:', fileExists);
-      console.log('Content length:', content ? content.length : 0);
-      console.log('Available files:', Object.keys(sessionFiles).slice(0, 5));
-      if (!fileExists) {
-        console.warn('⚠️ FILE NOT FOUND IN sessionFiles!');
-      }
-    }
-  }, [selectedFile, sessionFiles]);
 
   return (
     <div className={`h-screen flex flex-col transition-colors duration-300 ${
@@ -1023,6 +1345,110 @@ const Chat = () => {
       </div>
 
       {/* Main Content with Resizable Panels */}
+      <div className="flex-1 overflow-hidden flex" id="workspace-shell">
+        <aside className={`${isSidebarOpen ? 'w-72' : 'w-2'} relative overflow-visible border-r flex flex-col transition-all duration-300 ${
+          isDarkMode ? 'bg-[#070707] border-white/5' : 'bg-white border-gray-200'
+        }`}>
+          <button
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            className={`absolute ${isSidebarOpen ? '-right-3' : '-right-6'} top-6 z-20 w-7 h-7 rounded-full border flex items-center justify-center transition-all ${
+              isDarkMode
+                ? 'bg-[#0f0f10] border-white/15 text-gray-300 hover:text-white hover:bg-[#171719]'
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+            }`}
+            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+          </button>
+
+          {isSidebarOpen && (
+          <div className="border-b border-white/5 p-4 space-y-3">
+            {
+              <>
+                <div>
+                  <p className={`text-[11px] uppercase tracking-[0.2em] font-semibold ${
+                    isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                  }`}>Projects</p>
+                  <h2 className={`mt-2 text-lg font-semibold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>Workspace</h2>
+                </div>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                  {loadingProjects ? 'Loading projects...' : 'First save asks for project name.'}
+                </p>
+              </>
+            }
+          </div>
+          )}
+
+          {isSidebarOpen && (
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <button
+                onClick={startNewChat}
+                className={`w-full text-left rounded-lg border px-3 py-2.5 transition-all ${
+                  !currentProjectId
+                    ? isDarkMode
+                      ? 'bg-cyan-500/10 border-cyan-400/40 text-cyan-300'
+                      : 'bg-cyan-50 border-cyan-300 text-cyan-700'
+                    : isDarkMode
+                    ? 'bg-white/0 border-white/5 text-gray-300 hover:bg-white/5'
+                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquarePlus className="w-4 h-4" />
+                  <span className="text-sm font-medium">New Chat</span>
+                </div>
+              </button>
+            
+
+            {projects.length === 0 ? (
+                <div className={`rounded-lg border border-dashed p-4 text-sm ${
+                  isDarkMode ? 'border-white/10 text-gray-500' : 'border-gray-300 text-gray-500'
+                }`}>
+                  No projects yet.
+                </div>
+            ) : (
+              projects.map((project) => (
+                <button
+                  key={project.id}
+                  onClick={() => handleSelectProject(project.id)}
+                  className={`w-full text-left px-3 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+                    currentProjectId === project.id
+                      ? isDarkMode
+                        ? 'bg-indigo-500/15 border-indigo-500/50 text-white'
+                        : 'bg-indigo-50 border-indigo-200 text-gray-900'
+                      : isDarkMode
+                      ? 'bg-white/0 border-white/5 text-gray-300 hover:bg-white/5'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title={project.name}
+                >
+                  <FolderOpen className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium truncate">{project.name}</span>
+                        {currentProjectId === project.id && (
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-indigo-400">Active</span>
+                        )}
+                      </div>
+                      <p className={`mt-1 text-[11px] ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                        {project.last_opened_at ? new Date(project.last_opened_at).toLocaleString() : 'Recently updated'}
+                      </p>
+                    </div>
+                </button>
+              ))
+            )}
+          </div>
+          )}
+
+          {isSidebarOpen && (
+            <div className={`border-t p-4 text-xs ${isDarkMode ? 'border-white/5 text-gray-500' : 'border-gray-200 text-gray-600'}`}>
+              {currentProjectId ? 'Opened project workspace' : 'New chat is active'}
+            </div>
+          )}
+        </aside>
+
       <div className="flex-1 overflow-hidden" id="panels-container">
         <div className="flex h-full">
           {/* Chat Panel */}
@@ -1288,7 +1714,7 @@ const Chat = () => {
                     <p className={`text-xs font-semibold uppercase mb-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>Files</p>
-                    {Object.keys(sessionFiles).length > 0 ? (
+                    {Object.keys(files).length > 0 ? (
                       <div className="space-y-0.5">
                         {renderFileTree(fileTree)}
                       </div>
@@ -1312,20 +1738,27 @@ const Chat = () => {
                 <div className={`flex-1 overflow-hidden flex flex-col transition-colors duration-300 ${
                   isDarkMode ? 'bg-[#050505]' : 'bg-white'
                 }`}>
-                  {selectedFile && sessionFiles[selectedFile] ? (
+                  {activeFile && files[activeFile] ? (
                     <>
                       {/* File Header */}
                       <div className={`border-b px-3 py-2 transition-colors duration-300 ${
                         isDarkMode ? 'bg-[#0a0a0a] border-white/5' : 'bg-gray-50 border-gray-200'
                       }`}>
-                        <span className={`text-xs font-mono transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                        }`}>{selectedFile}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`text-xs font-mono transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>{activeFile}</span>
+                          <span className={`text-[11px] font-medium ${
+                            isSaving ? 'text-amber-400' : 'text-emerald-400'
+                          }`}>
+                            {isSaving ? 'Saving...' : 'Saved ✓'}
+                          </span>
+                        </div>
                       </div>
                       
                       {/* Code Editor Area */}
                       <textarea
-                        value={sessionFiles[selectedFile]}
+                        value={fileContent}
                         onChange={(e) => handleCodeEdit(e.target.value)}
                         className={`flex-1 p-4 text-xs font-mono border-none outline-none resize-none transition-colors duration-300 ${
                           isDarkMode ? 'text-gray-300 bg-[#050505]' : 'text-gray-900 bg-white'
@@ -1342,7 +1775,7 @@ const Chat = () => {
                     <div className="flex items-center justify-center h-full">
                       <p className={`text-sm transition-colors duration-300 ${
                         isDarkMode ? 'text-gray-600' : 'text-gray-500'
-                      }`}>Select a file to view and edit code</p>
+                      }`}>{currentProjectId ? 'Select a file to view and edit code' : 'Create a project to start editing'}</p>
                     </div>
                   )}
                 </div>
@@ -1350,6 +1783,7 @@ const Chat = () => {
             </div>
           </div>
         </div>
+      </div>
 
         {/* Property Editor Panel */}
         <PropertyEditor
