@@ -1,12 +1,17 @@
 
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.responses import HTMLResponse, RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
-from models import User, UserCreate, UserLogin, Token
+from bson import ObjectId
+from jose import JWTError, jwt
+from models import User, UserCreate, UserLogin, Token, Project, File, ProjectCreate, FileUpsert
 from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
 import anyio
 import sys
 import os
@@ -17,7 +22,7 @@ import certifi
 from pathlib import Path
 from contextlib import asynccontextmanager
 from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
-from config import MONGODB_URL, DATABASE_NAME
+from config import MONGODB_URL, DATABASE_NAME, SECRET_KEY, ALGORITHM
 import uvicorn
 from github_service import sync_to_github
 
@@ -37,7 +42,7 @@ async def lifespan(app: FastAPI):
             tlsAllowInvalidCertificates=True,
             serverSelectionTimeoutMS=5000
         )
-        await init_beanie(database=client[DATABASE_NAME], document_models=[User])
+        await init_beanie(database=client[DATABASE_NAME], document_models=[User, Project, File])
         print("MongoDB connected successfully")
         app.state.db_client = client
     except Exception as e:
@@ -64,11 +69,191 @@ async def add_security_headers(request, call_next):
     response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
     return response
 
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 class GraphRequest(BaseModel):
     prompt: str
-    search_method: bool = False
+    search_method: bool = False  # False (0) for vectordb (default), True (1) for tavily
+    thread_id: Optional[str] = None  # Optional persistent thread ID for multi-turn conversations
+
+
+def serialize_project(project: Project) -> dict:
+    return {
+        "id": str(project.id),
+        "user_id": project.user_id,
+        "name": project.name,
+        "created_at": project.created_at.isoformat(),
+        "updated_at": project.updated_at.isoformat(),
+        "last_opened_at": project.last_opened_at.isoformat(),
+        "is_deleted": project.is_deleted,
+    }
+
+
+def serialize_file(file_doc: File) -> dict:
+    return {
+        "id": str(file_doc.id),
+        "project_id": file_doc.project_id,
+        "path": file_doc.path,
+        "content": file_doc.content,
+        "language": file_doc.language,
+        "updated_at": file_doc.updated_at.isoformat(),
+    }
+
+
+def guess_language_from_path(path: str) -> Optional[str]:
+    normalized_path = path.lower()
+    if normalized_path.endswith(".jsx"):
+        return "javascriptreact"
+    if normalized_path.endswith(".tsx"):
+        return "typescriptreact"
+    if normalized_path.endswith(".ts"):
+        return "typescript"
+    if normalized_path.endswith(".js"):
+        return "javascript"
+    if normalized_path.endswith(".py"):
+        return "python"
+    if normalized_path.endswith(".css"):
+        return "css"
+    if normalized_path.endswith(".html"):
+        return "html"
+    if normalized_path.endswith(".json"):
+        return "json"
+    return None
+
+
+async def get_current_user_email(token: str = Depends(oauth2_scheme)) -> str:
+    credentials_error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise credentials_error
+    except JWTError:
+        raise credentials_error
+
+    user = await User.find_one(User.email == email)
+    if not user:
+        raise credentials_error
+
+    return email
+
+
+async def get_project_for_user(project_id: str, user_email: str) -> Project:
+    try:
+        object_id = ObjectId(project_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid project id")
+
+    project = await Project.find_one(Project.id == object_id, Project.user_id == user_email, Project.is_deleted == False)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+async def touch_project_last_opened(project: Project) -> None:
+    now = datetime.utcnow()
+    project.last_opened_at = now
+    await project.save()
+
+
+@app.post("/projects")
+async def create_project(payload: ProjectCreate, user_email: str = Depends(get_current_user_email)):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name is required")
+
+    now = datetime.utcnow()
+    project = Project(
+        user_id=user_email,
+        name=name,
+        created_at=now,
+        updated_at=now,
+        last_opened_at=now,
+        is_deleted=False,
+    )
+    await project.insert()
+    return {"project": serialize_project(project)}
+
+
+@app.get("/projects")
+async def list_projects(user_email: str = Depends(get_current_user_email)):
+    projects = await Project.find(
+        Project.user_id == user_email,
+        Project.is_deleted == False,
+    ).sort(-Project.last_opened_at).to_list()
+    return {"projects": [serialize_project(project) for project in projects]}
+
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: str, user_email: str = Depends(get_current_user_email)):
+    project = await get_project_for_user(project_id, user_email)
+    await touch_project_last_opened(project)
+    return {"project": serialize_project(project)}
+
+
+@app.get("/projects/{project_id}/files")
+async def get_project_files(project_id: str, user_email: str = Depends(get_current_user_email)):
+    project = await get_project_for_user(project_id, user_email)
+    await touch_project_last_opened(project)
+
+    files = await File.find(File.project_id == project_id).sort(File.path).to_list()
+    return {"files": [serialize_file(file_doc) for file_doc in files]}
+
+
+@app.post("/files")
+async def upsert_file(payload: FileUpsert, user_email: str = Depends(get_current_user_email)):
+    project = await get_project_for_user(payload.project_id, user_email)
+    now = datetime.utcnow()
+    language = payload.language or guess_language_from_path(payload.path)
+
+    existing_file = await File.find_one(File.project_id == payload.project_id, File.path == payload.path)
+
+    if existing_file:
+        existing_file.content = payload.content
+        existing_file.language = language
+        existing_file.updated_at = now
+        await existing_file.save()
+        file_doc = existing_file
+    else:
+        file_doc = File(
+            project_id=payload.project_id,
+            path=payload.path,
+            content=payload.content,
+            language=language,
+            updated_at=now,
+        )
+        await file_doc.insert()
+
+    project.updated_at = now
+    project.last_opened_at = now
+    await project.save()
+
+    return {"file": serialize_file(file_doc)}
+
+
+@app.delete("/files/{file_id}")
+async def delete_file(file_id: str, user_email: str = Depends(get_current_user_email)):
+    try:
+        object_id = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file id")
+
+    file_doc = await File.get(object_id)
+    if not file_doc:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    project = await get_project_for_user(file_doc.project_id, user_email)
+    await file_doc.delete()
+
+    project.updated_at = datetime.utcnow()
+    await project.save()
+
+    return {"message": "File deleted"}
 
 @app.post("/signup")
 async def signup(user: UserCreate):
@@ -165,36 +350,48 @@ async def login(user: UserLogin):
 
 @app.post("/prompt")
 async def run_graph_endpoint(payload: GraphRequest):
-    result = await anyio.to_thread.run_sync(run_graph, payload.prompt, payload.search_method)
+    result = await anyio.to_thread.run_sync(
+        run_graph, 
+        payload.prompt, 
+        payload.search_method,
+        payload.thread_id
+    )
     
-    # Extract session_id from result
+    # Extract thread_id and session_id from result
+    thread_id = result.get("thread_id")
     session_id = result.get("session_id")
     
-    # Return result with frontend files info
+    # Return result with thread management info
     return {
         "result": result,
+        "thread_id": thread_id,
         "session_id": session_id,
         "preview_url": result.get("preview_url"),
-        # "frontend_url": f"http://localhost:8000/session/{session_id}/frontend" if session_id else None
     }
 
 @app.post("/prompt/stream")
 async def run_graph_stream_endpoint(payload: GraphRequest):
-    """Stream file creation events in real-time using Server-Sent Events"""
+    """Stream file creation events in real-time using Server-Sent Events with persistent thread support"""
     
     async def event_generator():
         file_queue = asyncio.Queue()
-        session_id_holder = {}
+        session_info = {"thread_id": None, "session_id": None}
+        explanation_holder = {"summary": ""}
         
         # Get the current event loop for the callback to use
         loop = asyncio.get_event_loop()
         
-        def file_callback(event_type: str, data: dict):
-            """Callback function that runs in the agent thread"""
+        def streaming_callback(event_type: str, data: dict):
+            """Enhanced callback that captures explainer output"""
             try:
                 filename = data.get('filename', 'N/A')
                 print(f"[BACKEND CALLBACK] Received event: {event_type}, file: {filename}")
-                # Use the captured event loop to safely put data from worker thread
+                
+                # Capture explanation output
+                if event_type == "explanation_complete":
+                    explanation_holder["summary"] = data.get("content", "")
+                
+                # Queue all events for streaming
                 asyncio.run_coroutine_threadsafe(
                     file_queue.put({"type": event_type, "data": data}),
                     loop
@@ -204,28 +401,32 @@ async def run_graph_stream_endpoint(payload: GraphRequest):
                 print(f"Error in callback: {e}")
         
         # Set the callback for this request
-        set_file_callback(file_callback)
+        set_file_callback(streaming_callback)
         
         # Run the agent in a background thread
         async def run_agent():
             try:
                 result = await anyio.to_thread.run_sync(
-                    run_graph, 
+                    run_graph,
                     payload.prompt, 
-                    payload.search_method
+                    payload.search_method,
+                    payload.thread_id
                 )
+                thread_id = result.get('thread_id')
                 session_id = result.get('session_id')
                 preview_url = result.get('preview_url')
-                session_id_holder['id'] = session_id
-                session_id_holder['preview_url'] = preview_url
+                session_info['thread_id'] = thread_id
+                session_info['session_id'] = session_id
                 
-                # Only send serializable data in complete event
+                # Send completion event with thread info
                 await file_queue.put({
                     "type": "complete", 
                     "data": {
+                        "thread_id": thread_id,
                         "session_id": session_id,
                         "preview_url": preview_url,
-                        "status": result.get("status", "unknown")
+                        "status": result.get("status", "unknown"),
+                        "explanation": explanation_holder.get("summary", "")
                     }
                 })
             except Exception as e:
