@@ -32,7 +32,7 @@ async def push_to_github(token: str, username: str, repo_name: str, folder_path:
                     }
                 )
 
-async def sync_to_github(token: str, repo_name: str, folder_path: str):
+async def sync_to_github(token: str, repo_name: str, folder_path: str, commit_message: str):
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json"
@@ -62,13 +62,26 @@ async def sync_to_github(token: str, repo_name: str, folder_path: str):
                 with open(file_path, "rb") as f:
                     content = base64.b64encode(f.read()).decode("utf-8")
 
+                # 3. CHECK FOR EXISTING FILE SHA (Crucial for commits)
+                file_url = f"https://api.github.com/repos/{username}/{repo_name}/contents/{rel_path}"
+                get_res = await client.get(file_url, headers=headers)
+                
+                sha = None
+                if get_res.status_code == 200:
+                    sha = get_res.json().get("sha") # We found the existing file version
+
+                # 4. PUSH COMMIT
+                payload = {
+                    "message": commit_message,
+                    "content": content,
+                }
+                if sha:
+                    payload["sha"] = sha # Include SHA to tell GitHub this is an update
+
                 # Put file into the repository
                 await client.put(
                     f"https://api.github.com/repos/{username}/{repo_name}/contents/{rel_path}",
                     headers=headers,
-                    json={
-                        "message": f"Pushing {rel_path} via Lock-In Sync",
-                        "content": content
-                    }
+                    json=payload
                 )
         return f"https://github.com/{username}/{repo_name}"

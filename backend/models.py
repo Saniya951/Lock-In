@@ -38,6 +38,7 @@ class Token(BaseModel):
 class Project(Document):
     user_id: str
     name: str
+    github_repo_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_opened_at: datetime

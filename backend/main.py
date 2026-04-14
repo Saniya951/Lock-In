@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +31,17 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from agent.graph import run_graph, set_file_callback
+
+
+# 1. Define the request schema at the top of main.py
+class AutoSyncRequest(BaseModel):
+    project_id: str
+    session_id: str
+    commit_msg: str
+    github_token: Optional[str] = None
+
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -535,23 +545,94 @@ async def github_callback(code: str):
     return RedirectResponse(url=frontend_url)
 
 @app.post("/github/sync")
-async def handle_github_sync(session_id: str, repo_name: str, token: str):
+async def handle_github_sync(
+    session_id: str, 
+    repo_name: str, 
+    token: str, 
+    project_id: Optional[str] = None  # Add this parameter
+):
+    # 1. ALWAYS use session_id to find the folder (because disk folders use the UUID)
     code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+    
     if not os.path.exists(code_dir):
-        raise HTTPException(status_code=404, detail="Generated code folder not found.")
-
-    async with httpx.AsyncClient() as client:
-        headers = {"Authorization": f"token {token}", "Accept": "application/json"}
-        user_res = await client.get("https://api.github.com/user", headers=headers)
-        if user_res.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid GitHub token.")
-        username = user_res.json()['login']
+        print(f"DEBUG: Directory not found at {code_dir}")
+        raise HTTPException(status_code=404, detail="Generated code folder not found on server.")
 
     try:
-        repo_url = await sync_to_github(token, repo_name, code_dir)
+        # 2. Perform the GitHub Sync
+        repo_url = await sync_to_github(
+            token, 
+            repo_name, 
+            code_dir, 
+            commit_message="Initial commit from Lock-In AI"
+        )
+        
+        # 3. Use project_id (if provided) to update MongoDB
+        # This is the 24-character hex string from your screenshot
+        db_id = project_id or session_id 
+        try:
+            project = await Project.get(ObjectId(db_id))
+            if project:
+                project.github_repo_name = repo_name
+                await project.save()
+                print(f"DEBUG: Successfully updated Project {db_id} with repo name")
+        except Exception as e:
+            print(f"DEBUG: MongoDB update skipped/failed: {e}")
+            
         return {"status": "success", "repo_url": repo_url}
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+
+
+# 2. Update the endpoint
+@app.post("/github/autosync")
+async def auto_commit_changes(
+    payload: AutoSyncRequest, 
+    user_email: str = Depends(get_current_user_email)
+):
+    # Use your existing helper to get the project and verify ownership
+    project = await get_project_for_user(payload.project_id, user_email)
+    
+    if not project.github_repo_name:
+        raise HTTPException(
+            status_code=400, 
+            detail="This project hasn't been synced to GitHub yet. Please sync first."
+        )
+
+    # Path to the latest files
+    # Note: Ensure this path correctly points to your agent's output folder
+    code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", payload.session_id, "code")
+    
+    if not os.path.exists(code_dir):
+        # Fallback check: if the folder uses session_id instead of project_id
+        print(f"Directory missing: {code_dir}")
+        raise HTTPException(status_code=404, detail="Project files not found on server disk.")
+
+    # Get the GitHub token
+    # Priority: 1. Token sent from frontend, 2. Token stored in MongoDB User model
+    user = await User.find_one(User.email == user_email)
+    gh_token = payload.github_token or user.github_access_token
+    
+    if not gh_token:
+        raise HTTPException(status_code=401, detail="GitHub token missing. Please reconnect GitHub.")
+
+    try:
+        # Call the updated sync function from github_service.py
+        url = await sync_to_github(
+            token=gh_token, 
+            repo_name=project.github_repo_name, 
+            folder_path=code_dir, 
+            commit_message=payload.commit_msg
+        )
+        return {"status": "success", "repo_url": url}
+    except Exception as e:
+        print(f"Autosync error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"GitHub Push Failed: {str(e)}")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

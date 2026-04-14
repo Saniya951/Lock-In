@@ -48,6 +48,47 @@ const Chat = () => {
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showCommitModal, setShowCommitModal] = useState(false);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [isPushing, setIsPushing] = useState(false);
+
+  // 2. This function handles the follow-up commit
+  const handlePushCommit = async () => {
+    if (!commitMessage.trim()) return alert("Please enter a commit message");
+
+    setIsPushing(true);
+    try {
+      const token = localStorage.getItem("token"); // App auth token
+      const githubToken = localStorage.getItem("github_token");
+
+      const response = await fetch(`${API_BASE}/github/autosync`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          project_id: currentProjectId,
+          session_id: currentSessionId,
+          commit_msg: commitMessage,
+          github_token: githubToken, // Pass this if not stored in DB
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert("🚀 Changes pushed successfully!");
+        setShowCommitModal(false);
+        setCommitMessage("");
+      } else {
+        alert("Failed to push: " + data.detail);
+      }
+    } catch (error) {
+      console.error("Commit error:", error);
+    } finally {
+      setIsPushing(false);
+    }
+  };
 
   // GitHub Sync States
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -683,13 +724,21 @@ const Chat = () => {
     setIsSyncing(true);
     try {
       const res = await fetch(
-        `http://localhost:8000/github/sync?session_id=${currentSessionId}&repo_name=${encodeURIComponent(repoName)}&token=${token}`,
+        `http://localhost:8000/github/sync?session_id=${currentSessionId}&project_id=${currentProjectId}&repo_name=${encodeURIComponent(repoName)}&token=${token}`,
         { method: "POST" },
       );
       const data = await res.json();
       if (res.ok) {
         alert(`🚀 Success! Repository created: ${data.repo_url}`);
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === currentProjectId
+              ? { ...p, github_repo_name: repoName }
+              : p,
+          ),
+        );
         setShowSyncModal(false);
+        // loadProjects();
       } else {
         alert("Sync failed: " + data.detail);
       }
@@ -1540,17 +1589,31 @@ const Chat = () => {
 
         <div className="flex items-center gap-2">
           {(currentSessionId || currentProjectId) && (
-            <button
-              onClick={() =>
-                isGithubConnected
-                  ? setShowSyncModal(true)
-                  : alert("Connect GitHub first!")
-              }
-              className="flex items-center gap-2 px-4 py-2 bg-[#24292e] hover:bg-black border border-white/10 rounded-lg text-sm font-semibold transition-all"
-            >
-              <SiGithub className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Sync to GitHub
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  // Logic: If project already synced before, show commit modal
+                  // Otherwise, show the initial SyncModal
+                  const project = projects.find(
+                    (p) => p.id === currentProjectId,
+                  );
+                  if (project?.github_repo_name) {
+                    setShowCommitModal(true);
+                  } else {
+                    isGithubConnected
+                      ? setShowSyncModal(true)
+                      : alert("Connect GitHub first!");
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-[#24292e] hover:bg-black border border-white/10 rounded-lg text-sm font-semibold transition-all"
+              >
+                <SiGithub className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                {projects.find((p) => p.id === currentProjectId)
+                  ?.github_repo_name
+                  ? "Push Changes"
+                  : "Sync to GitHub"}
+              </button>
+            </div>
           )}
           {/* Theme Toggle Button */}
           <button
@@ -1675,6 +1738,52 @@ const Chat = () => {
                   </p>
                 </>
               }
+            </div>
+          )}
+
+          {showCommitModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <div className="bg-[#111] border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <SiGithub /> New Commit
+                  </h2>
+                  <button onClick={() => setShowCommitModal(false)}>
+                    <X className="text-gray-400 hover:text-white" />
+                  </button>
+                </div>
+
+                <p className="text-gray-400 text-sm mb-4">
+                  Describe the changes you made in this follow-up.
+                </p>
+
+                <textarea
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 mb-6 focus:outline-none focus:border-indigo-500 h-24 resize-none text-sm"
+                  placeholder="e.g., changed background color to blue and added padding"
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCommitModal(false)}
+                    className="flex-1 py-3 bg-white/5 text-white font-bold rounded-lg hover:bg-white/10 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePushCommit}
+                    disabled={isPushing}
+                    className="flex-1 py-3 bg-indigo-500 text-white font-bold rounded-lg hover:bg-indigo-600 flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                  >
+                    {isPushing ? (
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    ) : (
+                      "Push Changes"
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
