@@ -748,8 +748,8 @@ def executor_agent(state: GraphState) -> dict:
             local = os.path.join(root, file)
             # so from that local we take out the relative path (first arg in the below function is sumn like: user/bin/python and second arg is sumn like user. so the output is bin/python. we do this to get the file path from the code folder only like src/components/app.jsx while ignoring everything that came before it)
             # remote = f"/home/user/app/{os.path.relpath(local, code_dir)}"
-            safe_rel_path = os.path.relpath(local, user_code_dir).replace("\\", "/") 
-            remote_path = f"/home/user/app/{safe_rel_path}"
+            safe_rel_path = os.path.relpath(local, code_dir).replace("\\", "/") 
+            remote = f"/home/user/app/{safe_rel_path}"
             sandbox.files.write(remote, open(local, "rb"))
 
     # install deps
@@ -1150,6 +1150,7 @@ def learner_agent(state: GraphState) -> dict:
 
 #     # clear current_turn_files so it doesn't bleed into the next REPL input turn
 #     return {"current_turn_files": []}
+
 def knowledge_indexer_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
     cprint(" Entering Knowledge Indexer...", "cyan", attrs=["bold"])
@@ -1188,85 +1189,6 @@ def knowledge_indexer_agent(state: GraphState) -> dict:
         cprint(f" Neo4j Update Error: {e}", "red")
 
     return {"project_summary": summary}
-
-
-
-# def explainer_agent(state: GraphState) -> dict:
-#     cprint(f"\n{'='*50}", "magenta")
-#     cprint(" Entering Personalized Explainer Agent...", "cyan", attrs=["bold"])
-    
-#     session_id = state.get("session_id")
-#     current_files = state.get("current_turn_files", [])
-#     status = state.get("status", "unknown")
-#     user_prompt = state.get("user_prompt")
-    
-#     # --- 1. Fetch User Knowledge Level from Neo4j ---
-#     cprint(" Fetching user knowledge graph context...", "yellow")
-#     known_concepts = []
-#     try:
-#         kg = KnowledgeGraphManager()
-#         known_concepts = kg.get_user_level(session_id)
-#         kg.close()
-#         cprint(f" Found {len(known_concepts)} previously mastered concepts.", "green")
-#     except Exception as e:
-#         cprint(f" Could not retrieve Neo4j context: {e}. Defaulting to generic explanation.", "red")
-
-#     # --- 2. Gather File Content ---
-#     current_files = list(set(current_files))  # remove duplicates
-#     if not current_files:
-#         cprint(" No files were modified in this turn to explain.", "yellow")
-#         return {}
-
-#     user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
-#     files_content = ""
-    
-#     for filename in current_files:
-#         file_path = os.path.join(user_code_dir, filename)
-        
-#         # Fallback search for nested folders
-#         if not os.path.exists(file_path):
-#             for root, _, local_files in os.walk(user_code_dir):
-#                 for f in local_files:
-#                     full_path = os.path.join(root, f)
-#                     if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
-#                         file_path = full_path
-#                         break
-        
-#         if os.path.exists(file_path):
-#             try:
-#                 with open(file_path, "r", encoding="utf-8") as f:
-#                     content = f.read()
-#                     files_content += f"\n--- {filename} ---\n{content}\n"
-#             except Exception as e:
-#                 cprint(f"   Could not read {filename}: {e}", "red")
-#         else:
-#             cprint(f"   File {filename} not found on disk.", "red")
-
-#     if not files_content.strip():
-#         cprint(" None of the tracked files could be read.", "yellow")
-#         return {}
-
-#     # --- 3. Generate Personalized Explanation ---
-#     cprint(f" Generating tailored explanation for {len(current_files)} files...", "yellow")
-    
-#     # Ensure your prompts.py:explainer_prompt accepts known_context
-#     prompt = explainer_prompt(
-#         run_status=status, 
-#         files_content=files_content, 
-#         user_prompt=user_prompt,
-#         known_context=known_concepts
-#     )
-    
-#     try:
-#         response = llm.invoke(prompt)
-#         cprint(f"\n=== PERSONALIZED TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
-#         print(response.content.strip())
-#         cprint("===========================================\n", "green", attrs=["bold"])
-#     except Exception as e:
-#         cprint(f" Explainer LLM failed: {e}", "red")
-
-#     # Clear current_turn_files so it doesn't bleed into the next REPL turn
-#     return {"current_turn_files": []}
 
 
 def explainer_agent(state: GraphState) -> dict:
@@ -1543,7 +1465,7 @@ if __name__ == "__main__":
     cprint(f" Thread ID generated: {thread_id}", "cyan")
     
     # LangGraph requires the thread_id to be passed in the config, not just the state
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 150}
 
     # We still need the session_id in the state for your file paths to work
     initial_state = {
