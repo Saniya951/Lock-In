@@ -27,7 +27,7 @@ memory = MemorySaver()
 
 # 2. Node to fetch from Neo4j
 def fetch_user_profile(state: LearningState):
-    session_id = '88c93d15-2f52-4d58-8b66-70ff9ac29103'
+    session_id = state.get("session_id")
     cprint(" Fetching user mastery profile from Neo4j...", "dark_grey")
     try:
         kg = KnowledgeGraphManager()
