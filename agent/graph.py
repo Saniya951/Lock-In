@@ -1212,7 +1212,7 @@ def explainer_agent(state: GraphState) -> dict:
         # Example: "- useState (implemented 5 times), - useEffect (implemented 1 time)"
         if known_data:
             mastery_context = "\n".join([
-                f"- {item['name']} (Mastery Level: {item['count']} implementations)" 
+                f"- {item['name']} (Mastery Level: {item['count']},Interactions: {', '.join(item['types'])})" 
                 for item in known_data
             ])
         else:
