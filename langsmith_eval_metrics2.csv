@@ -1,0 +1,87 @@
+Trace ID,Timestamp,User Prompt,Hit Rate Limit,Success (Hit Explainer),Debugger Invocations,Zero-Shot Success,Recovered by Debugger,Evaluator Categories
+019d8b81-e8c2-7d42-a154-552137ff42c4,2026-04-14 10:20:40,{'messages': [{'content': 'can you tell me about s,False,False,0,False,False,None
+019d8b7d-89d3-7f51-a2e1-1d53bdaece7b,2026-04-14 10:15:53,{'messages': [{'content': 'can you tell me about s,False,False,0,False,False,None
+019d8b79-572a-7a62-a195-48628136abdd,2026-04-14 10:11:18,write a file that says hello world in react,False,True,1,False,True,"none, logical"
+019d8b73-e49f-7541-ade4-1212ce20114d,2026-04-14 10:05:21,{'messages': [{'content': 'can you tell me about m,False,False,0,False,False,None
+019d8b6d-1b16-76a2-9b04-c1d3d8ca8ecc,2026-04-14 09:57:56,{'messages': [{'content': 'can you tell me how ass,False,False,0,False,False,None
+019d8b6c-8586-77c2-a062-ecda1dd364f6,2026-04-14 09:57:18,{'messages': [{'content': 'can you tell me about a,False,False,0,False,False,None
+019d8b66-4718-7092-b546-cb52126b2900,2026-04-14 09:50:29,{'messages': [{'content': 'what are the different ,False,False,0,False,False,None
+019d8b5d-1536-7b41-a9cc-6bf8dbbfff82,2026-04-14 09:40:26,write a python file that says hello world,False,True,0,True,False,none
+019d8b5a-f923-75d1-b1c4-d4e74fe4ac3e,2026-04-14 09:38:08,write a python file that says hello world,False,True,2,False,True,"syntax, runtime, runtime"
+019d8b35-d74b-77e2-acbd-3a65055d7711,2026-04-14 08:57:34,write a python file that says hello world,False,True,1,False,True,"none, runtime"
+019d8b09-f540-72c1-aef5-8ccba214c6f3,2026-04-14 08:09:38,{'messages': [{'content': 'can you tell me how exc,False,False,0,False,False,None
+019d8b03-5b28-7bd1-9347-c842e916a5d3,2026-04-14 08:02:26,{'messages': [{'content': 'so how does exception h,False,False,0,False,False,None
+019d8af4-5b6d-7dc1-b0ac-e58a916a9116,2026-04-14 07:46:03,can you add another function in app.py that says bye world?,False,True,0,True,False,none
+019d8ad0-83e6-7a21-bbef-1a670af3339e,2026-04-14 07:06:54,write a python file that says hello world,False,True,0,True,False,none
+019d8a80-7040-7bf0-830a-c6016ede2125,2026-04-14 05:39:26,make a simple page in react that says hello world,False,True,0,True,False,none
+019d8a7e-4949-7543-be45-24d5c7f11b7f,2026-04-14 05:37:05,make a simple portfolio in react,True,False,1,False,False,runtime
+019d8a78-2ecf-78e1-bb89-7565a4326849,2026-04-14 05:30:25,make a simple portfolio in react,False,False,2,False,False,"logical, runtime"
+019d8a76-edd7-7053-a8fd-c55d7207da49,2026-04-14 05:29:03,make a simple portfolio in react,False,False,0,False,False,None
+019d8a74-e3a1-77d3-8e9e-3014643240f0,2026-04-14 05:26:49,make a react portfolio,False,False,0,False,False,None
+019d850b-72d7-7853-8813-ea983f42abba,2026-04-13 04:13:33,The get_user_email function throws a KeyError if the 'email' key is missing. Change it to return None if 'email' is not present.,False,True,0,True,False,None
+019d8508-881b-7cd2-8b75-17aeb303cb4a,2026-04-13 04:10:22,"Add a button with data-testid='clear-btn' to the TodoList that, when clicked, empties the todos array.",True,False,0,False,False,None
+019d8507-9d4c-79d2-9d46-1181220f6e0a,2026-04-13 04:09:21,"Add a button with data-testid='clear-btn' to the TodoList that, when clicked, empties the todos array.",True,False,0,False,False,None
+019d8506-b293-7bf3-aba1-89b1caf9a088,2026-04-13 04:08:21,"Add a button with data-testid='clear-btn' to the TodoList that, when clicked, empties the todos array.",True,False,0,False,False,None
+019d8504-ad26-7c73-acdc-0a54d98e1387,2026-04-13 04:06:09,"Modify the Button component to accept an 'isDisabled' boolean prop. If true, the HTML button should have the disabled attribute.",True,False,0,False,False,None
+019d8503-c1c2-7733-9db2-995ec8b265b2,2026-04-13 04:05:09,"Modify the Button component to accept an 'isDisabled' boolean prop. If true, the HTML button should have the disabled attribute.",True,False,0,False,False,None
+019d8502-2d2b-78c1-86fc-9b45fa5c8117,2026-04-13 04:03:25,"Modify the Button component to accept an 'isDisabled' boolean prop. If true, the HTML button should have the disabled attribute.",True,False,2,False,False,"infra, infra"
+019d8500-3b61-7563-a078-fd7b413143e2,2026-04-13 04:01:18,"The app won't start, it says 'Cannot find module lucide-react'. Please fix the dependencies in package.json.",False,True,4,False,True,"infra, infra, infra, syntax"
+019d84fe-8693-7803-8426-d38c42763fbe,2026-04-13 03:59:26,"When I click the counter button, it goes up by 2 instead of 1. Can you fix the increment logic?",False,True,3,False,True,"infra, infra, infra"
+019d84fc-bfa4-79e2-b3a2-7ec77a3d662a,2026-04-13 03:57:29,The test suite is crashing with 'Button is not a function' or module not found. Please fix the Button component.,False,True,3,False,True,"syntax, syntax, infra"
+019d849b-70c7-7292-a644-697499a8f9f7,2026-04-13 02:11:12,Modify the greet function so that it accepts a list of names and returns a list of greeting strings.,False,False,0,False,False,None
+019d849a-7285-7f10-8885-5e5e429a9446,2026-04-13 02:10:07,"Add a divide(self, a, b) method to the Calculator class. If b is 0, it should raise a ValueError.",False,False,0,False,False,None
+019d8499-6e35-73d2-9b1e-451a0982b5db,2026-04-13 02:09:00,The factorial function is returning 0 for everything because the base case for 0 is wrong. Please fix it.,False,False,1,False,False,None
+019d8498-70c4-79b2-be75-c828d4a8ebef,2026-04-13 02:07:56,math_utils.py is throwing an IndentationError. Please fix the formatting.,False,False,1,False,False,None
+019d8497-428d-72c2-9749-9b777c61780a,2026-04-13 02:06:38,The get_user_email function throws a KeyError if the 'email' key is missing. Change it to return None if 'email' is not present.,False,True,0,True,False,None
+019d8496-3522-7571-8682-8278072aedf5,2026-04-13 02:05:29,"Add a button with data-testid='clear-btn' to the TodoList that, when clicked, empties the todos array.",False,False,0,False,False,None
+019d8495-282e-7da1-bc75-e467548d9bd1,2026-04-13 02:04:20,"Modify the Button component to accept an 'isDisabled' boolean prop. If true, the HTML button should have the disabled attribute.",False,False,0,False,False,None
+019d8494-05b3-7c13-8e04-cbe0e046cb3c,2026-04-13 02:03:06,"The app won't start, it says 'Cannot find module lucide-react'. Please fix the dependencies in package.json.",False,False,1,False,False,None
+019d8492-f301-75a0-9306-f0759104f2d6,2026-04-13 02:01:56,"When I click the counter button, it goes up by 2 instead of 1. Can you fix the increment logic?",False,False,1,False,False,None
+019d8491-d6b5-75a3-b232-13d692e43c02,2026-04-13 02:00:43,The test suite is crashing with 'Button is not a function' or module not found. Please fix the Button component.,False,False,1,False,False,None
+019d82f1-55e8-73e1-b83a-a62f88cc16fa,2026-04-12 18:25:47,"Create a react page saying ""Hello World!""",False,True,0,True,False,none
+019d82e9-1a74-7d70-b825-7c93adbc2575,2026-04-12 18:16:47,Create a react page saying hello world,False,True,0,True,False,none
+019d82e6-2f0e-7432-8b70-fab6d2b2dc4e,2026-04-12 18:13:36,Create react based portfolio,False,True,0,True,False,none
+019d82df-84c1-7c42-ad34-c5127298ebd0,2026-04-12 18:06:19,Create a react based porfolio,False,True,0,True,False,none
+019d82dd-3c78-70a2-a71a-92d56980af07,2026-04-12 18:03:50,Create a react based portfolio,False,True,0,True,False,none
+019d7e24-bca0-7211-bc65-8fe013394ab3,2026-04-11 20:03:50,Create a react based tic tac toe,False,False,0,False,False,None
+019d7e22-c480-7d40-8297-ea8eebd5b1eb,2026-04-11 20:01:40,Create a react based tic tac toe,False,False,0,False,False,None
+019d7df7-6d42-7633-8243-517ff35d6f5e,2026-04-11 19:14:20,Create a react based tic tac toe,False,True,0,True,False,none
+019d7d34-6951-7b63-85fb-04421c905dc2,2026-04-11 15:41:20,Create a react based portfolio,False,True,2,False,True,"runtime, runtime, runtime"
+019d7d30-af6b-7f33-9670-1565e2518691,2026-04-11 15:37:15,Create a react based portfolio,False,True,2,False,True,"runtime, syntax, runtime"
+019d7d2d-b9d6-7e01-95e6-c5a193033a7f,2026-04-11 15:34:01,Create a react based portfolio,False,False,0,False,False,None
+019d7cfa-da0b-7f23-bf18-6323973528a7,2026-04-11 14:38:27,create react based tic tac toe game.,False,False,0,False,False,None
+019d7758-6b92-7aa3-974b-0038757a618d,2026-04-10 12:22:56,make a simple to do list in react,False,True,2,False,True,"logical, logical, runtime"
+019d7045-7c10-72b3-a599-1cf1a12fba82,2026-04-09 03:24:55,Create a react based realtime clock page.,False,True,2,False,True,"runtime, runtime, runtime"
+019d6aa8-30b6-7cf2-9dc7-d421303ce93c,2026-04-08 01:15:00,Create a sudoku game in python.,False,True,2,False,True,"syntax, syntax, syntax"
+019d6aa7-3868-72d2-819c-eb2abe53e3e0,2026-04-08 01:13:57,Create a sudoku game python.,True,False,0,False,False,None
+019d6aa3-9c03-75c0-b227-85879b5188c1,2026-04-08 01:10:00,React a react based tic-tac-toe.,True,False,2,False,False,"runtime, runtime"
+019d6a90-aaa1-7b32-a24a-2f51caeaf0c4,2026-04-08 00:49:19,Create a react based tic-tac-toe game.,False,True,2,False,True,"runtime, runtime, runtime"
+019d6a8c-af37-7510-a2fb-5e066228fa4f,2026-04-08 00:44:58,Add animations.,False,True,0,True,False,none
+019d6a8b-28bb-7203-8905-85553e6d2780,2026-04-08 00:43:18,Make the theme of the game lilac floral.,False,True,0,True,False,none
+019d6a88-9654-7921-88aa-8ef59aa1a46d,2026-04-08 00:40:29,Create a react based tic-tac-toe game.,False,True,0,True,False,none
+019d6a86-b9e6-7c01-ad30-68f07d545996,2026-04-08 00:38:27,Create a react based tic-tac-toe game. ,True,False,0,False,False,None
+019d6a7b-47fd-7cf3-bbe7-224816556f45,2026-04-08 00:25:57,make the calculator UI lilac floral theme.,False,True,0,True,False,none
+019d6a79-b1fa-7a01-afbe-933eba5a6541,2026-04-08 00:24:13,Add more functions like to calculate square root and square of a number.,False,True,0,True,False,none
+019d6a77-2a02-7b92-9ba2-99c765bbc151,2026-04-08 00:21:27,Create a react based calculator.,False,True,0,True,False,none
+019d6397-47a6-7573-8e74-68675f4b1fdc,2026-04-06 16:19:11,can you fix the styles.css imports in react components that are generated?,True,False,1,False,False,None
+019d6395-21dc-78c0-a55e-8f3bf4ae3e91,2026-04-06 16:16:51,can you create a style.css with white styling?,False,True,2,False,True,"syntax, syntax, syntax"
+019d6394-2f7e-7161-9e0b-486a85c5b2c0,2026-04-06 16:15:49,can you fix the expected length error in the generated about.test.jsx?,False,True,1,False,True,syntax
+019d6391-15a4-7ce0-82d2-358704170ade,2026-04-06 16:12:25,write a simple portfolio in react,False,True,2,False,True,"logical, logical, logical"
+019d638e-6aa6-7720-b53c-d892402a0f6f,2026-04-06 16:09:31,make a simple portfolio in react,False,False,0,False,False,None
+019d6380-eb8e-7fc1-ad56-e82530d12a0e,2026-04-06 15:54:46,change css of hello world to bright red,False,True,2,False,True,"logical, logical, logical"
+019d637f-cf68-75d3-bc9d-1269f6b6d343,2026-04-06 15:53:33,can you change the hello worlds component to bright red?,False,True,1,False,True,logical
+019d637f-1bdb-7e12-9ed3-72980c14690b,2026-04-06 15:52:47,can you fix app.jsx from the generated code?,False,True,1,False,True,none
+019d637c-dabf-7a71-9d62-18bcffd992c2,2026-04-06 15:50:20,write a helloworld file in react,False,True,1,False,True,"none, logical"
+019d636b-61f5-7680-b4dc-202b6eb3f53d,2026-04-06 15:31:15,"in the generated app.jsx, can you fix the error?",False,True,1,False,True,none
+019d636a-5b2d-7d42-afa8-fc7f0c79824e,2026-04-06 15:30:07,can you fix the error in app.jsx,False,True,0,True,False,None
+019d6363-b8da-7990-88c6-1e98ed2b10ad,2026-04-06 15:22:53,write helloworld in react,False,True,1,False,True,"none, logical"
+019d6362-51ea-7be2-ad3a-9d330cac7136,2026-04-06 15:21:21,can you fix assertions in app.test.jsx and helloworld.test.jsx?,False,True,0,True,False,None
+019d6360-914f-7fc1-8d68-049ce738d2c4,2026-04-06 15:19:26,can you write a hello world in react?,False,True,2,False,True,"logical, logical, logical"
+019d635f-8080-71f3-8034-325bdeda199c,2026-04-06 15:18:16,can you fix the error in App.jsx file?,True,False,1,False,False,None
+019d635d-5715-7f71-a2e3-54f47a35bf4f,2026-04-06 15:15:54,can you fix HelloWorld.test.jsx file? there's some type error in getByText i think,False,True,1,False,True,runtime
+019d635a-cb55-78c3-9c41-29e9b9f91664,2026-04-06 15:13:07,write hello world in react,False,True,2,False,True,"logical, runtime, logical"
+019d6322-003b-77b0-9443-e2cd5c509ec6,2026-04-06 14:11:05,make a simple portfolio in react,False,True,2,False,True,"runtime, logical, logical"
+019d6310-b35f-75f3-aa36-6ac41bd249b6,2026-04-06 13:52:12,can you make a simple react portfolio,False,True,2,False,True,"runtime, runtime, logical"
+019d5ee7-32cc-7dc3-9fbb-57199db6129b,2026-04-05 18:28:23,can you write a simple calculator script in python?,False,True,2,False,True,"syntax, syntax, syntax"
+019d5ed9-d6ff-7a03-98eb-77f0ddf6392a,2026-04-05 18:13:47,make a portfolio app in react,False,True,0,True,False,none
+019caa71-d48e-72d2-beb4-458cd8436f12,2026-03-01 17:28:33,write a python script that says hello world,False,False,1,False,False,infra
