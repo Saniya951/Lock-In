@@ -1,0 +1,72 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "High-Scale Backend Architecture"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Flask Basics",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Enterprise API Design Strategies"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "REST API Design",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Data Layer Scaling and Reliability"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Database Integration",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Zero-Trust Security in APIs"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Auth and Security",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Observability and Production Rollouts"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Testing and Deployment",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

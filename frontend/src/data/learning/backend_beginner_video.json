@@ -1,0 +1,72 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Flask Basics for Beginners"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Flask Basics",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "REST API Design with Flask"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "REST API Design",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Database Integration in Python Apps"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Database Integration",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Authentication and Security Basics"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Auth and Security",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Testing and Deployment Workflow"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Testing and Deployment",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

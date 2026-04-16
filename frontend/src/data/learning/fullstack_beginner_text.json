@@ -1,0 +1,67 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "Full Stack (React + Flask) Beginner module 1 on System Overview. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "System Overview",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Full Stack (React + Flask) Beginner module 2 on Frontend Backend Contracts. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Frontend Backend Contracts",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Full Stack (React + Flask) Beginner module 3 on Authentication Flow. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Authentication Flow",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Full Stack (React + Flask) Beginner module 4 on End to End Features. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "End to End Features",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Full Stack (React + Flask) Beginner module 5 on Production Readiness. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Production Readiness",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

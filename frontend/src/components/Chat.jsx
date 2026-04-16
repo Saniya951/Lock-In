@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon, Database, Globe, PanelLeftClose, PanelLeftOpen, MessageSquarePlus, FolderOpen } from 'lucide-react';
+import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon, Database, Globe, PanelLeftClose, PanelLeftOpen, MessageSquarePlus, FolderOpen, CircleUserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
 import JSZip from 'jszip';
@@ -7,6 +7,7 @@ import PropertyEditor from './PropertyEditor';
 import { createElementInspectorScript } from '../utils/elementInspector';
 import { processJsxFiles, resetIdTracking } from '../utils/astProcessor';
 import { updateElementStyles } from '../utils/codeUpdater';
+import useThemeMode from '../hooks/useThemeMode';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -26,8 +27,9 @@ const Chat = () => {
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [threadId, setThreadId] = useState(null); // Persistent thread ID for multi-turn conversations
-  const [isDarkMode, setIsDarkMode] = useState(true); // Theme state
+  const { isDarkMode, setIsDarkMode } = useThemeMode();
   const [useDeepSearch, setUseDeepSearch] = useState(false); // False: vector search, True: Tavily deep search
   
   // Visual Editing State
@@ -41,6 +43,7 @@ const Chat = () => {
   const webcontainerRef = useRef(null);
   const projectRootRef = useRef('');
   const menuRef = useRef(null);
+  const profileMenuRef = useRef(null);
   const creatingProjectPromiseRef = useRef(null);
   const authErrorShownRef = useRef(false);
   const navigate = useNavigate();
@@ -67,6 +70,16 @@ const Chat = () => {
     setIsDirty(false);
     setWebcontainerReady(false);
     setWebcontainerUrl(null);
+  };
+
+  const openProfilePage = () => {
+    setProfileMenuOpen(false);
+    navigate('/profile');
+  };
+
+  const openLearningPage = () => {
+    setProfileMenuOpen(false);
+    navigate('/learning');
   };
 
   const createProjectByName = async (projectName) => {
@@ -406,20 +419,25 @@ const Chat = () => {
   /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
-    // Close menu when clicking outside
+    if (!menuOpen && !profileMenuOpen) {
+      return;
+    }
+
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false);
       }
+
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setProfileMenuOpen(false);
+      }
     };
 
-    if (menuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [menuOpen]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen, profileMenuOpen]);
 
   // Setup message listener for iframe communication
   useEffect(() => {
@@ -1299,7 +1317,10 @@ const Chat = () => {
           {/* Menu Button */}
           <div className="relative" ref={menuRef}>
             <button
-              onClick={() => setMenuOpen(!menuOpen)}
+              onClick={() => {
+                setMenuOpen(!menuOpen);
+                setProfileMenuOpen(false);
+              }}
               className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
                 isDarkMode 
                   ? 'text-gray-400 hover:text-white hover:bg-white/10' 
@@ -1338,9 +1359,47 @@ const Chat = () => {
           </div>
 
           {/* Profile Button */}
-          <button className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white font-semibold hover:opacity-80 transition-all">
-            A
-          </button>
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => {
+                setProfileMenuOpen(!profileMenuOpen);
+                setMenuOpen(false);
+              }}
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white hover:opacity-80 transition-all"
+              title="Open profile menu"
+            >
+              <CircleUserRound className="w-5 h-5" />
+            </button>
+
+            {profileMenuOpen && (
+              <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50 transition-colors duration-300 ${
+                isDarkMode
+                  ? 'bg-[#1a1a1a] border border-white/10'
+                  : 'bg-white border border-gray-200'
+              }`}>
+                <button
+                  onClick={openProfilePage}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-t-lg ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-white/5 hover:text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={openLearningPage}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-b-lg border-t ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-white/5 hover:text-white border-white/5'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 border-gray-200'
+                  }`}
+                >
+                  Learning Module
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,0 +1,72 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "React Architecture at Scale"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "React Fundamentals",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Advanced Component Systems"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Component Architecture",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Performance and Render Optimization"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "State and Effects",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Advanced Routing and Data Loading"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Routing and Data",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Design Systems and UX Strategy"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Styling and UX",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

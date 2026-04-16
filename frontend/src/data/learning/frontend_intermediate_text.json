@@ -1,0 +1,67 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "Frontend (React) Intermediate module 1 on React Fundamentals. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "45 mins",
+        "moduleTitle":  "React Fundamentals",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Frontend (React) Intermediate module 2 on Component Architecture. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "45 mins",
+        "moduleTitle":  "Component Architecture",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Frontend (React) Intermediate module 3 on State and Effects. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "45 mins",
+        "moduleTitle":  "State and Effects",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Frontend (React) Intermediate module 4 on Routing and Data. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "45 mins",
+        "moduleTitle":  "Routing and Data",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Frontend (React) Intermediate module 5 on Styling and UX. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "45 mins",
+        "moduleTitle":  "Styling and UX",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

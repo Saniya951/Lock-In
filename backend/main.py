@@ -367,6 +367,22 @@ async def login(user: UserLogin):
 async def home(token: str = Depends(oauth2_scheme)):
     return {"message": "Welcome to home page"}
 
+
+@app.get("/me")
+async def get_me(user_email: str = Depends(get_current_user_email)):
+    user = await User.find_one(User.email == user_email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "dob": user.dob.isoformat() if user.dob else None,
+        "profession": user.profession,
+        "is_verified": user.is_verified,
+    }
+
 @app.post("/prompt")
 async def run_graph_endpoint(payload: GraphRequest):
     result = await anyio.to_thread.run_sync(

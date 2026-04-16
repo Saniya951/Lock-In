@@ -1,0 +1,72 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Advanced System Design for Full Stack"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "System Overview",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Contract Evolution and Backward Compatibility"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Frontend Backend Contracts",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Hardened Authentication and Authorization"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Authentication Flow",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Large Feature Orchestration Across Services"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "End to End Features",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "SRE and Production Governance"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Production Readiness",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

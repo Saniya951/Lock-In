@@ -1,0 +1,72 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Full Stack System Overview"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "System Overview",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "API Contracts Between Frontend and Backend"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Frontend Backend Contracts",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Authentication Flow End to End"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Authentication Flow",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Building End-to-End Features"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "End to End Features",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
+                        "type":  "video",
+                        "title":  "Production Readiness for Full Stack Apps"
+                    },
+        "duration":  "30 mins",
+        "moduleTitle":  "Production Readiness",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]

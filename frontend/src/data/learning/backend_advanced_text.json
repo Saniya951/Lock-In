@@ -1,0 +1,67 @@
+﻿[
+    {
+        "content":  {
+                        "value":  "Backend (Flask) Advanced module 1 on Flask Basics. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Flask Basics",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Backend (Flask) Advanced module 2 on REST API Design. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "REST API Design",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Backend (Flask) Advanced module 3 on Database Integration. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Database Integration",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Backend (Flask) Advanced module 4 on Auth and Security. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Auth and Security",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    },
+    {
+        "content":  {
+                        "value":  "Backend (Flask) Advanced module 5 on Testing and Deployment. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
+                        "type":  "text"
+                    },
+        "duration":  "60 mins",
+        "moduleTitle":  "Testing and Deployment",
+        "checkpoints":  [
+                            "Concept clarity",
+                            "Hands-on implementation",
+                            "Applied mini task"
+                        ]
+    }
+]
