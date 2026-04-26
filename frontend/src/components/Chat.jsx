@@ -1372,6 +1372,99 @@ const Chat = () => {
     }
   };
 
+  const cleanSummaryInlineText = (value = '') =>
+    value
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[\*_]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const parseSummaryBlocks = (rawText = '') => {
+    const normalized = String(rawText || '').replace(/\r\n/g, '\n').trim();
+    if (!normalized) {
+      return [];
+    }
+
+    const lines = normalized.split('\n');
+    const blocks = [];
+
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const headingMatch =
+        trimmed.match(/^\*\*(.+?)\*\*:?$/) ||
+        trimmed.match(/^#{1,6}\s+(.+)$/);
+
+      if (headingMatch) {
+        const headingText = cleanSummaryInlineText(headingMatch[1]);
+        if (headingText) {
+          blocks.push({ type: 'heading', text: headingText });
+        }
+        return;
+      }
+
+      const bulletMatch =
+        trimmed.match(/^[-*]\s+(.+)$/) ||
+        trimmed.match(/^\d+\.\s+(.+)$/);
+
+      if (bulletMatch) {
+        const bulletText = cleanSummaryInlineText(bulletMatch[1]);
+        if (bulletText) {
+          blocks.push({ type: 'bullet', text: bulletText });
+        }
+        return;
+      }
+
+      const paragraphText = cleanSummaryInlineText(trimmed);
+      if (paragraphText) {
+        blocks.push({ type: 'paragraph', text: paragraphText });
+      }
+    });
+
+    return blocks;
+  };
+
+  const renderFormattedSummary = (text) => {
+    const blocks = parseSummaryBlocks(text);
+    if (!blocks.length) {
+      return <p className="whitespace-pre-wrap break-words">{text}</p>;
+    }
+
+    return (
+      <div className="space-y-1.5">
+        {blocks.map((block, index) => {
+          if (block.type === 'heading') {
+            return (
+              <p key={`summary-${index}`} className="text-xs font-semibold uppercase tracking-[0.08em] opacity-90">
+                {block.text}
+              </p>
+            );
+          }
+
+          if (block.type === 'bullet') {
+            return (
+              <p key={`summary-${index}`} className="text-sm leading-relaxed break-words">
+                <span className="mr-2">-</span>
+                {block.text}
+              </p>
+            );
+          }
+
+          return (
+            <p key={`summary-${index}`} className="text-sm leading-relaxed break-words">
+              {block.text}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className={`h-screen flex flex-col transition-colors duration-300 ${
       isDarkMode ? 'bg-[#050505] text-white' : 'bg-white text-gray-900'
@@ -1583,7 +1676,9 @@ const Chat = () => {
                             : 'bg-white border border-gray-300 text-gray-900'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                        {message.sender === 'bot' && message.explanation
+                          ? renderFormattedSummary(message.explanation)
+                          : <p className="whitespace-pre-wrap break-words">{message.text}</p>}
                         <span className={`text-xs mt-1 block transition-colors duration-300 ${
                           isDarkMode ? 'text-gray-500' : 'text-gray-400'
                         }`}>

@@ -250,45 +250,16 @@ const LearningModule = () => {
       <Navbar variant="app" title="Learning Module" backTo="/chat" />
 
       <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
-        {ongoingPaths.length > 0 && (
-          <section className={`rounded-3xl border p-6 transition-colors ${
-            isDarkMode ? 'border-cyan-400/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'
-          }`}>
-            <p className={`text-xs uppercase tracking-[0.2em] ${isDarkMode ? 'text-cyan-300/80' : 'text-cyan-700/80'}`}>
-              Continue Learning
-            </p>
-            <h2 className="text-2xl font-semibold mt-2">Pick up where you left off</h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {ongoingPaths.map((pathId) => {
-                const path = learningPaths.find((item) => item.id === pathId);
-                if (!path) {
-                  return null;
-                }
-
-                return (
-                  <button
-                    key={`continue-${pathId}`}
-                    onClick={() => openPath(pathId)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      isDarkMode ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-white hover:bg-gray-100 text-gray-900'
-                    }`}
-                  >
-                    Continue {path.title}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        
 
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-semibold">Available Paths</h2>
-            {activePathId && preferencesByPath[activePathId] && (
+            {/* {activePathId && preferencesByPath[activePathId] && (
               <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
                 Learning style: {preferenceLabels[preferencesByPath[activePathId].learningPreference]} | Level: {levelLabels[preferencesByPath[activePathId].level]}
               </p>
-            )}
+            )} */}
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
