@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from bson import ObjectId
 from jose import JWTError, jwt
-from models import User, UserCreate, UserLogin, Token, Project, File, ProjectCreate, FileUpsert
+from models import User, UserCreate, UserLogin, Token, RefreshTokenRequest, Project, File, ProjectCreate, FileUpsert
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -18,7 +18,7 @@ import json
 import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
-from auth import get_password_hash, create_access_token, generate_verification_token, send_verification_email, authenticate_user
+from auth import get_password_hash, create_access_token, create_refresh_token, generate_verification_token, send_verification_email, authenticate_user
 from config import MONGODB_URL, DATABASE_NAME, SECRET_KEY, ALGORITHM
 import uvicorn
 
@@ -321,8 +321,9 @@ async def verify_email(token: str):
     user.verification_token = None
     await user.save()
     
-    # Generate JWT token for auto-login
+    # Generate JWT tokens for auto-login
     access_token = create_access_token(data={"sub": user.email})
+    refresh_token = create_refresh_token(data={"sub": user.email})
     
     html_content = f"""
     <!DOCTYPE html>
@@ -344,7 +345,7 @@ async def verify_email(token: str):
             <p>Logging you in...</p>
         </div>
         <script>
-            window.location.href = 'http://localhost:5173?token={access_token}';
+            window.location.href = 'http://localhost:5173?token={access_token}&refresh_token={refresh_token}';
         </script>
     </body>
     </html>
@@ -361,6 +362,32 @@ async def login(user: UserLogin):
         raise HTTPException(status_code=400, detail="Email not verified")
     
     access_token = create_access_token(data={"sub": authenticated_user.email})
+    refresh_token = create_refresh_token(data={"sub": authenticated_user.email})
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
+@app.post("/refresh", response_model=Token)
+async def refresh_access_token(payload: RefreshTokenRequest):
+    credentials_error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        token_payload = jwt.decode(payload.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = token_payload.get("sub")
+        token_type = token_payload.get("type")
+        if not email or token_type != "refresh":
+            raise credentials_error
+    except JWTError:
+        raise credentials_error
+
+    user = await User.find_one(User.email == email)
+    if not user or not user.is_verified:
+        raise credentials_error
+
+    access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/home")
@@ -384,12 +411,13 @@ async def get_me(user_email: str = Depends(get_current_user_email)):
     }
 
 @app.post("/prompt")
-async def run_graph_endpoint(payload: GraphRequest):
+async def run_graph_endpoint(payload: GraphRequest, user_email: str = Depends(get_current_user_email)):
     result = await anyio.to_thread.run_sync(
         run_graph, 
         payload.prompt, 
         payload.search_method,
-        payload.thread_id
+        payload.thread_id,
+        user_email
     )
     
     # Extract thread_id and session_id from result
@@ -405,7 +433,7 @@ async def run_graph_endpoint(payload: GraphRequest):
     }
 
 @app.post("/prompt/stream")
-async def run_graph_stream_endpoint(payload: GraphRequest):
+async def run_graph_stream_endpoint(payload: GraphRequest, user_email: str = Depends(get_current_user_email)):
     """Stream file creation events in real-time using Server-Sent Events with persistent thread support"""
     
     async def event_generator():
@@ -445,7 +473,8 @@ async def run_graph_stream_endpoint(payload: GraphRequest):
                     run_graph,
                     payload.prompt, 
                     payload.search_method,
-                    payload.thread_id
+                    payload.thread_id,
+                    user_email
                 )
                 thread_id = result.get('thread_id')
                 session_id = result.get('session_id')

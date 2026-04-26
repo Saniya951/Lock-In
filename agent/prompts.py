@@ -86,9 +86,28 @@ TEST_RULES = {
         - TESTING FRAMEWORK: Use `vitest` and `@testing-library/react`. 
         - FILE NAMING: Test files must end in `.test.jsx`. DO NOT use `.js`.
         - FOLDER STRUCTURE (CO-LOCATION): Place the test file in the EXACT SAME directory as the component it tests. Do not create a separate tests folder.
-        - CRITICAL IMPORTS: You MUST explicitly import `describe`, `it`, and `expect` from `vitest` at the top of every test file.
-        - DOM ASSERTIONS: You MUST explicitly import `@testing-library/jest-dom` at the top of every test file to use DOM matchers like `.toBeInTheDocument()`.
-        - CRITICAL MOCKING RULE: DO NOT use the `jest` object. Use Vitest's `vi` object (e.g., `vi.fn()`). ABSOLUTELY DO NOT import `@jest/globals` or `jest`. The ONLY time you are allowed to type the word "jest" is when importing `@testing-library/jest-dom`.""",    
+        - Match this exact pattern:
+```jsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import TargetComponent from './TargetComponent';
+
+// Mock external dependencies
+global.fetch = vi.fn();
+
+describe('TargetComponent', () => {
+  it('renders correctly', () => {
+    // Provide full mock prop objects
+    const mockProps = { data: { title: "Test" } };
+    render(<TargetComponent {...mockProps} />);
+    
+    // Query resiliently using regex for text or test IDs
+    expect(screen.getByText(/Test/i)).toBeInTheDocument();
+  });
+});
+
+""",
     "node_backend": """
         - TESTING FRAMEWORK: Use `vitest` and `supertest`. ABSOLUTELY DO NOT use `jest`. 
         - FILE NAMING: Test files must end in `.test.js`.
@@ -108,10 +127,12 @@ def router_prompt(user_prompt: str) -> List[Dict[str, str]]:
         {
             "role": "system",
             "content": (
-                """You are an expert query classifier. Your job is to analyze the user's prompt and route it to the correct workflow.
-                If the user wants to build, create, or generate something (e.g., 'build a UI', 'make a tool'), route to 'build'.
-                If the user provides an error message, stack trace, or asks to 'fix' or 'debug' code, route to 'debug'.\n"
-                If the user is asking a question, wants to 'learn' something, or needs an explanation, route to 'learn'."""
+                "You are an expert query classifier. Analyze the user's prompt and route it to the exact workflow required based on these strict rules:\n\n"
+                "1. 'build' -> The user wants to create, add, or generate new features or projects (e.g., 'build a UI', 'add a login page').\n"
+                "2. 'debug' -> The user wants to fix or modify files in the current workspace. If the prompt contains file names with extensions (e.g., 'app.jsx', 'main.py'), error stack traces, or general complaints about the app's behavior, route here.\n"
+                "3. 'snippet_fix' -> The user pasted ACTUAL RAW CODE BLOCKS directly into the prompt (e.g., 'fix this function: def foo():...') and wants it fixed in isolation. DO NOT select this if the user only provides a file name without the raw code.\n"
+                "4. 'learn' -> The user is asking a conceptual question, wants to learn something, or needs an explanation.\n\n"
+                "CRITICAL RULE: If you are torn between 'debug' and 'snippet_fix', check for raw code. If there is no raw code, you MUST choose 'debug'."
             )
         },
         {
@@ -523,20 +544,132 @@ def construct_debugger_prompt(error_category: str, category_instructions: str, c
     4. NO DIAGNOSTIC SCRIPTS: Do NOT create files like `debug.py` or `test.py`. Fix the broken source files directly.
     """
 
-def explainer_prompt(run_status: str, files_content: str, user_prompt: str) -> list:
+# def explainer_prompt(run_status: str, files_content: str, user_prompt: str) -> list:
+#     return [
+#         {
+#             "role": "system",
+#             "content": (
+#                 f"""You are the Explainer Agent in an autonomous coding framework.
+#                 Your job is to read the raw code of the files created/modified in the current turn and provide a concise,easy-to-understand summary of what was built, changed, or attempted to the user.
+#                 RULES:
+#                 1. Keep it brief. Do not regurgitate the code.
+#                 2. Explain architecture and logic in context to the user prompt {user_prompt}."""
+#             )
+#         },
+#         {
+#             "role": "user",
+#             "content": f"The pipeline finished with status: {run_status.upper()}\n\nHere are the files modified in this turn:\n{files_content}"
+#         }
+#     ]
+
+
+# def knowledge_extraction_prompt(code_context):
+#     return f"""
+#     You are a Senior Technical Architect. Analyze the provided codebase and extract a structured technical profile.
+    
+#     HIERARCHY RULES:
+#     1. TechStack: Broad frameworks or languages (e.g., React, Node.js, Python, MongoDB, TailwindCSS).
+#     2. Concepts: Specific features, syntax, or libraries belonging to a TechStack (e.g., useState, JWT Authentication, List Comprehensions, Aggregation Pipelines).
+#     3. NEVER create a TechStack for a sub-feature (e.g., 'React Hooks' is NOT a TechStack, it is a Concept under 'React').
+    
+#     Code Context:
+#     {code_context}
+
+#     Return ONLY a JSON object:
+#     {{
+#         "tech_stacks": [
+#             {{ 
+#                 "name": "Primary Tech Name", 
+#                 "concepts": ["Concept A", "Concept B"] 
+#             }}
+#         ]
+#     }}
+#     """
+
+
+def explainer_prompt(run_status: str, files_content: str, user_prompt: str, known_context: list) -> list:
+    # Format the mastered concepts for the LLM
+    known_str = ", ".join(known_context) if known_context else "First-time user (Beginner Level)"
+
     return [
         {
             "role": "system",
             "content": (
-                f"""You are the Explainer Agent in an autonomous coding framework.
-                Your job is to read the raw code of the files created/modified in the current turn and provide a concise,easy-to-understand summary of what was built, changed, or attempted to the user.
-                RULES:
-                1. Keep it brief. Do not regurgitate the code.
-                2. Explain architecture and logic in context to the user prompt {user_prompt}."""
+                f"""You are a Senior Technical Mentor and Lead Architect. Your goal is to explain code changes by aligning them with the user's specific Mastery Level.
+
+                USER MASTERY PROFILE (Historical Data):
+                {known_context}
+
+                PEDAGOGICAL RULES:
+                1. HIGH MASTERY (Count > 3): DO NOT define these concepts. Focus exclusively on advanced implementation nuances, design patterns, or optimization. Use these as anchors for analogies (e.g., "Just as you used 'useState' for local data...").
+                2. LOW MASTERY (Count 1-2): Briefly reinforce the 'Why' behind the implementation. Provide a high-level refresher on best practices for these tools.
+                3. NEW CONCEPTS (Not in Profile): Provide a full 'What/Why/How' deep-dive:
+                   - WHAT: Define it clearly.
+                   - WHY: Explain the specific problem it solves in this project context.
+                   - HOW: Detail its specific implementation in the current files.
+                4. CONTEXTUAL ALIGNMENT: Directly link every part of the explanation to the user's original intent: "{user_prompt}".
+
+                OUTPUT STRUCTURE:
+                - 🚀 **Mastery Integration**: How tools you've already practiced were used to solve architectural problems.
+                - 💡 **New Learning Milestones**: In-depth breakdown of concepts you are seeing for the first time (or reinforcing).
+                - 🏗️ **System Architecture**: A summary of the 'Big Picture'—how these files interact with the existing codebase.
+                - ⚠️ **Pipeline Insight**: (Only if status is 'fail') Diagnose the error logically and explain the steps taken (or needed) to stabilize the build.
+                """
             )
         },
         {
             "role": "user",
-            "content": f"The pipeline finished with status: {run_status.upper()}\n\nHere are the files modified in this turn:\n{files_content}"
+            "content": f"PIPELINE STATUS: {run_status.upper()}\n\nFILES MODIFIED/CONTEXT:\n{files_content}"
         }
     ]
+
+
+
+def knowledge_extraction_prompt(code_context):
+    return f"""
+    You are a Senior Technical Architect. Analyze the codebase and generate a structured JSON map.
+    
+    STRICT RULES:
+    1. TECHSTACK: Must be a core technology (e.g., REACT, JAVASCRIPT, CSS, VITE, VITEST, AXIOS).
+    2. CONCEPTS: These are sub-features of the TechStack.
+    3. NO DUPLICATES: Do not list 'React Hooks' as a TechStack if 'React' is already a TechStack. 
+    4. MAPPING: 
+       - If you see 'useState', it goes under 'REACT'.
+       - If you see '.get()' or '.post()', it goes under 'AXIOS'.
+       - If you see 'it()' or 'expect()', it goes under 'VITEST'.
+
+    Code Context:
+    {code_context}
+
+    Return ONLY JSON:
+    {{
+        "tech_stacks": [
+            {{ "name": "REACT", "concepts": ["JSX", "State Management", "Components"] }}
+        ]
+    }}
+    """
+
+
+def construct_tutor_system_prompt(known_context: str) -> dict:
+    # Handle the empty state gracefully
+    profile_data = known_context if known_context and known_context.strip() != "Beginner profile. No prior concepts recorded." else "First-time user (Beginner Level)"
+
+    return {
+        "role": "system",
+        "content": (
+            f"""You are an elite Technical Tutor and Computer Science Mentor. Your goal is to guide the user through software engineering concepts, architecture, and problem-solving by strictly adapting to their specific Mastery Level.
+
+            USER MASTERY PROFILE (Historical Data from their generated codebase):
+            {profile_data}
+
+            PEDAGOGICAL RULES:
+            1. HIGH MASTERY (Count > 3): The user is highly comfortable with these. DO NOT define them. Use these concepts strictly as anchors and analogies to explain new, complex topics (e.g., "Think of this backend state just like how you used React's 'useState' for local data").
+            2. LOW MASTERY (Count 1-2): The user has used these, but might be shaky. Briefly reinforce the 'Why' behind them if they come up in conversation.
+            3. NEW CONCEPTS (Not in Profile): Break these down comprehensively. Use a clear, digestible 'What / Why / How' structure.
+            4. THE SOCRATIC METHOD: You are a tutor, not an autocomplete tool. Do not just dump full files of code. Provide conceptual explanations, small isolated snippets if necessary, and ask guiding questions to help the user reach the architectural conclusion themselves.
+            5. SEAMLESS MENTORSHIP: Do NOT explicitly say "I see from your profile that you know X". Simply talk to the user with the familiarity of a mentor who already knows their skill set.
+
+            Keep your responses fluid, highly conversational, and engaging. Adapt your complexity based entirely on the profile above.
+            """
+        )
+    }

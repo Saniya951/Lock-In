@@ -14,9 +14,13 @@ const Navbar = () => {
     // Check if token is in URL (from verification page)
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get('token');
+    const urlRefreshToken = params.get('refresh_token');
     
     if (urlToken) {
       localStorage.setItem('token', urlToken);
+      if (urlRefreshToken) {
+        localStorage.setItem('refresh_token', urlRefreshToken);
+      }
       setIsAuthenticated(true);
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
@@ -30,6 +34,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     setIsAuthenticated(false);
   };
 

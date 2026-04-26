@@ -1,0 +1,143 @@
+[
+  {
+    "test_id": "react_type_A_syntax",
+    "tech_stack": "react_only",
+    "description": "Fix a missing export statement causing a build failure.",
+    "initial_workspace": {
+      "package.json": "{ \"name\": \"test-app\", \"dependencies\": { \"react\": \"^18.2.0\" }, \"scripts\": {\"test\": \"vitest run\"} }",
+      "src/Button.jsx": "import React from 'react';\nconst Button = ({ label }) => <button>{label}</button>;\n// BUG: Missing export default Button;",
+      "src/Button.test.jsx": "import { describe, it, expect } from 'vitest'; import { render, screen } from '@testing-library/react'; import Button from './Button'; describe('Button', () => { it('renders', () => { render(<Button label=\"Click\" />); expect(screen.getByText('Click')).toBeDefined(); }); });"
+    },
+    "user_prompt": "The test suite is crashing with 'Button is not a function' or module not found. Please fix the Button component.",
+    "evaluation_criteria": {
+      "hidden_test": "import { describe, it, expect } from 'vitest'; import Button from './src/Button'; describe('Eval', () => { it('exports correctly', () => { expect(typeof Button).toBe('function'); }); });",
+      "expected_error_category": "syntax"
+    }
+  },
+  {
+    "test_id": "react_type_A_logical",
+    "tech_stack": "react_only",
+    "description": "Fix a logical error where a counter increments by 2 instead of 1.",
+    "initial_workspace": {
+      "package.json": "{ \"name\": \"test-app\", \"dependencies\": { \"react\": \"^18.2.0\" }, \"scripts\": {\"test\": \"vitest run\"} }",
+      "src/Counter.jsx": "import React, { useState } from 'react';\nexport default function Counter() {\n  const [count, setCount] = useState(0);\n  // BUG: Increments by 2\n  return <button data-testid=\"btn\" onClick={() => setCount(count + 2)}>Count: {count}</button>;\n}"
+    },
+    "user_prompt": "When I click the counter button, it goes up by 2 instead of 1. Can you fix the increment logic?",
+    "evaluation_criteria": {
+      "hidden_test": "import { describe, it, expect } from 'vitest'; import { render, screen, fireEvent } from '@testing-library/react'; import Counter from './src/Counter'; describe('Eval', () => { it('increments by 1', () => { render(<Counter />); const btn = screen.getByTestId('btn'); fireEvent.click(btn); expect(btn.textContent).toBe('Count: 1'); }); });",
+      "expected_error_category": "logical"
+    }
+  },
+  {
+    "test_id": "react_type_A_infra",
+    "tech_stack": "react_only",
+    "description": "Fix a missing dependency hallucinated by the coder.",
+    "initial_workspace": {
+      "package.json": "{ \"name\": \"test-app\", \"dependencies\": { \"react\": \"^18.2.0\" } }",
+      "src/Icon.jsx": "import React from 'react';\nimport { Camera } from 'lucide-react'; // BUG: lucide-react is not in package.json\nexport default function Icon() { return <Camera />; }"
+    },
+    "user_prompt": "The app won't start, it says 'Cannot find module lucide-react'. Please fix the dependencies.",
+    "evaluation_criteria": {
+      "hidden_test": "import fs from 'fs'; import { describe, it, expect } from 'vitest'; describe('Eval', () => { it('added lucide-react', () => { const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8')); expect(pkg.dependencies['lucide-react']).toBeDefined(); }); });",
+      "expected_error_category": "infra"
+    }
+  },
+  {
+    "test_id": "react_type_B_feature_props",
+    "tech_stack": "react_only",
+    "description": "Add a disabled state feature to an existing button.",
+    "initial_workspace": {
+      "package.json": "{ \"name\": \"test-app\", \"dependencies\": { \"react\": \"^18.2.0\" } }",
+      "src/Button.jsx": "import React from 'react';\nexport default function Button({ label, onClick }) {\n  return <button onClick={onClick} data-testid=\"btn\">{label}</button>;\n}"
+    },
+    "user_prompt": "Modify the Button component to accept a 'isDisabled' boolean prop. If true, the HTML button should have the disabled attribute.",
+    "evaluation_criteria": {
+      "hidden_test": "import { describe, it, expect } from 'vitest'; import { render, screen } from '@testing-library/react'; import Button from './src/Button'; describe('Eval', () => { it('disables button', () => { render(<Button label=\"Click\" isDisabled={true} />); expect(screen.getByTestId('btn').disabled).toBe(true); }); });",
+      "expected_error_category": "none"
+    }
+  },
+  {
+    "test_id": "react_type_B_feature_state",
+    "tech_stack": "react_only",
+    "description": "Add a clear function to a list component.",
+    "initial_workspace": {
+      "package.json": "{ \"name\": \"test-app\", \"dependencies\": { \"react\": \"^18.2.0\" } }",
+      "src/TodoList.jsx": "import React, { useState } from 'react';\nexport default function TodoList() {\n  const [todos, setTodos] = useState(['Learn AI', 'Write Tests']);\n  return (<div><ul data-testid=\"list\">{todos.map(t => <li key={t}>{t}</li>)}</ul></div>);\n}"
+    },
+    "user_prompt": "Add a button with data-testid='clear-btn' to the TodoList that, when clicked, empties the todos array.",
+    "evaluation_criteria": {
+      "hidden_test": "import { describe, it, expect } from 'vitest'; import { render, screen, fireEvent } from '@testing-library/react'; import TodoList from './src/TodoList'; describe('Eval', () => { it('clears list', () => { render(<TodoList />); fireEvent.click(screen.getByTestId('clear-btn')); expect(screen.getByTestId('list').children.length).toBe(0); }); });",
+      "expected_error_category": "none"
+    }
+  },
+  {
+    "test_id": "python_type_A_runtime",
+    "tech_stack": "python_script",
+    "description": "Fix a KeyError when parsing a dictionary.",
+    "initial_workspace": {
+      "requirements.txt": "pytest==7.4.0",
+      "parser.py": "def get_user_email(data):\n    # BUG: Assumes 'email' always exists\n    return data['user']['email']\n"
+    },
+    "user_prompt": "The get_user_email function throws a KeyError if the 'email' key is missing. Change it to return None if 'email' is not present.",
+    "evaluation_criteria": {
+      "hidden_test": "from parser import get_user_email\ndef test_eval():\n    assert get_user_email({'user': {}}) is None\n    assert get_user_email({'user': {'email': 'a@b.com'}}) == 'a@b.com'",
+      "expected_error_category": "runtime"
+    }
+  },
+  {
+    "test_id": "python_type_A_syntax",
+    "tech_stack": "python_script",
+    "description": "Fix an indentation error.",
+    "initial_workspace": {
+      "requirements.txt": "pytest==7.4.0",
+      "math_utils.py": "def add(a, b):\nreturn a + b\n"
+    },
+    "user_prompt": "math_utils.py is throwing an IndentationError. Please fix the formatting.",
+    "evaluation_criteria": {
+      "hidden_test": "from math_utils import add\ndef test_eval():\n    assert add(2, 2) == 4",
+      "expected_error_category": "syntax"
+    }
+  },
+  {
+    "test_id": "python_type_A_logical",
+    "tech_stack": "python_script",
+    "description": "Fix a flawed factorial implementation.",
+    "initial_workspace": {
+      "requirements.txt": "pytest==7.4.0",
+      "calc.py": "def factorial(n):\n    if n == 0: return 0 # BUG: Should be 1\n    return n * factorial(n-1)"
+    },
+    "user_prompt": "The factorial function is returning 0 for everything because the base case for 0 is wrong. Please fix it.",
+    "evaluation_criteria": {
+      "hidden_test": "from calc import factorial\ndef test_eval():\n    assert factorial(0) == 1\n    assert factorial(5) == 120",
+      "expected_error_category": "logical"
+    }
+  },
+  {
+    "test_id": "python_type_B_feature_new_method",
+    "tech_stack": "python_script",
+    "description": "Add a divide method to a calculator class.",
+    "initial_workspace": {
+      "requirements.txt": "pytest==7.4.0",
+      "calculator.py": "class Calculator:\n    def add(self, a, b): return a + b\n    def sub(self, a, b): return a - b\n"
+    },
+    "user_prompt": "Add a divide(self, a, b) method to the Calculator class. If b is 0, it should raise a ValueError.",
+    "evaluation_criteria": {
+      "hidden_test": "import pytest\nfrom calculator import Calculator\ndef test_eval():\n    calc = Calculator()\n    assert calc.divide(10, 2) == 5\n    with pytest.raises(ValueError):\n        calc.divide(10, 0)",
+      "expected_error_category": "none"
+    }
+  },
+  {
+    "test_id": "python_type_B_feature_refactor",
+    "tech_stack": "python_script",
+    "description": "Update existing function to accept a list of strings instead of a single string.",
+    "initial_workspace": {
+      "requirements.txt": "pytest==7.4.0",
+      "greeter.py": "def greet(name):\n    return f'Hello, {name}'\n"
+    },
+    "user_prompt": "Modify the greet function so that it accepts a list of names and returns a list of greeting strings.",
+    "evaluation_criteria": {
+      "hidden_test": "from greeter import greet\ndef test_eval():\n    assert greet(['Alice', 'Bob']) == ['Hello, Alice', 'Hello, Bob']",
+      "expected_error_category": "none"
+    }
+  }
+]

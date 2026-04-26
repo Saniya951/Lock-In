@@ -1,0 +1,5 @@
+FOR QUERY IN NEO4J=> 
+MATCH (u:User)-[r1:INTERESTED_IN]->(ts:TechStack)-[r2:CONTAINS]->(c:Concept)
+RETURN u, r1, ts, r2, c
+
+-------------------------------------------------------------------------------

@@ -26,7 +26,6 @@ These instructions will guide you through setting up and running the project loc
 
 3.  **Activate the virtual environment:**
     You must activate the environment every time you work on the project.
-
     - **On Windows (Command Prompt / PowerShell):**
       ```bash
       .\venv\Scripts\activate
@@ -92,7 +91,7 @@ After completing the setup, you can run the main agent.
 
 ---
 
-## 🧑‍💻 Development
+## Development
 
 ### Updating `requirements.txt`
 

@@ -55,8 +55,82 @@ const Chat = () => {
 
     authErrorShownRef.current = true;
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     alert('Your session has expired. Please log in again.');
     navigate('/');
+  };
+
+  const refreshAccessToken = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      if (!data?.access_token) {
+        return null;
+      }
+
+      localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
+      return data.access_token;
+    } catch (error) {
+      console.error('[Auth] Token refresh failed:', error);
+      return null;
+    }
+  };
+
+  const authHeaders = (tokenOverride = null, baseHeaders = {}) => {
+    const token = tokenOverride || localStorage.getItem('token');
+    return {
+      ...baseHeaders,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'Content-Type': 'application/json',
+    };
+  };
+
+  const authenticatedFetch = async (url, options = {}, hasRetried = false) => {
+    const headers = authHeaders(null, options.headers || {});
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (response.status !== 401) {
+      return response;
+    }
+
+    if (hasRetried) {
+      handleAuthFailure();
+      return response;
+    }
+
+    const refreshedAccessToken = await refreshAccessToken();
+    if (!refreshedAccessToken) {
+      handleAuthFailure();
+      return response;
+    }
+
+    const retryHeaders = authHeaders(refreshedAccessToken, options.headers || {});
+    return fetch(url, {
+      ...options,
+      headers: retryHeaders,
+    });
   };
 
   const startNewChat = () => {
@@ -88,16 +162,10 @@ const Chat = () => {
       return null;
     }
 
-    const response = await fetch(`${API_BASE}/projects`, {
+    const response = await authenticatedFetch(`${API_BASE}/projects`, {
       method: 'POST',
-      headers: authHeaders(),
       body: JSON.stringify({ name: trimmedName }),
     });
-
-    if (response.status === 401) {
-      handleAuthFailure();
-      return null;
-    }
 
     if (!response.ok) {
       throw new Error(`Failed to create project: ${response.status}`);
@@ -149,18 +217,6 @@ const Chat = () => {
     }
   };
 
-  const authHeaders = () => {
-    const token = localStorage.getItem('token');
-    return token
-      ? {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      : {
-          'Content-Type': 'application/json',
-        };
-  };
-
   const guessLanguageFromPath = (path = '') => {
     const normalizedPath = normalizeProjectPath(path).toLowerCase();
 
@@ -191,9 +247,8 @@ const Chat = () => {
     setIsSaving(true);
 
     try {
-      const response = await fetch(`${API_BASE}/files`, {
+      const response = await authenticatedFetch(`${API_BASE}/files`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({
           project_id: projectId,
           path,
@@ -201,11 +256,6 @@ const Chat = () => {
           language: guessLanguageFromPath(path),
         }),
       });
-
-      if (response.status === 401) {
-        handleAuthFailure();
-        return null;
-      }
 
       if (!response.ok) {
         throw new Error(`Failed to save file: ${response.status}`);
@@ -224,14 +274,7 @@ const Chat = () => {
   const loadProjects = async () => {
     setLoadingProjects(true);
     try {
-      const response = await fetch(`${API_BASE}/projects`, {
-        headers: authHeaders(),
-      });
-
-      if (response.status === 401) {
-        handleAuthFailure();
-        return;
-      }
+      const response = await authenticatedFetch(`${API_BASE}/projects`);
 
       if (!response.ok) {
         throw new Error(`Failed to load projects: ${response.status}`);
@@ -274,14 +317,7 @@ const Chat = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/projects/${projectId}/files`, {
-        headers: authHeaders(),
-      });
-
-      if (response.status === 401) {
-        handleAuthFailure();
-        return;
-      }
+      const response = await authenticatedFetch(`${API_BASE}/projects/${projectId}/files`);
 
       if (!response.ok) {
         throw new Error(`Failed to load project files: ${response.status}`);
@@ -847,11 +883,8 @@ const Chat = () => {
       setWebcontainerReady(false);
 
       // Use fetch with streaming for POST requests
-      const response = await fetch(`${API_BASE}/prompt/stream`, {
+      const response = await authenticatedFetch(`${API_BASE}/prompt/stream`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ 
           prompt: userPrompt,
           search_method: useDeepSearch,

@@ -10,8 +10,8 @@ from langchain_community.vectorstores import Chroma
 load_dotenv()
 
 # --- Configuration ---
-DOCS_PATH = "../scraped_documentation" 
-DB_PATH = "chroma_db" # <-- This will be the directory for ChromaDB
+DOCS_PATH = "./scraped_documentation" 
+DB_PATH = "/home/sim/coding shenanigans/fullstack projects/Lock-In/agent/chroma_db" # <-- This will be the directory for ChromaDB
 HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 def create_vector_db():

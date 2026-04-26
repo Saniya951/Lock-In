@@ -1,0 +1,4 @@
+Trace ID,Timestamp,User Prompt,Hit Rate Limit,Success (Hit Explainer),Debugger Invocations,Zero-Shot Success,Recovered by Debugger,Evaluator Categories
+019d8ba4-010b-7ce2-8e7a-c627f7d470fe,2026-04-14 10:57:54,Create a React component that renders an unordered list of five hardcoded grocery items.,True,False,2,False,False,"runtime, logical"
+019d8ba0-7c0f-7330-957c-cb013d1f8c6e,2026-04-14 10:54:03, can you add white and pink styles in global css?,False,True,2,False,True,"logical, logical, logical"
+019d8b9a-0acf-7fc0-aac1-7d83cc2c7c6b,2026-04-14 10:47:01,Build a simple React component that displays a counter with an 'Increment' and a 'Decrement' button.,False,True,2,False,True,"logical, logical, logical"

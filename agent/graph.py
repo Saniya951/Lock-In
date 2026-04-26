@@ -28,6 +28,8 @@ from agent.memory import CodeMemory
 from agent.sandbox_registry import get_sandbox_for_session, register_sandbox
 
 from concurrent.futures import ThreadPoolExecutor
+from knowledge_graph import KnowledgeGraphManager
+
 
 # Small pool is enough; HF API is the bottleneck anyway
 embedding_executor = ThreadPoolExecutor(max_workers=2)
@@ -173,7 +175,7 @@ def planner_agent(state: GraphState) -> dict:
     except Exception as e:
         cprint(f"Error saving plan output: {e}", "red")
         
-    return {"plan": response}
+    return {"plan": response, "is_feature_update": False}
 
 def scaffolder_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
@@ -259,8 +261,53 @@ def feature_architect_agent(state: GraphState) -> dict:
         "current_task_index": 0,  # Reset so coder starts from the top of the new queue
         "iteration_count": 0,     # Reset so executor runs tests for the new features
         "error_report": ""  ,      # Clear any leftover errors from turn 1
-        "current_turn_files": current_turn_files
+        "current_turn_files": current_turn_files,
+        "is_feature_update": True
     }
+
+def snippet_fixer_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Snippet Fixer (Isolated Scope)...", "cyan", attrs=["bold"])
+    
+    user_prompt = state.get("user_prompt", "")
+    session_id = state.get("session_id")
+    
+    prompt = (
+        "You are an expert developer. The user has provided a standalone code snippet "
+        "and an error or request. Fix the code. "
+        "Do NOT assume any external project context. Just provide the fixed code snippet.\n\n"
+        f"User Prompt:\n{user_prompt}"
+    )
+    
+    try:
+        response = llm.invoke(prompt)
+        code_content = response.content.strip()
+        
+        # Cleanup Markdown
+        if code_content.startswith("```"):
+            code_content = re.sub(r"^```[a-zA-Z]*\n", "", code_content)
+            code_content = re.sub(r"\n```$", "", code_content)
+            
+        # Save to disk so the explainer can read it
+        filename = "snippet_fix_result.txt" # Or .py/.js if you want syntax highlighting later
+        user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+        os.makedirs(user_code_dir, exist_ok=True)
+        
+        file_path = os.path.join(user_code_dir, filename)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(code_content)
+            
+        cprint(f" Snippet fixed and saved to {filename} for explanation.", "green")
+        
+        # Pass the filename to the state so the Explainer picks it up
+        return {
+            "current_turn_files": [filename],
+            "status": "snippet_fixed" # Gives the explainer a bit of context
+        }
+        
+    except Exception as e:
+        cprint(f" Snippet Fixer failed: {e}", "red")
+        return {}
 
 def normalize_deps(deps: list[str]) -> set[str]:
     # to convert all dependencies into lower case and to remove any extra space before or after them
@@ -717,6 +764,37 @@ def runtime_selector(state: GraphState) -> dict:
 
     return {"runtime_template": template}
 
+# After running tests, before building ExecutionResult:
+def _react_tests_passed(logs: str) -> bool:
+    """
+    Vitest always prints a summary line like:
+      'Test Files  7 failed (7)' or 'Test Files  3 passed (3)'
+    We look for that line explicitly.
+    """
+    # If any explicit failure markers exist, it's a fail
+    fail_patterns = [
+        r"test files\s+\d+ failed",   # 'Test Files  7 failed (7)'
+        r"tests\s+\d+ failed",         # 'Tests  11 failed | 11 passed (22)'
+        r"FAIL\s+src/",                # Jest-style
+        r"✗",                          # alternate failure glyph
+    ]
+    logs_lower = logs.lower()
+    for pattern in fail_patterns:
+        if re.search(pattern, logs_lower):
+            return False
+    # Also require at least one positive pass signal to avoid false positives
+    # on empty test runs
+    pass_patterns = [r"test files\s+\d+ passed", r"tests\s+\d+ passed", r"✓"]
+    return any(re.search(p, logs_lower) for p in pass_patterns)
+
+def _python_tests_passed(logs: str) -> bool:
+    logs_lower = logs.lower()
+    if re.search(r"\d+ failed", logs_lower):
+        return False
+    if "error" in logs_lower and "passed" not in logs_lower:
+        return False
+    return bool(re.search(r"\d+ passed", logs_lower))
+
 def executor_agent(state: GraphState) -> dict:
     cprint(" Entering Executor...", "cyan", attrs=["bold"])
 
@@ -747,8 +825,13 @@ def executor_agent(state: GraphState) -> dict:
     code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
     for root, _, files in os.walk(code_dir):
         for file in files:
+            # here local contains the big ass file path (from home/sim/....app.jsx)
+            # and code dir as we know is output/{session_id}/code
             local = os.path.join(root, file)
-            remote = f"/home/user/app/{os.path.relpath(local, code_dir)}"
+            # so from that local we take out the relative path (first arg in the below function is sumn like: user/bin/python and second arg is sumn like user. so the output is bin/python. we do this to get the file path from the code folder only like src/components/app.jsx while ignoring everything that came before it)
+            # remote = f"/home/user/app/{os.path.relpath(local, code_dir)}"
+            safe_rel_path = os.path.relpath(local, code_dir).replace("\\", "/") 
+            remote = f"/home/user/app/{safe_rel_path}"
             sandbox.files.write(remote, open(local, "rb"))
 
     # install deps
@@ -805,12 +888,14 @@ def executor_agent(state: GraphState) -> dict:
             cprint("   Running Python tests...", "yellow")
             result = sandbox.commands.run("cd /home/user/app && python -m pytest -q", timeout=30)
             combined_logs = result.stdout + result.stderr
+            actually_passed = _python_tests_passed(combined_logs)
             
         elif template_string == "node-base":
             cprint("   Running Node tests...", "yellow")
             result = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
             combined_logs = result.stdout + result.stderr
-            
+            actually_passed = _react_tests_passed(combined_logs)
+
         elif template_string == "node-python-base":
             cprint("   Running Frontend Tests...", "blue")
             res_node = sandbox.commands.run("cd /home/user/app && find . -name 'package.json' -not -path '*/node_modules/*' -execdir npm test \\;", timeout=60)
@@ -819,14 +904,29 @@ def executor_agent(state: GraphState) -> dict:
             cprint("   Running Backend Tests...", "blue")
             res_py = sandbox.commands.run("cd /home/user/app && PYTHONPATH=. python3 -m pytest -q", timeout=60)
             combined_logs += "\n=== BACKEND LOGS ===\n" + res_py.stdout + res_py.stderr
-            
+            actually_passed = (
+                _react_tests_passed(combined_logs) and 
+                _python_tests_passed(combined_logs)
+            )
+
+        else:
+            actually_passed = False
+
         execution = ExecutionResult(
             tests_ran=True,
-            tests_passed=True,
+            tests_passed=actually_passed,   # <-- was hardcoded True
             exit_code=0,
             logs=combined_logs,
             environment_ok=True
         )
+        
+        # execution = ExecutionResult(
+        #     tests_ran=True,
+        #     tests_passed=True,
+        #     exit_code=0,
+        #     logs=combined_logs,
+        #     environment_ok=True
+        # )
 
     except Exception as e:
         # E2B throws an exception immediately if a test fails (Exit Code > 0).
@@ -1000,8 +1100,19 @@ def debugger_agent(state: dict) -> dict:
     cprint(" Entering Debugger...", "cyan", attrs=["bold"])
     
     session_id = state.get("session_id")
-    current_error = state.get("error_report")
-    error_category = state.get("error_category", "runtime")
+
+    is_manual_debug = state.get("route") == "debug"
+    
+    if is_manual_debug:
+        # User specifically complained about a file, so we override the error report
+        current_error = f"User manually reported an issue with the generated code: {state.get('user_prompt')}"
+        error_category = "logical" # Default to logical for user complaints
+        cprint("   [Mode] Manual User-Initiated Debugging", "blue")
+    else:
+        # Standard automated evaluation loop
+        current_error = state.get("error_report")
+        error_category = state.get("error_category", "runtime")
+
     iteration = state.get("iteration_count", 1)
     past_attempts = state.get("attempt_history", [])
     plan = state.get("plan")
@@ -1072,11 +1183,116 @@ def learner_agent(state: GraphState) -> dict:
     cprint(" Entering Learner Agent (Placeholder)...", "cyan", attrs=["bold"])
     return {} 
 
+# def explainer_agent(state: GraphState) -> dict:
+#     cprint(f"\n{'='*50}", "magenta")
+#     cprint(" Entering Explainer Agent (Final Review)...", "cyan", attrs=["bold"])
+    
+#     session_id = state.get("session_id")
+
+
+#     current_files = state.get("current_turn_files", [])
+#     status = state.get("status", "unknown")
+#     user_prompt = state.get("user_prompt")
+    
+#     current_files = list(set(current_files))  #remove duplicates
+    
+#     if not current_files:
+#         cprint(" No files were modified in this turn to explain.", "yellow")
+#         return {}
+
+#     user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+#     files_content = ""
+    
+#     # Read the contents of the modified files off the disk
+#     for filename in current_files:
+#         # Handling the nested frontend/backend paths you set up earlier
+#         file_path = os.path.join(user_code_dir, filename)
+        
+#         # Fallback search if exact path fails (for frontend backend folders)
+#         if not os.path.exists(file_path):
+#             for root, _, local_files in os.walk(user_code_dir):
+#                 for f in local_files:
+#                     full_path = os.path.join(root, f)
+#                     if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+#                         file_path = full_path
+#                         break
+        
+#         if os.path.exists(file_path):
+#             try:
+#                 with open(file_path, "r", encoding="utf-8") as f:
+#                     content = f.read()
+#                     files_content += f"\n--- {filename} ---\n{content}\n"
+#             except Exception as e:
+#                 cprint(f"   Could not read {filename} for explanation: {e}", "red")
+#         else:
+#             cprint(f"   File {filename} not found on disk for explanation.", "red")
+
+#     if not files_content.strip():
+#         cprint(" None of the tracked files could be read.", "yellow")
+#         return {}
+
+#     cprint(f" Generating explanation for {len(current_files)} files...", "yellow")
+    
+#     prompt = explainer_prompt(run_status=status, files_content=files_content, user_prompt=user_prompt)
+    
+#     try:
+#         response = llm.invoke(prompt)
+#         cprint(f"\n=== TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
+#         print(response.content.strip())
+#         cprint("==================================\n", "green", attrs=["bold"])
+#     except Exception as e:
+#         cprint(f" Explainer LLM failed: {e}", "red")
+
+#     # clear current_turn_files so it doesn't bleed into the next REPL input turn
+#     return {"current_turn_files": []}
+
+def knowledge_indexer_agent(state: GraphState) -> dict:
+    cprint(f"\n{'='*50}", "magenta")
+    cprint(" Entering Knowledge Indexer...", "cyan", attrs=["bold"])
+    
+    session_id = state["session_id"]
+    graph_user_id = state.get("user_id") or session_id
+    # Get the code content using your existing helper
+    code_context = search_codebase_filesystem(session_id, "") 
+    
+    # 1. Summarize code with LLM
+    response = llm.invoke(knowledge_extraction_prompt(code_context))
+    try:
+        # Clean markdown and parse
+        clean_content = re.sub(r"```json|```", "", response.content).strip()
+        summary = json.loads(clean_content)
+        # --- NEW: DEBUG LOGGING FOR SUMMARIZER ---
+        print("\n" + "="*40)
+        print("🏗️  EXTRACTING KNOWLEDGE FOR GRAPH")
+        print("="*40)
+        for stack in summary.get("tech_stacks", []):
+            print(f"📦 TechStack: {stack['name'].upper()}")
+            for concept in stack['concepts']:
+                print(f"   ∟ 💡 Concept: {concept}")
+        print("="*40 + "\n")
+        # ----------------------------------------
+    except Exception as e:
+        cprint(f" Failed to parse summary: {e}", "red")
+        return {}
+
+    # 2. Update Neo4j
+    try:
+        kg = KnowledgeGraphManager()
+        kg.update_user_knowledge(graph_user_id, summary)
+        kg.close()
+        cprint(" Knowledge Graph updated successfully.", "green")
+    except Exception as e:
+        cprint(f" Neo4j Update Error: {e}", "red")
+
+    return {"project_summary": summary}
+
+
 def explainer_agent(state: GraphState) -> dict:
     cprint(f"\n{'='*50}", "magenta")
-    cprint(" Entering Explainer Agent (Final Review)...", "cyan", attrs=["bold"])
+    cprint(" Entering Personalized Explainer Agent...", "cyan", attrs=["bold"])
     
     session_id = state.get("session_id")
+    graph_user_id = state.get("user_id") or session_id
     current_files = state.get("current_turn_files", [])
     status = state.get("status", "unknown")
     user_prompt = state.get("user_prompt")
@@ -1117,8 +1333,59 @@ def explainer_agent(state: GraphState) -> dict:
                     files_content += f"\n--- {filename} ---\n{content}\n"
             except Exception as e:
                 cprint(f"   Could not read {filename} for explanation: {e}", "red")
+    # --- 1. Fetch User Knowledge Level from Neo4j ---
+    cprint(" Fetching user knowledge graph context...", "yellow")
+    known_concepts = []
+    mastery_context = ""
+    try:
+        kg = KnowledgeGraphManager()
+        known_data = kg.get_user_level(graph_user_id)
+        kg.close()
+        # Format the data into a readable string for the LLM
+        # Example: "- useState (implemented 5 times), - useEffect (implemented 1 time)"
+        if known_data:
+            mastery_context = "\n".join([
+                f"- {item['name']} (Mastery Level: {item['count']},Interactions: {', '.join(item['types'])})" 
+                for item in known_data
+            ])
         else:
-            cprint(f"   File {filename} not found on disk for explanation.", "red")
+            mastery_context = "User is a beginner; no prior concepts recorded."
+        # cprint(f" Found {len(known_concepts)} previously mastered concepts.", "green")
+    except Exception as e:
+        cprint(f" Could not retrieve Neo4j context: {e}", "red")
+        mastery_context = "Generic knowledge profile."
+
+    # --- 2. Gather Context (Files or Theoretical Prompt) ---
+    current_files = list(set(current_files))  # remove duplicates
+    files_content = ""
+
+    if not current_files:
+        # PIVOT: If no files changed, we are likely in 'Learn' mode. 
+        # We use the prompt itself as the context for explanation.
+        cprint(" No files modified. Switching to theoretical explanation mode...", "yellow")
+        files_content = f"The user is asking a theoretical/architectural question: {user_prompt}"
+    else:
+        # Standard build mode logic
+        user_code_dir = os.path.join(OUTPUT_DIR, session_id, "code")
+        for filename in current_files:
+            file_path = os.path.join(user_code_dir, filename)
+            
+            # Fallback search for nested folders
+            if not os.path.exists(file_path):
+                for root, _, local_files in os.walk(user_code_dir):
+                    for f in local_files:
+                        full_path = os.path.join(root, f)
+                        if full_path.replace("\\", "/").endswith(filename.replace("\\", "/")):
+                            file_path = full_path
+                            break
+            
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        files_content += f"\n--- {filename} ---\n{content}\n"
+                except Exception as e:
+                    cprint(f"   Could not read {filename}: {e}", "red")
 
     if not files_content.strip():
         cprint(" None of the tracked files could be read.", "yellow")
@@ -1128,20 +1395,26 @@ def explainer_agent(state: GraphState) -> dict:
             "content": "",
             "status": status
         })
+        cprint(" No context available for explanation.", "yellow")
         return {}
 
-    cprint(f" Generating explanation for {len(current_files)} files...", "yellow")
+    # --- 3. Generate Personalized Explanation ---
+    cprint(f" Generating tailored explanation...", "yellow")
     
-    prompt = explainer_prompt(run_status=status, files_content=files_content, user_prompt=user_prompt)
+    prompt = explainer_prompt(
+        run_status=status, 
+        files_content=files_content, 
+        user_prompt=user_prompt,
+        known_context=mastery_context
+    )
     
     try:
         response = llm.invoke(prompt)
+        cprint(f"\n=== PERSONALIZED TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
         explanation_text = response.content.strip()
-        
-        cprint(f"\n=== TURN EXPLANATION ({status.upper()}) ===", "green", attrs=["bold"])
         print(explanation_text)
-        cprint("==================================\n", "green", attrs=["bold"])
-        
+        cprint("===========================================\n", "green", attrs=["bold"])
+
         # Emit the explanation for streaming to the frontend
         emit_file_event("explanation_complete", {
             "session_id": session_id,
@@ -1157,8 +1430,9 @@ def explainer_agent(state: GraphState) -> dict:
             "status": "error"
         })
 
-    # clear current_turn_files so it doesn't bleed into the next REPL input turn
+    # Clear current_turn_files for the next turn
     return {"current_turn_files": []}
+
 
 #graph definition
 graph = StateGraph(GraphState)
@@ -1177,8 +1451,9 @@ graph.add_node("evaluator", evaluator_agent)
 graph.add_node("debugger", debugger_agent)
 graph.add_node("learner", learner_agent)
 graph.add_node("feature_architect", feature_architect_agent)
+graph.add_node("snippet_fixer", snippet_fixer_agent)
 graph.add_node("explainer", explainer_agent)
-
+graph.add_node("knowledge_indexer", knowledge_indexer_agent)
 # entry point is router
 graph.set_entry_point("router")
 
@@ -1195,7 +1470,11 @@ def route_decision(state: GraphState) -> Literal["planner", "feature_architect",
             cprint("   [Router] No codebase detected. Routing to Planner...", "yellow")
             return "planner"
     elif route == "debug":
-        return "debugger"
+        cprint("   [Router] Manual debug requested. Routing to Debugger...", "yellow")
+        return "debugger"     # <--- Routes Case 2 here
+    elif route == "snippet_fix":
+        cprint("   [Router] Standalone snippet detected. Routing to Snippet Fixer...", "yellow")
+        return "snippet_fixer"
     elif route == "learn":
         return "learner"
     else:
@@ -1216,12 +1495,17 @@ def check_queue_status(state: GraphState) -> Literal["coder", "qa_agent", "depen
     queue = state.get("task_queue", [])
     index = state.get("current_task_index", 0)
     iteration = state.get("iteration_count", 0)
+    is_feature = state.get("is_feature_update", False)
     
     if index < len(queue):
         return "coder"  
     else: #done to ensure the qa agent runs only once
+        # If this is a feature update, skip writing new tests and go straight to validation/execution
+        if is_feature:
+            cprint("   [Router] Feature patch complete. Bypassing QA -> Validator...", "yellow")
+            return "dependency_validator"
         # If iteration is 0, we haven't executed yet. Go to QA to write tests.
-        if iteration == 0:
+        elif iteration == 0:
             cprint("   [Router] Initial build complete. Moving to QA Agent...", "yellow")
             return "qa_agent"
         # If iteration > 0, we are in a repair loop. Skip QA, go straight to Validator.
@@ -1240,13 +1524,21 @@ def check_validation_status(state: GraphState) -> Literal["executor", "evaluator
     # Otherwise, packages are real, go to the sandbox
     return "executor"
 
-def check_evaluation(state: GraphState) -> Literal["debugger", END]:
+def check_evaluation(state: GraphState) -> Literal["debugger", "knowledge_indexer"]:
     status = state.get("status")
     count = state.get("iteration_count", 0)
     
     if status == "fail" and count < 3: # Limit retries to 3
         return "debugger"
-    return "explainer"
+    return "knowledge_indexer"
+
+
+
+
+
+
+
+
 
 #edges and conditional edges
 graph.add_conditional_edges(
@@ -1256,7 +1548,8 @@ graph.add_conditional_edges(
         "planner": "planner",
         "feature_architect": "feature_architect",
         "debugger": "debugger",
-        "learner": "learner"
+        "learner": "learner",
+        "snippet_fixer": "snippet_fixer"
     }
 )
 graph.add_edge("feature_architect", "researcher")
@@ -1299,17 +1592,21 @@ graph.add_conditional_edges(
     check_evaluation,
     {
         "debugger": "debugger", 
-        "explainer": "explainer" # <-- Connect to explainer instead of END
+        # "explainer": "explainer" # <-- Connect to explainer instead of END
+        "knowledge_indexer": "knowledge_indexer"
     }
 )
 
 graph.add_edge("debugger", "researcher") # close the loop!!!!!    
 graph.add_edge("researcher","coder")
-graph.add_edge("learner", "explainer")
+graph.add_edge("learner", "knowledge_indexer")
+graph.add_edge("knowledge_indexer", "explainer")
+
+graph.add_edge("snippet_fixer", "explainer")
 graph.add_edge("explainer", END)
 
-
 agent = graph.compile(checkpointer=memory)
+# agent = graph.compile()
 
 # if __name__ == "__main__":
         
@@ -1348,7 +1645,7 @@ agent = graph.compile(checkpointer=memory)
 #     import pprint
 #     pprint.pprint(result)
 
-def run_graph(user_prompt: str, search_method: bool = False, thread_id: str = None) -> dict:
+def run_graph(user_prompt: str, search_method: bool = False, thread_id: str = None, user_id: str = None) -> dict:
     """
     Run the agent graph with the given user prompt and search method.
     
@@ -1395,6 +1692,7 @@ def run_graph(user_prompt: str, search_method: bool = False, thread_id: str = No
     initial_state: GraphState = {
         "session_id": session_id,
         "thread_id": thread_id,
+        "user_id": user_id or session_id,
         "user_prompt": user_prompt,
         "route": None,
         "plan": current_state.get("plan"),
@@ -1437,7 +1735,7 @@ if __name__ == "__main__":
     cprint(f" Thread ID generated: {thread_id}", "cyan")
     
     # LangGraph requires the thread_id to be passed in the config, not just the state
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 150}
 
     # We still need the session_id in the state for your file paths to work
     initial_state = {

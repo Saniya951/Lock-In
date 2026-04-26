@@ -8,6 +8,7 @@ DATABASE_NAME = config("DATABASE_NAME", default="lockin")
 SECRET_KEY = config("SECRET_KEY", default="your-secret-key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 # Email settings
 MAIL_USERNAME = config("MAIL_USERNAME")
