@@ -6,10 +6,14 @@ import {
   PlayCircle,
   ChevronDown,
   BookOpen,
+  MessageCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
+import TutorChatPanel from './TutorChatPanel';
 import useThemeMode from '../hooks/useThemeMode';
+
+const API_BASE = 'http://localhost:8000';
 
 const contentFiles = import.meta.glob('../data/learning/*.json', { eager: true });
 
@@ -74,6 +78,11 @@ const LearningModule = () => {
   const [pendingPathId, setPendingPathId] = useState(null);
   const [formPreference, setFormPreference] = useState('text');
   const [formLevel, setFormLevel] = useState('beginner');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId] = useState(() => `learn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -97,6 +106,21 @@ const LearningModule = () => {
   const activePath = useMemo(
     () => learningPaths.find((path) => path.id === activePathId) || null,
     [activePathId]
+  );
+
+  const currentModuleTitle = useMemo(() => {
+    if (expandedModuleIndex === null) {
+      return null;
+    }
+    return activeModules[expandedModuleIndex]?.moduleTitle || null;
+  }, [expandedModuleIndex, activeModules]);
+
+  const currentContext = useMemo(
+    () => ({
+      path: activePath?.title || null,
+      module: currentModuleTitle,
+    }),
+    [activePath, currentModuleTitle]
   );
 
   const getPathProgress = (pathId) => {
@@ -243,6 +267,54 @@ const LearningModule = () => {
     }
 
     return <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} leading-7`}>{module.content?.value}</p>;
+  };
+
+  const sendTutorMessage = async () => {
+    const userMessage = chatInput.trim();
+    if (!userMessage || isLoading) {
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const nextMessages = [...chatMessages, { role: 'user', content: userMessage }];
+    setChatMessages(nextMessages);
+    setChatInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/learn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          query: userMessage,
+          session_id: sessionId,
+          context: currentContext,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tutor request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const assistantReply = (data?.response || 'I could not generate a response right now.').trim();
+
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
+    } catch (error) {
+      console.error('[Tutor] Request failed:', error);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, I hit an issue while responding. Please try again.',
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -535,6 +607,29 @@ const LearningModule = () => {
           </div>
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={() => setIsChatOpen(true)}
+        className="fixed bottom-6 right-6 z-30 rounded-full px-4 py-3 text-sm font-semibold shadow-lg bg-gradient-to-r from-indigo-500 to-cyan-400 text-white hover:opacity-90 transition-all"
+      >
+        <span className="inline-flex items-center gap-2">
+          <MessageCircle className="w-4 h-4" />
+          Ask Tutor
+        </span>
+      </button>
+
+      <TutorChatPanel
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        messages={chatMessages}
+        inputValue={chatInput}
+        onInputChange={setChatInput}
+        onSend={sendTutorMessage}
+        isLoading={isLoading}
+        context={currentContext}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };

@@ -8,7 +8,7 @@ from bson import ObjectId
 from jose import JWTError, jwt
 from models import User, UserCreate, UserLogin, Token, RefreshTokenRequest, Project, File, ProjectCreate, FileUpsert
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 import anyio
 import sys
@@ -27,6 +27,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from agent.graph import run_graph, set_file_callback
+from agent.learning_graph import learning_agent
 from agent.knowledge_graph import KnowledgeGraphManager
 
 @asynccontextmanager
@@ -80,6 +81,12 @@ class GraphRequest(BaseModel):
     prompt: str
     search_method: bool = False  # False (0) for vectordb (default), True (1) for tavily
     thread_id: Optional[str] = None  # Optional persistent thread ID for multi-turn conversations
+
+
+class LearnRequest(BaseModel):
+    query: str
+    session_id: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 
 def serialize_project(project: Project) -> dict:
@@ -424,6 +431,61 @@ async def get_my_knowledge_graph(user_email: str = Depends(get_current_user_emai
     finally:
         if kg:
             kg.close()
+
+
+def _message_content(message: Any) -> str:
+    if hasattr(message, "content"):
+        return str(message.content)
+    if isinstance(message, dict):
+        return str(message.get("content", ""))
+    return str(message)
+
+
+@app.post("/learn")
+async def learn_with_tutor(payload: LearnRequest, user_email: str = Depends(get_current_user_email)):
+    user_query = (payload.query or "").strip()
+    if not user_query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    context = payload.context or {}
+    context_lines = []
+    if context.get("path"):
+        context_lines.append(f"Path: {context['path']}")
+    if context.get("module"):
+        context_lines.append(f"Module: {context['module']}")
+
+    # Always bind tutor memory/KG writes to authenticated user identity.
+    # Do not trust client-provided session_id for profile-linked learning state.
+    session_id = user_email
+    contextual_query = user_query
+    if context_lines:
+        contextual_query = "\n".join([
+            "Learning Context:",
+            *context_lines,
+            "",
+            f"Question: {user_query}",
+        ])
+
+    invoke_input = {
+        "messages": [{"role": "user", "content": contextual_query}],
+        "session_id": session_id,
+    }
+    config = {"configurable": {"thread_id": session_id}}
+
+    try:
+        result = await anyio.to_thread.run_sync(
+            learning_agent.invoke,
+            invoke_input,
+            config,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tutor failed: {e}")
+
+    messages = result.get("messages", []) if isinstance(result, dict) else []
+    if not messages:
+        return {"response": "I couldn't generate a response. Please try again."}
+
+    return {"response": _message_content(messages[-1]).strip()}
 
 @app.post("/prompt")
 async def run_graph_endpoint(payload: GraphRequest, user_email: str = Depends(get_current_user_email)):

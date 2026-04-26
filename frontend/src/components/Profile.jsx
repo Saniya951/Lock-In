@@ -32,6 +32,15 @@ const buildGraphLayout = (graphData) => {
   const baseY = 90;
   const spacingY = 70;
 
+  if (nodes.length === 0) {
+    return {
+      nodes: [],
+      links: [],
+      width: 760,
+      height: 460,
+    };
+  }
+
   const placeInLane = (items, laneIndex) => {
     const x = startX + laneIndex * laneGap;
     const totalHeight = Math.max((items.length - 1) * spacingY, 0);
@@ -416,7 +425,7 @@ const Profile = () => {
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 overflow-x-auto ${
+                  className={`rounded-2xl border p-4 overflow-auto max-h-[560px] ${
                     isDarkMode ? 'border-white/10 bg-[#080809]' : 'border-gray-200 bg-gray-50'
                   }`}
                   onMouseDown={handleGraphMouseDown}
@@ -451,6 +460,7 @@ const Profile = () => {
 
                         {graphLayout.nodes.map((node) => {
                           const isSelected = selectedNodeId === node.id;
+
                           return (
                             <g
                               key={node.id}
