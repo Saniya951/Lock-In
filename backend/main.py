@@ -27,6 +27,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from agent.graph import run_graph, set_file_callback
+from agent.knowledge_graph import KnowledgeGraphManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -409,6 +410,20 @@ async def get_me(user_email: str = Depends(get_current_user_email)):
         "profession": user.profession,
         "is_verified": user.is_verified,
     }
+
+
+@app.get("/me/knowledge-graph")
+async def get_my_knowledge_graph(user_email: str = Depends(get_current_user_email)):
+    kg = None
+    try:
+        kg = KnowledgeGraphManager()
+        graph_data = kg.get_user_graph(user_email)
+        return graph_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unable to fetch knowledge graph: {str(e)}")
+    finally:
+        if kg:
+            kg.close()
 
 @app.post("/prompt")
 async def run_graph_endpoint(payload: GraphRequest, user_email: str = Depends(get_current_user_email)):

@@ -167,3 +167,47 @@ class KnowledgeGraphManager:
                 } 
                 for record in result
             ]
+
+    def get_user_graph(self, user_id: str) -> dict:
+        with self.driver.session(database=self.database) as session:
+            result = session.run(
+                """
+                MATCH (u:User {id: $user_id})
+                OPTIONAL MATCH (u)-[:INTERESTED_IN]->(ts:TechStack)
+                OPTIONAL MATCH (ts)-[:CONTAINS]->(c:Concept)
+                OPTIONAL MATCH (u)-[uc:IMPLEMENTED|STUDIED]->(c)
+
+                RETURN u.id AS user_id,
+                       collect(DISTINCT {id: 'U:' + u.id, name: u.id, type: 'User'}) AS users,
+                       collect(DISTINCT CASE WHEN ts IS NULL THEN NULL ELSE {id: 'T:' + ts.name, name: ts.name, type: 'TechStack'} END) AS techs,
+                       collect(DISTINCT CASE WHEN c IS NULL THEN NULL ELSE {id: 'C:' + c.name, name: c.name, type: 'Concept'} END) AS concepts,
+                       collect(DISTINCT CASE WHEN ts IS NULL THEN NULL ELSE {source: 'U:' + u.id, target: 'T:' + ts.name, type: 'INTERESTED_IN'} END) AS user_to_tech,
+                       collect(DISTINCT CASE WHEN ts IS NULL OR c IS NULL THEN NULL ELSE {source: 'T:' + ts.name, target: 'C:' + c.name, type: 'CONTAINS'} END) AS tech_to_concept,
+                       collect(DISTINCT CASE WHEN c IS NULL OR uc IS NULL THEN NULL ELSE {source: 'U:' + u.id, target: 'C:' + c.name, type: type(uc), count: coalesce(uc.count, 1)} END) AS user_to_concept
+                """,
+                user_id=user_id,
+            ).single()
+
+            if not result:
+                return {
+                    "nodes": [],
+                    "links": [],
+                    "stats": {"users": 0, "tech_stacks": 0, "concepts": 0, "relationships": 0},
+                }
+
+            def _clean(items):
+                return [item for item in items if item is not None]
+
+            nodes = _clean(result["users"]) + _clean(result["techs"]) + _clean(result["concepts"])
+            links = _clean(result["user_to_tech"]) + _clean(result["tech_to_concept"]) + _clean(result["user_to_concept"])
+
+            return {
+                "nodes": nodes,
+                "links": links,
+                "stats": {
+                    "users": len(_clean(result["users"])),
+                    "tech_stacks": len(_clean(result["techs"])),
+                    "concepts": len(_clean(result["concepts"])),
+                    "relationships": len(links),
+                },
+            }
