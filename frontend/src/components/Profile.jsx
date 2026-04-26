@@ -19,7 +19,25 @@ const nodeColors = {
   Concept: '#38bdf8',
 };
 
-const buildGraphLayout = (graphData) => {
+const hashToUnit = (value) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) % 1000003;
+  }
+  return (hash % 1000) / 1000;
+};
+
+const getNodeRadius = (nodeType) => {
+  if (nodeType === 'User') {
+    return 16;
+  }
+  if (nodeType === 'TechStack') {
+    return 13;
+  }
+  return 11;
+};
+
+const buildTreeGraphLayout = (graphData) => {
   const nodes = graphData?.nodes || [];
   const links = graphData?.links || [];
 
@@ -76,6 +94,226 @@ const buildGraphLayout = (graphData) => {
   };
 };
 
+const buildForceGraphLayout = (graphData) => {
+  const rawNodes = graphData?.nodes || [];
+  const rawLinks = graphData?.links || [];
+
+  const uniqueNodeMap = new Map();
+  rawNodes.forEach((node) => {
+    if (!uniqueNodeMap.has(node.id)) {
+      uniqueNodeMap.set(node.id, node);
+    }
+  });
+
+  const nodes = Array.from(uniqueNodeMap.values());
+  const validNodeIds = new Set(nodes.map((node) => node.id));
+  const links = rawLinks.filter((link) => validNodeIds.has(link.source) && validNodeIds.has(link.target));
+
+  const nodeCount = nodes.length;
+  // 1. INCREASED CANVAS SIZE: Gives nodes more room to expand
+  const width = Math.max(1200, 800 + nodeCount * 45);
+  const height = Math.max(800, 600 + nodeCount * 35);
+  const padding = 100;
+
+  if (nodes.length === 0) {
+    return {
+      nodes: [],
+      links: [],
+      width,
+      height,
+    };
+  }
+
+  const nodeState = nodes.map((node) => {
+    const seedAngle = hashToUnit(`${node.id}-angle`) * Math.PI * 2;
+    const seedRadius = 0.2 + hashToUnit(`${node.id}-radius`) * 0.75;
+    const radiusX = (width - padding * 2) * 0.46;
+    const radiusY = (height - padding * 2) * 0.46;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const seedX = cx + Math.cos(seedAngle) * radiusX * seedRadius;
+    const seedY = cy + Math.sin(seedAngle) * radiusY * seedRadius;
+    return {
+      ...node,
+      x: Math.min(width - padding, Math.max(padding, seedX)),
+      y: Math.min(height - padding, Math.max(padding, seedY)),
+      vx: 0,
+      vy: 0,
+    };
+  });
+
+  const byId = Object.fromEntries(nodeState.map((node) => [node.id, node]));
+  
+  // 2. TUNED PHYSICS CONSTANTS: Stronger repulsion, weaker center pull
+  const iterations = 350;
+  const repulsionStrength = 85000; 
+  const springStrength = 0.01; 
+  const damping = 0.85;
+  const centerPull = 0.0006; 
+
+  const resolveNodeCollisions = (passCount = 1) => {
+    for (let pass = 0; pass < passCount; pass += 1) {
+      for (let i = 0; i < nodeState.length; i += 1) {
+        for (let j = i + 1; j < nodeState.length; j += 1) {
+          const a = nodeState[i];
+          const b = nodeState[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 0.001) {
+            const angle = hashToUnit(`${String(a.id)}-${String(b.id)}-jitter`) * Math.PI * 2;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            distance = 1;
+          }
+
+          // 3. WIDER COLLISION RADIUS: Increased from 36 to 65 to protect text labels
+          const minDistance = getNodeRadius(a.type) + getNodeRadius(b.type) + 65;
+
+          if (distance < minDistance) {
+            const overlap = (minDistance - distance) / 2;
+            const nx = dx / distance;
+            const ny = dy / distance;
+
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+
+            a.vx -= nx * overlap * 0.1;
+            a.vy -= ny * overlap * 0.1;
+            b.vx += nx * overlap * 0.1;
+            b.vy += ny * overlap * 0.1;
+          }
+        }
+      }
+      // Note: Removed boundary clamping from inside this inner loop. 
+      // Clamping here was crushing nodes together at the edges.
+    }
+  };
+
+  for (let step = 0; step < iterations; step += 1) {
+    for (let i = 0; i < nodeState.length; i += 1) {
+      for (let j = i + 1; j < nodeState.length; j += 1) {
+        const a = nodeState[i];
+        const b = nodeState[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distanceSq = dx * dx + dy * dy + 0.01;
+        const distance = Math.sqrt(distanceSq);
+        const force = repulsionStrength / distanceSq;
+        const fx = (dx / distance) * force;
+        const fy = (dy / distance) * force;
+
+        a.vx -= fx;
+        a.vy -= fy;
+        b.vx += fx;
+        b.vy += fy;
+      }
+    }
+
+    links.forEach((link) => {
+      const sourceNode = byId[link.source];
+      const targetNode = byId[link.target];
+      if (!sourceNode || !targetNode) {
+        return;
+      }
+
+      const dx = targetNode.x - sourceNode.x;
+      const dy = targetNode.y - sourceNode.y;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+      const restLength = link.type === 'CONTAINS' ? 165 : 220;
+      const displacement = distance - restLength;
+      const force = springStrength * displacement;
+      const fx = (dx / distance) * force;
+      const fy = (dy / distance) * force;
+
+      sourceNode.vx += fx;
+      sourceNode.vy += fy;
+      targetNode.vx -= fx;
+      targetNode.vy -= fy;
+    });
+
+    resolveNodeCollisions(2);
+
+    nodeState.forEach((node) => {
+      node.vx += (width / 2 - node.x) * centerPull;
+      node.vy += (height / 2 - node.y) * centerPull;
+
+      node.vx *= damping;
+      node.vy *= damping;
+
+      node.x += node.vx;
+      node.y += node.vy;
+
+      // 4. SOFT BOUNDARY: Applied once per physics step instead of per-collision
+      node.x = Math.min(width - padding, Math.max(padding, node.x));
+      node.y = Math.min(height - padding, Math.max(padding, node.y));
+    });
+  }
+
+  resolveNodeCollisions(40);
+
+  for (let pass = 0; pass < 20; pass += 1) {
+    let moved = false;
+    for (let i = 0; i < nodeState.length; i += 1) {
+      for (let j = i + 1; j < nodeState.length; j += 1) {
+        const a = nodeState[i];
+        const b = nodeState[j];
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 0.001) {
+          const angle = hashToUnit(`${String(a.id)}-${String(b.id)}-hard`) * Math.PI * 2;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          distance = 1;
+        }
+
+        const minDistance = getNodeRadius(a.type) + getNodeRadius(b.type) + 65; 
+        if (distance < minDistance) {
+          const push = (minDistance - distance) / 2;
+          const nx = dx / distance;
+          const ny = dy / distance;
+
+          a.x -= nx * push;
+          a.y -= ny * push;
+          b.x += nx * push;
+          b.y += ny * push;
+          moved = true;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+
+  // Final hard clamp to ensure nothing escaped the SVG bounds during the hard fallback
+  nodeState.forEach((node) => {
+    node.x = Math.min(width - padding, Math.max(padding, node.x));
+    node.y = Math.min(height - padding, Math.max(padding, node.y));
+  });
+
+  const laidOutNodes = nodeState.map(({ vx, vy, ...rest }) => rest);
+  const positionById = Object.fromEntries(laidOutNodes.map((node) => [node.id, node]));
+  const laidOutLinks = links
+    .map((link) => ({
+      ...link,
+      sourceNode: positionById[link.source],
+      targetNode: positionById[link.target],
+    }))
+    .filter((link) => link.sourceNode && link.targetNode);
+
+  return {
+    nodes: laidOutNodes,
+    links: laidOutLinks,
+    width,
+    height,
+  };
+};
+
 const Profile = () => {
   const navigate = useNavigate();
   const { isDarkMode, setIsDarkMode } = useThemeMode();
@@ -91,6 +329,7 @@ const Profile = () => {
     STUDIED: true,
   });
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [layoutMode, setLayoutMode] = useState('tree');
   const [viewport, setViewport] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
   const [isDraggingGraph, setIsDraggingGraph] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -170,8 +409,11 @@ const Profile = () => {
   }, [graphData, filteredLinks]);
 
   const graphLayout = useMemo(() => {
-    return buildGraphLayout({ nodes: filteredNodes, links: filteredLinks });
-  }, [filteredNodes, filteredLinks]);
+    if (layoutMode === 'force') {
+      return buildForceGraphLayout({ nodes: filteredNodes, links: filteredLinks });
+    }
+    return buildTreeGraphLayout({ nodes: filteredNodes, links: filteredLinks });
+  }, [filteredNodes, filteredLinks, layoutMode]);
 
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) {
@@ -199,6 +441,11 @@ const Profile = () => {
   };
 
   const resetGraphView = () => {
+    setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
+  };
+
+  const changeLayoutMode = (mode) => {
+    setLayoutMode(mode);
     setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
   };
 
@@ -390,6 +637,42 @@ const Profile = () => {
                   })}
 
                   <div className="ml-auto flex items-center gap-2">
+                    <div className={`inline-flex rounded-full border overflow-hidden ${
+                      isDarkMode ? 'border-white/15' : 'border-gray-300'
+                    }`}>
+                      <button
+                        type="button"
+                        onClick={() => changeLayoutMode('tree')}
+                        className={`px-3 py-1.5 text-xs ${
+                          layoutMode === 'tree'
+                            ? isDarkMode
+                              ? 'bg-white/15 text-white'
+                              : 'bg-gray-200 text-gray-900'
+                            : isDarkMode
+                              ? 'text-gray-300 hover:bg-white/10'
+                              : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        Tree
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => changeLayoutMode('force')}
+                        className={`px-3 py-1.5 text-xs border-l ${
+                          isDarkMode ? 'border-white/15' : 'border-gray-300'
+                        } ${
+                          layoutMode === 'force'
+                            ? isDarkMode
+                              ? 'bg-white/15 text-white'
+                              : 'bg-gray-200 text-gray-900'
+                            : isDarkMode
+                              ? 'text-gray-300 hover:bg-white/10'
+                              : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        Free
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => zoomGraph(0.9)}
@@ -460,6 +743,14 @@ const Profile = () => {
 
                         {graphLayout.nodes.map((node) => {
                           const isSelected = selectedNodeId === node.id;
+                          const nodeRadius = getNodeRadius(node.type);
+                          const labelAngle = layoutMode === 'force' ? hashToUnit(`${node.id}-label`) * Math.PI * 2 : 0;
+                          const labelDistance = nodeRadius + 10;
+                          const rawLabelX = layoutMode === 'force' ? Math.cos(labelAngle) * labelDistance : 18;
+                          const rawLabelY = layoutMode === 'force' ? Math.sin(labelAngle) * labelDistance : 4;
+                          const labelX = layoutMode === 'force' ? (rawLabelX >= 0 ? rawLabelX + 3 : rawLabelX - 3) : rawLabelX;
+                          const labelY = layoutMode === 'force' ? rawLabelY + 4 : rawLabelY;
+                          const textAnchor = layoutMode === 'force' ? (rawLabelX >= 0 ? 'start' : 'end') : 'start';
 
                           return (
                             <g
@@ -472,13 +763,19 @@ const Profile = () => {
                               className="cursor-pointer"
                             >
                               <circle
-                                r={node.type === 'User' ? 16 : node.type === 'TechStack' ? 13 : 11}
+                                r={nodeRadius}
                                 fill={nodeColors[node.type] || '#94a3b8'}
                                 fillOpacity={isSelected ? '1' : '0.92'}
                                 stroke={isSelected ? (isDarkMode ? '#f8fafc' : '#111827') : 'transparent'}
                                 strokeWidth={isSelected ? 2 : 0}
                               />
-                              <text x={18} y={4} fontSize="12" fill={isDarkMode ? '#e5e7eb' : '#111827'}>
+                              <text
+                                x={labelX}
+                                y={labelY}
+                                textAnchor={textAnchor}
+                                fontSize="12"
+                                fill={isDarkMode ? '#e5e7eb' : '#111827'}
+                              >
                                 {node.name}
                               </text>
                             </g>
