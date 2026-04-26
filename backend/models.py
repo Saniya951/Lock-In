@@ -13,6 +13,7 @@ class User(Document):
     profession: str
     is_verified: bool = False
     verification_token: Optional[str] = None
+    github_access_token: Optional[str] = None
 
     class Settings:
         name = "users"
@@ -42,6 +43,7 @@ class RefreshTokenRequest(BaseModel):
 class Project(Document):
     user_id: str
     name: str
+    github_repo_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_opened_at: datetime

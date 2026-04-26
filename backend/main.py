@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from bson import ObjectId
@@ -12,16 +13,19 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import anyio
 import sys
-import ssl
 import os
 import json
 import asyncio
+import httpx
+import certifi
 from pathlib import Path
 from contextlib import asynccontextmanager
 from auth import get_password_hash, create_access_token, create_refresh_token, generate_verification_token, send_verification_email, authenticate_user
 from config import MONGODB_URL, DATABASE_NAME, SECRET_KEY, ALGORITHM
 import uvicorn
+from github_service import sync_to_github
 
+# Paths setup
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
@@ -30,52 +34,54 @@ from agent.graph import run_graph, set_file_callback
 from agent.learning_graph import learning_agent
 from agent.knowledge_graph import KnowledgeGraphManager
 
+
+# 1. Define the request schema at the top of main.py
+class AutoSyncRequest(BaseModel):
+    project_id: str
+    session_id: str
+    commit_msg: str
+    github_token: Optional[str] = None
+
+
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     try:
-        # Create SSL context
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
         client = AsyncIOMotorClient(
             MONGODB_URL,
+            tlsCAFile=certifi.where(),
             tlsAllowInvalidCertificates=True,
-            serverSelectionTimeoutMS=5000,
-            connectTimeoutMS=5000
+            serverSelectionTimeoutMS=5000
         )
         await init_beanie(database=client[DATABASE_NAME], document_models=[User, Project, File])
         print("MongoDB connected successfully")
+        app.state.db_client = client
     except Exception as e:
         print(f"MongoDB connection failed: {e}")
-        print("Warning: Running without database. Auth endpoints will not work.")
-        client = None
-    
+        app.state.db_client = None
     yield
-    
-    # Shutdown
-    if client:
-        client.close()
+    if app.state.db_client:
+        app.state.db_client.close()
 
 app = FastAPI(lifespan=lifespan)
 
-@app.middleware("http")
-async def add_security_headers(request, call_next):
-    response = await call_next(request)
-    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless" # Better for iframes
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
-    return response
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+    return response
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 class GraphRequest(BaseModel):
     prompt: str
@@ -267,34 +273,20 @@ async def delete_file(file_id: str, user_email: str = Depends(get_current_user_e
 
     return {"message": "File deleted"}
 
-@app.post("/signup", response_model=dict)
+@app.post("/signup")
 async def signup(user: UserCreate):
-    # Check if user already exists
     existing_user = await User.find_one(User.email == user.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Hash password
     hashed_password = get_password_hash(user.password)
-    
-    # Generate verification token
     token = generate_verification_token()
-    
-    # Create user
     new_user = User(
-        email=user.email,
-        password=hashed_password,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        dob=user.dob,
-        profession=user.profession,
+        email=user.email, password=hashed_password, first_name=user.first_name,
+        last_name=user.last_name, dob=user.dob, profession=user.profession,
         verification_token=token
     )
     await new_user.insert()
-    
-    # Send verification email
     await send_verification_email(user.email, token)
-    
     return {"message": "Verification email sent"}
 
 @app.get("/verify/{token}", response_class=HTMLResponse)
@@ -360,15 +352,14 @@ async def verify_email(token: str):
     """
     return HTMLResponse(content=html_content)
 
+
 @app.post("/login", response_model=Token)
 async def login(user: UserLogin):
     authenticated_user = await authenticate_user(user.email, user.password)
     if not authenticated_user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    
     if not authenticated_user.is_verified:
         raise HTTPException(status_code=400, detail="Email not verified")
-    
     access_token = create_access_token(data={"sub": authenticated_user.email})
     refresh_token = create_refresh_token(data={"sub": authenticated_user.email})
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
@@ -398,9 +389,9 @@ async def refresh_access_token(payload: RefreshTokenRequest):
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/home")
-async def home(token: str = Depends(oauth2_scheme)):
-    return {"message": "Welcome to home page"}
+# @app.get("/home")
+# async def home(token: str = Depends(oauth2_scheme)):
+    # return {"message": "Welcome to home page"}
 
 
 @app.get("/me")
@@ -652,5 +643,119 @@ async def get_frontend_embed(session_id: str):
     # For now, return files that can be used to create embed
     return {"files": frontend_files, "session_id": session_id}
 
+@app.get("/github/login")
+async def github_login():
+    client_id = os.getenv("GITHUB_CLIENT_ID")
+    return RedirectResponse(f"https://github.com/login/oauth/authorize?client_id={client_id}&scope=repo")
+
+@app.get("/github/callback")
+async def github_callback(code: str):
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            params={
+                "client_id": os.getenv("GITHUB_CLIENT_ID"),
+                "client_secret": os.getenv("GITHUB_CLIENT_SECRET"),
+                "code": code
+            },
+            headers={"Accept": "application/json"}
+        )
+        token = res.json().get("access_token")
+
+    # Redirect the popup back to the frontend with the token
+    frontend_url = f"http://localhost:5173?github_token={token}"
+    return RedirectResponse(url=frontend_url)
+
+@app.post("/github/sync")
+async def handle_github_sync(
+    session_id: str, 
+    repo_name: str, 
+    token: str, 
+    project_id: Optional[str] = None  # Add this parameter
+):
+    # 1. ALWAYS use session_id to find the folder (because disk folders use the UUID)
+    code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", session_id, "code")
+    
+    if not os.path.exists(code_dir):
+        print(f"DEBUG: Directory not found at {code_dir}")
+        raise HTTPException(status_code=404, detail="Generated code folder not found on server.")
+
+    try:
+        # 2. Perform the GitHub Sync
+        repo_url = await sync_to_github(
+            token, 
+            repo_name, 
+            code_dir, 
+            commit_message="Initial commit from Lock-In AI"
+        )
+        
+        # 3. Use project_id (if provided) to update MongoDB
+        # This is the 24-character hex string from your screenshot
+        db_id = project_id or session_id 
+        try:
+            project = await Project.get(ObjectId(db_id))
+            if project:
+                project.github_repo_name = repo_name
+                await project.save()
+                print(f"DEBUG: Successfully updated Project {db_id} with repo name")
+        except Exception as e:
+            print(f"DEBUG: MongoDB update skipped/failed: {e}")
+            
+        return {"status": "success", "repo_url": repo_url}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+
+
+# 2. Update the endpoint
+@app.post("/github/autosync")
+async def auto_commit_changes(
+    payload: AutoSyncRequest, 
+    user_email: str = Depends(get_current_user_email)
+):
+    # Use your existing helper to get the project and verify ownership
+    project = await get_project_for_user(payload.project_id, user_email)
+    
+    if not project.github_repo_name:
+        raise HTTPException(
+            status_code=400, 
+            detail="This project hasn't been synced to GitHub yet. Please sync first."
+        )
+
+    # Path to the latest files
+    # Note: Ensure this path correctly points to your agent's output folder
+    code_dir = os.path.join(os.path.dirname(__file__), "..", "agent", "output", payload.session_id, "code")
+    
+    if not os.path.exists(code_dir):
+        # Fallback check: if the folder uses session_id instead of project_id
+        print(f"Directory missing: {code_dir}")
+        raise HTTPException(status_code=404, detail="Project files not found on server disk.")
+
+    # Get the GitHub token
+    # Priority: 1. Token sent from frontend, 2. Token stored in MongoDB User model
+    user = await User.find_one(User.email == user_email)
+    gh_token = payload.github_token or user.github_access_token
+    
+    if not gh_token:
+        raise HTTPException(status_code=401, detail="GitHub token missing. Please reconnect GitHub.")
+
+    try:
+        # Call the updated sync function from github_service.py
+        url = await sync_to_github(
+            token=gh_token, 
+            repo_name=project.github_repo_name, 
+            folder_path=code_dir, 
+            commit_message=payload.commit_msg
+        )
+        return {"status": "success", "repo_url": url}
+    except Exception as e:
+        print(f"Autosync error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"GitHub Push Failed: {str(e)}")
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

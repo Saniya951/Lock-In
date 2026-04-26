@@ -52,8 +52,8 @@ const Signup = ({ onClose, onSwitchToLogin }) => {
   };
 
   return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-        <div className="relative bg-[#0b0b0b] border border-white/10 rounded-xl p-10 w-full max-w-2xl shadow-xl my-8">
+      <div className="fixed inset-0 z-[100] bg-black/60 p-4 sm:p-6 overflow-y-auto flex items-start sm:items-center justify-center">
+        <div className="relative mt-8 sm:mt-0 bg-[#0b0b0b] border border-white/10 rounded-xl p-10 w-full max-w-2xl shadow-xl my-4 sm:my-8">
   
           {/* Logo */}
           <div className="w-14 h-14 mx-auto mb-4 bg-black/30 backdrop-blur-sm rounded-2xl border border-white/10 flex items-center justify-center">
