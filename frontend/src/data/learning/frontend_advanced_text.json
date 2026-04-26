@@ -1,67 +1,108 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Frontend (React) Advanced module 1 on React Fundamentals. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "React Fundamentals",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Advanced module 2 on Component Architecture. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Component Architecture",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Advanced module 3 on State and Effects. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "State and Effects",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Advanced module 4 on Routing and Data. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Routing and Data",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Advanced module 5 on Styling and UX. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Styling and UX",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Advanced State Management with Zustand",
+    "duration": "5 days",
+    "checkpoints": [
+      "Compare Zustand to Context and Redux \u2014 understand the trade-offs",
+      "Create a store with state and actions",
+      "Use slices to organize large stores",
+      "Implement persistence with the persist middleware",
+      "Test a Zustand store in isolation"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Zustand is a minimal, unopinionated state management library. Unlike Redux, there's no boilerplate \u2014 create a store with create(), define state and actions together, and consume with a selector hook. Slices keep large stores modular: create separate slice files and merge them in a root store. The persist middleware syncs state to localStorage automatically. For truly global, frequently mutating state (user sessions, shopping carts, notification queues), Zustand outperforms Context both in performance and developer experience. Benchmark your store selectors \u2014 fine-grained selectors prevent unnecessary re-renders."
     }
+  },
+  {
+    "moduleTitle": "Server-Side Rendering with Next.js",
+    "duration": "6 days",
+    "checkpoints": [
+      "Understand the difference between CSR, SSR, SSG, and ISR",
+      "Migrate a Vite React app to the Next.js App Router",
+      "Use Server Components vs Client Components correctly",
+      "Fetch data server-side with async Server Components",
+      "Implement dynamic routes and generateStaticParams"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Next.js extends React with server-side capabilities. In the App Router (Next 13+), components are Server Components by default \u2014 they render on the server, reducing client bundle size and enabling direct database access. Add 'use client' only when you need browser APIs, event handlers, or hooks. Server Components can be async, so you can await a database query directly inside the component. ISR (Incremental Static Regeneration) lets static pages revalidate in the background \u2014 the best of both static and dynamic worlds. This mental model shift from client-first to server-first thinking is the most important concept in modern React."
+    }
+  },
+  {
+    "moduleTitle": "Testing React Applications",
+    "duration": "5 days",
+    "checkpoints": [
+      "Set up Vitest and React Testing Library",
+      "Write unit tests for a pure utility function",
+      "Write integration tests that render components and interact with them",
+      "Mock API calls in tests with MSW (Mock Service Worker)",
+      "Achieve meaningful coverage on a feature without over-testing"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Testing gives you the confidence to refactor and ship. React Testing Library's philosophy: test behavior, not implementation. Query elements by role or label text (getByRole, getByLabelText) \u2014 not by class name or component internals. Vitest is the test runner of choice for Vite projects. Mock Service Worker intercepts network requests at the service worker level, so your tests run against realistic API responses without hitting a real server. The testing pyramid: many unit tests for pure logic, integration tests for key user flows, and a few end-to-end tests with Playwright for critical paths like login and checkout."
+    }
+  },
+  {
+    "moduleTitle": "Accessibility (a11y) in Practice",
+    "duration": "4 days",
+    "checkpoints": [
+      "Audit your app with axe DevTools and fix the top violations",
+      "Implement keyboard navigation and visible focus rings",
+      "Use ARIA attributes correctly for custom components",
+      "Test with a screen reader (NVDA or VoiceOver)",
+      "Integrate eslint-plugin-jsx-a11y into your workflow"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Accessibility is not optional \u2014 it's a legal requirement in many jurisdictions and expands your audience. Use semantic HTML first: a <button> is already keyboard-accessible and announces correctly to screen readers; a <div onClick> is not. When you build custom components (dropdowns, modals, tabs), you must manage focus, keyboard events, and ARIA roles manually. The WAI-ARIA authoring practices document is the definitive reference. Use axe DevTools to catch violations automatically. Test with your keyboard only \u2014 if you can't reach and activate every interactive element, your app has accessibility bugs."
+    }
+  },
+  {
+    "moduleTitle": "Micro-Frontend Architecture",
+    "duration": "5 days",
+    "checkpoints": [
+      "Understand when micro-frontends are worth the complexity",
+      "Set up Module Federation with Vite",
+      "Share a component library across two separate apps",
+      "Handle routing between micro-frontend shells",
+      "Discuss the operational trade-offs"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Micro-frontends extend microservice thinking to the UI layer \u2014 different teams own different parts of the interface and deploy independently. Vite Plugin Federation implements Webpack Module Federation for Vite apps. A host (shell) app dynamically imports remote components from separately deployed apps at runtime. Shared dependencies (like React itself) are deduplicated via shared scope configuration. The trade-offs are real: independent deployability and team autonomy come at the cost of increased operational complexity, versioning challenges, and potential runtime errors if contracts break. Use this architecture only when team-scale and deployment independence genuinely demand it."
+    }
+  },
+  {
+    "moduleTitle": "Advanced Performance: Profiling and Optimization",
+    "duration": "5 days",
+    "checkpoints": [
+      "Measure Core Web Vitals in production with Chrome User Experience Report",
+      "Reduce LCP by optimizing image loading and server response",
+      "Eliminate layout shift (CLS) by reserving space for dynamic content",
+      "Use the React Profiler API programmatically to log render timings",
+      "Implement virtualized lists with TanStack Virtual"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Real performance work is data-driven, not intuition-driven. Start with Core Web Vitals: LCP (Largest Contentful Paint) measures loading, FID/INP measures interactivity, CLS measures visual stability. Use Lighthouse in CI to catch regressions. For long lists (1000+ items), virtualization is essential \u2014 TanStack Virtual renders only the visible rows, keeping the DOM small. The React Profiler API lets you log render timings in production: <Profiler id='ListView' onRender={callback}>. Ship a performance budget and treat violations like failing tests."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Production-Grade Feature",
+    "duration": "8 days",
+    "checkpoints": [
+      "Plan a feature with a technical design document",
+      "Implement the feature using Next.js App Router with Server Components",
+      "Add full test coverage with Vitest and React Testing Library",
+      "Pass an axe accessibility audit with zero critical violations",
+      "Profile and document performance before and after any optimization",
+      "Write a short retrospective on decisions and trade-offs"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Advanced mastery is demonstrated through production discipline, not just technical knowledge. Choose a non-trivial feature \u2014 an infinite-scroll feed, a real-time collaborative editor, or a multi-step checkout flow. Start with a design doc: what problem does it solve, what are the edge cases, what are the performance and accessibility requirements? Implement it with Next.js, test it thoroughly, and audit it for accessibility. The retrospective is mandatory: writing about your decisions cements learning and creates an artifact you can share with teams and interviewers."
+    }
+  }
 ]

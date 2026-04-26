@@ -1,67 +1,87 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Beginner module 1 on System Overview. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "System Overview",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Beginner module 2 on Frontend Backend Contracts. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Frontend Backend Contracts",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Beginner module 3 on Authentication Flow. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Authentication Flow",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Beginner module 4 on End to End Features. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "End to End Features",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Beginner module 5 on Production Readiness. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Production Readiness",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Understanding Full Stack Architecture",
+    "duration": "2 days",
+    "checkpoints": [
+      "Draw a diagram of how the browser, React app, Flask API, and database relate",
+      "Understand what CORS is and why it exists",
+      "Identify what runs on the client and what runs on the server",
+      "Set up a project folder with separate frontend/ and backend/ directories"
+    ],
+    "content": {
+      "type": "text",
+      "value": "A full stack app has two distinct programs: a React frontend that runs in the browser, and a Flask backend that runs on a server. They communicate over HTTP \u2014 React fetches data from Flask endpoints using the browser's fetch API or a library like axios. CORS (Cross-Origin Resource Sharing) is a browser security policy that blocks requests from one origin (localhost:5173) to another (localhost:5000) unless the server explicitly allows it. Install Flask-CORS: from flask_cors import CORS; CORS(app). Keep your frontend and backend in separate folders with separate dependencies."
     }
+  },
+  {
+    "moduleTitle": "Setting Up Both Projects",
+    "duration": "3 days",
+    "checkpoints": [
+      "Scaffold the React project with Vite in frontend/",
+      "Create a Flask app with a virtual environment in backend/",
+      "Start both dev servers simultaneously in two terminals",
+      "Make a test fetch from React to a Flask health check endpoint"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Run both servers simultaneously: React on port 5173 (Vite default) and Flask on port 5000. In your React app, fetch from the Flask API: fetch('http://localhost:5000/api/health'). Your Flask health check returns { status: 'ok' }. If you see a CORS error, ensure Flask-CORS is configured. This first successful cross-origin request is the moment your full stack comes alive. Add a proxy in vite.config.js to avoid CORS during development: server.proxy['/api'] = 'http://localhost:5000'. With the proxy, React can call /api/health without the full origin."
+    }
+  },
+  {
+    "moduleTitle": "Fetching and Displaying API Data",
+    "duration": "4 days",
+    "checkpoints": [
+      "Create a Flask route that returns a list of items as JSON",
+      "Fetch the list from React using useEffect and useState",
+      "Render the list in the browser",
+      "Handle loading and error states in the UI"
+    ],
+    "content": {
+      "type": "text",
+      "value": "The core full stack loop: Flask returns JSON, React fetches and renders it. In Flask: @app.route('/api/items') returns jsonify([{'id': 1, 'name': 'Apple'}]). In React: useEffect(() => { fetch('/api/items').then(r => r.json()).then(setItems) }, []). Render with items.map(item => <li key={item.id}>{item.name}</li>). Display a loading spinner while fetching and an error message if the fetch fails. This pattern \u2014 fetch on mount, manage loading/error state, render results \u2014 is the full stack's heartbeat."
+    }
+  },
+  {
+    "moduleTitle": "Sending Data from React to Flask",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a form in React with controlled inputs",
+      "Submit the form with a POST fetch to a Flask route",
+      "Read the JSON body in Flask and save to SQLite",
+      "Update the React list immediately after a successful POST"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Writing data back to the server completes the loop. On form submit, send a POST with Content-Type: application/json and a JSON body: fetch('/api/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }). Flask reads it with request.get_json(). After a successful save, update the local state in React by appending the new item \u2014 this gives instant feedback without a full refetch. Optimistic updates (updating state before the server confirms) are the next level, but start with the simple pattern: wait for the response, then update."
+    }
+  },
+  {
+    "moduleTitle": "Deleting and Updating Records",
+    "duration": "4 days",
+    "checkpoints": [
+      "Add a delete button to each list item in React",
+      "Send a DELETE request to Flask on button click",
+      "Remove the item from React state after successful deletion",
+      "Add an edit form that sends a PUT request"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Delete is a DELETE request to /api/items/<id>. In React: fetch('/api/items/' + id, { method: 'DELETE' }). On success (204 No Content), filter the item out of state: setItems(items.filter(i => i.id !== id)). Edit is trickier: show an inline form pre-filled with the item's current values, submit a PUT request with the updated body, and on success replace the item in state. Notice the pattern: the HTTP method changes but the data flow (request \u2192 Flask processes \u2192 React updates state) stays the same."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Full Stack To-Do App",
+    "duration": "6 days",
+    "checkpoints": [
+      "Flask API with CRUD endpoints for to-do items",
+      "React frontend that fetches, creates, updates, and deletes items",
+      "SQLite database for persistence",
+      "Loading and error states handled in the UI",
+      "Deploy the Flask API and the React frontend"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone is a complete, deployed full stack app. The Flask API handles persistence via SQLite, the React frontend consumes the API. Deploy Flask to Render (free tier) and React to Vercel (free tier). Update the API base URL in React to point to the deployed Flask URL. Test the deployed app end-to-end. Having a live, publicly accessible full stack app is a compelling portfolio piece that demonstrates you understand the entire development cycle \u2014 from local development through deployment."
+    }
+  }
 ]

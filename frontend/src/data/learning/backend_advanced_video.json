@@ -1,72 +1,102 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "High-Scale Backend Architecture"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Flask Basics",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Enterprise API Design Strategies"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "REST API Design",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Data Layer Scaling and Reliability"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Database Integration",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Zero-Trust Security in APIs"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Auth and Security",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Observability and Production Rollouts"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Testing and Deployment",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Async Flask with async/await",
+    "duration": "4 days",
+    "checkpoints": [
+      "Write your first async view function",
+      "Make a concurrent external API call with httpx",
+      "Measure the timing improvement over sync",
+      "Identify when async is and isn't worth it"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=bqfMhMBuBkk"
     }
+  },
+  {
+    "moduleTitle": "Caching with Redis and Flask-Caching",
+    "duration": "4 days",
+    "checkpoints": [
+      "Run Redis with Docker",
+      "Cache a route with @cache.cached()",
+      "Memoize a function with @cache.memoize()",
+      "Invalidate the cache after a write"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=G82dDMcOXio"
+    }
+  },
+  {
+    "moduleTitle": "Background Tasks with Celery",
+    "duration": "5 days",
+    "checkpoints": [
+      "Configure Celery with a Redis broker",
+      "Define and trigger a background task",
+      "Poll task status from a Flask endpoint",
+      "Test retry behavior on task failure"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=HHMdcVT0hA0"
+    }
+  },
+  {
+    "moduleTitle": "Rate Limiting and Security Headers",
+    "duration": "3 days",
+    "checkpoints": [
+      "Apply a global rate limit with Flask-Limiter",
+      "Restrict login to 5 attempts per minute",
+      "Enable security headers with Flask-Talisman",
+      "Verify headers with a browser dev tools check"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=r4gCRzMkHxw"
+    }
+  },
+  {
+    "moduleTitle": "Containerization with Docker",
+    "duration": "4 days",
+    "checkpoints": [
+      "Write a Dockerfile for Flask with Gunicorn",
+      "Build and run the container",
+      "Write a docker-compose with Flask, Postgres, Redis",
+      "Run migrations on container startup"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=0H2miBK_gAk"
+    }
+  },
+  {
+    "moduleTitle": "API Versioning and Documentation",
+    "duration": "4 days",
+    "checkpoints": [
+      "Implement URL versioning with blueprints",
+      "Generate OpenAPI docs with flask-smorest",
+      "Expose Swagger UI at /api/docs",
+      "Document your deprecation policy"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=mt-0F_5KvQw"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Production-Ready API",
+    "duration": "8 days",
+    "checkpoints": [
+      "Containerize the full stack with docker-compose",
+      "Add Redis caching to an expensive endpoint",
+      "Offload a task to Celery",
+      "Lock down auth with rate limiting",
+      "Generate and expose Swagger docs",
+      "Write a full deployment README"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=sOBy47VjnX4"
+    }
+  }
 ]

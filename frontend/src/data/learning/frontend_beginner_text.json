@@ -1,67 +1,116 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Frontend (React) Beginner module 1 on React Fundamentals. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "React Fundamentals",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Beginner module 2 on Component Architecture. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Component Architecture",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Beginner module 3 on State and Effects. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "State and Effects",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Beginner module 4 on Routing and Data. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Routing and Data",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Beginner module 5 on Styling and UX. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Styling and UX",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "How the Web Works",
+    "duration": "3 days",
+    "checkpoints": [
+      "Understand what a browser does when you type a URL",
+      "Learn the difference between HTML, CSS, and JavaScript",
+      "Set up VS Code with helpful extensions",
+      "Create your first HTML file and open it in a browser"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Before writing a single line of React, you need a mental model of the web. When you type a URL, your browser sends a request to a server, which responds with HTML. The browser reads the HTML and constructs a tree of elements called the DOM (Document Object Model). CSS styles that tree, and JavaScript makes it interactive. React is simply a smarter way to manage and update that DOM. Understanding this foundation will make every React concept feel logical rather than magical."
     }
+  },
+  {
+    "moduleTitle": "HTML & CSS Fundamentals",
+    "duration": "5 days",
+    "checkpoints": [
+      "Write semantic HTML with headings, paragraphs, lists, and links",
+      "Style elements using class selectors and the box model",
+      "Build a simple two-column layout using Flexbox",
+      "Make your layout responsive with media queries"
+    ],
+    "content": {
+      "type": "text",
+      "value": "HTML gives your page structure, CSS gives it style. Learn semantic tags like <header>, <main>, and <footer> \u2014 they matter for accessibility and SEO. The box model (margin, border, padding, content) controls spacing. Flexbox is the layout system you'll use constantly in React: it lets you align and distribute items in a row or column. Practice building a simple card or navigation bar. Responsive design with media queries ensures your UI works on mobile too."
+    }
+  },
+  {
+    "moduleTitle": "JavaScript Essentials for React",
+    "duration": "6 days",
+    "checkpoints": [
+      "Understand variables with let and const",
+      "Write functions using arrow function syntax",
+      "Use array methods: map, filter, and find",
+      "Destructure objects and arrays",
+      "Understand what a Promise is and how async/await works"
+    ],
+    "content": {
+      "type": "text",
+      "value": "React is JavaScript, so a firm foundation pays dividends immediately. Focus on modern ES6+ syntax: const and let instead of var, arrow functions, and template literals. The array method map() is central to React \u2014 you'll use it to render lists. Destructuring lets you unpack values cleanly: const { name, age } = user. Async/await is how you'll eventually fetch data from APIs. You don't need to master all of JavaScript before starting React, but these fundamentals will unlock 90% of what you need."
+    }
+  },
+  {
+    "moduleTitle": "Your First React App",
+    "duration": "4 days",
+    "checkpoints": [
+      "Create a project with Vite: npm create vite@latest",
+      "Understand the folder structure (src, public, index.html)",
+      "Write your first functional component",
+      "Return JSX and render the component in App.jsx"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Use Vite to scaffold your project \u2014 it's fast and modern. Run npm create vite@latest, choose React, then npm install and npm run dev. Inside src/, App.jsx is your root component. A React component is just a JavaScript function that returns JSX \u2014 HTML-like syntax that React transforms into DOM elements. Components start with a capital letter. Your first goal: delete the boilerplate and render a heading with your name. Simple, but it confirms everything is wired correctly."
+    }
+  },
+  {
+    "moduleTitle": "Props and State",
+    "duration": "5 days",
+    "checkpoints": [
+      "Pass data into a component using props",
+      "Use useState to track a value that changes",
+      "Build a simple counter that increments and decrements",
+      "Understand why state is separate from props"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Props are how a parent component passes data to a child \u2014 they flow downward and are read-only. State is data that a component owns and can change. Use the useState hook: const [count, setCount] = useState(0). When you call setCount, React re-renders the component with the new value. Build a counter: a button that says +1 and another that says -1. This tiny project teaches the core React loop \u2014 event triggers state update, state update triggers re-render."
+    }
+  },
+  {
+    "moduleTitle": "Rendering Lists and Handling Events",
+    "duration": "4 days",
+    "checkpoints": [
+      "Render an array of items using .map() inside JSX",
+      "Add a unique key prop to each list item",
+      "Handle onClick events to respond to user interaction",
+      "Handle onChange on an input to capture text"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Rendering a list in React means mapping an array to JSX elements. Each element needs a unique key prop so React can efficiently update the DOM. Events use camelCase: onClick, onChange, onSubmit. An input's value combined with onChange gives you controlled inputs \u2014 a pattern you'll use in every form. Try building a to-do list where you type a task, press a button, and see it added to a list below. This combines state, events, and list rendering into one practical mini-app."
+    }
+  },
+  {
+    "moduleTitle": "Styling in React",
+    "duration": "3 days",
+    "checkpoints": [
+      "Use a regular CSS file imported into your component",
+      "Apply inline styles using a JavaScript object",
+      "Install and use Tailwind CSS in your Vite project",
+      "Use conditional class names based on state"
+    ],
+    "content": {
+      "type": "text",
+      "value": "React gives you several ways to style components. Plain CSS files work fine for simple projects \u2014 just import './Button.css'. Inline styles are objects: style={{ color: 'red', fontSize: '16px' }}. Tailwind CSS is the most popular choice in modern React: utility classes like bg-blue-500 and rounded-xl let you style without leaving JSX. Try toggling a class based on state \u2014 for example, showing a green or red background on a button depending on whether a task is done."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Personal Portfolio Page",
+    "duration": "5 days",
+    "checkpoints": [
+      "Create a Header component with your name and navigation links",
+      "Create an About section component with a short bio",
+      "Create a Projects component that renders a list of project cards",
+      "Apply Tailwind CSS to make the page look polished",
+      "Deploy to Vercel or Netlify"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Put everything together by building a personal portfolio. Break the page into components: Header, About, Projects, and Footer. Pass project data as props to a reusable ProjectCard component. Use Tailwind for layout and styling. This project exercises every beginner concept \u2014 components, props, lists, and styling \u2014 in a real context you can show to others. When you're happy with it, deploy it for free on Vercel. Sharing a live URL is far more memorable than showing screenshots."
+    }
+  }
 ]

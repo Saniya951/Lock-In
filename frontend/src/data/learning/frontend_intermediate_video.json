@@ -1,72 +1,116 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Advanced React Patterns"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "React Fundamentals",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Component Design and Composition"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Component Architecture",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "State Management and Effects"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "State and Effects",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "React Routing in Practice"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Routing and Data",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "UX and Visual Polish in React"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Styling and UX",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "React Hooks Deep Dive",
+    "duration": "5 days",
+    "checkpoints": [
+      "Watch the hooks overview and list all rules of hooks",
+      "Implement useEffect for a fetch on component mount",
+      "Experiment with the dependency array in three different modes",
+      "Return a cleanup function from useEffect",
+      "Use useRef to focus an input programmatically"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=LlvBjooxZZk"
     }
+  },
+  {
+    "moduleTitle": "Context API and Global State",
+    "duration": "4 days",
+    "checkpoints": [
+      "Create a context and Provider from scratch",
+      "Consume context in a nested component",
+      "Build a working theme toggle with Context",
+      "Explain when NOT to use Context"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=5LrDIWkK_Bc"
+    }
+  },
+  {
+    "moduleTitle": "React Router for Multi-Page Apps",
+    "duration": "4 days",
+    "checkpoints": [
+      "Set up BrowserRouter and define your first routes",
+      "Navigate with Link and useNavigate",
+      "Use useParams to read dynamic URL segments",
+      "Create a shared layout component with nested routes"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=Ul3y1LXxzdU"
+    }
+  },
+  {
+    "moduleTitle": "Forms and Validation",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a controlled multi-input form",
+      "Add blur and submit validation manually",
+      "Integrate React Hook Form into a form",
+      "Display conditional error messages"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=bU_eq8qyjic"
+    }
+  },
+  {
+    "moduleTitle": "Data Fetching with TanStack Query",
+    "duration": "5 days",
+    "checkpoints": [
+      "Set up QueryClient and wrap the app in its Provider",
+      "Fetch data with useQuery and handle loading/error",
+      "Write to the server with useMutation",
+      "Invalidate queries to sync state after a mutation"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=r8Dg0KVnfMA"
+    }
+  },
+  {
+    "moduleTitle": "Component Patterns and Reusability",
+    "duration": "4 days",
+    "checkpoints": [
+      "Extract shared logic into a custom hook",
+      "Build a compound component from scratch",
+      "Identify when render props make sense",
+      "Refactor one existing component using a new pattern"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=MSq_DCRxOxw"
+    }
+  },
+  {
+    "moduleTitle": "Performance Optimization",
+    "duration": "4 days",
+    "checkpoints": [
+      "Profile your app with React DevTools",
+      "Wrap a component in React.memo and verify fewer renders",
+      "Apply useMemo and useCallback where appropriate",
+      "Lazy load a heavy component with React.lazy"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=VYxuuFGMhpk"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Dashboard App",
+    "duration": "7 days",
+    "checkpoints": [
+      "Wire up React Router with a nested dashboard layout",
+      "Fetch real API data with TanStack Query",
+      "Add search or filter functionality",
+      "Implement a Context-powered theme toggle",
+      "Deploy to Vercel"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=F627pKNUCVQ"
+    }
+  }
 ]

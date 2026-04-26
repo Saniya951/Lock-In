@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Sun, Moon, ArrowLeft, BadgeCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Navbar from './Navbar';
 import useThemeMode from '../hooks/useThemeMode';
 
 const API_BASE = 'http://localhost:8000';
@@ -260,41 +261,7 @@ const Profile = () => {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#050505] text-white' : 'bg-gray-50 text-gray-900'}`}>
-      <header
-        className={`sticky top-0 z-20 border-b backdrop-blur-lg transition-colors duration-300 ${
-          isDarkMode ? 'bg-[#050505]/80 border-white/10' : 'bg-white/90 border-gray-200'
-        }`}
-      >
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/chat')}
-              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                isDarkMode ? 'text-gray-300 hover:bg-white/10 hover:text-white' : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Back to chat"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-lg flex items-center justify-center">
-              <Sparkles className="text-white w-5 h-5" />
-            </div>
-            <h1 className="text-xl font-semibold">Profile</h1>
-          </div>
-
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-              isDarkMode
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-        </div>
-      </header>
+      <Navbar variant="app" title="Profile" backTo="/chat" />
 
       <main className="max-w-5xl mx-auto px-6 py-10">
         <div

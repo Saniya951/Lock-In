@@ -1,67 +1,104 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Beginner module 1 on Flask Basics. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Flask Basics",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Beginner module 2 on REST API Design. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "REST API Design",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Beginner module 3 on Database Integration. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Database Integration",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Beginner module 4 on Auth and Security. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Auth and Security",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Beginner module 5 on Testing and Deployment. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Testing and Deployment",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Python Basics Refresher",
+    "duration": "4 days",
+    "checkpoints": [
+      "Write functions with parameters and return values",
+      "Use lists, dictionaries, and loops comfortably",
+      "Understand what a virtual environment is and why it matters",
+      "Create a venv and install a package with pip"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Flask is a Python framework, so you need to be comfortable with Python basics. Focus on functions (def), dictionaries (the data structure Flask uses everywhere for requests and responses), and loops. Virtual environments isolate your project's dependencies from your global Python installation \u2014 always use one. Run python -m venv venv, activate it with source venv/bin/activate (Mac/Linux) or venv\\Scripts\\activate (Windows), then pip install flask. The venv folder should be listed in .gitignore."
     }
+  },
+  {
+    "moduleTitle": "Your First Flask App",
+    "duration": "3 days",
+    "checkpoints": [
+      "Install Flask and create app.py",
+      "Define a route with @app.route() and a view function",
+      "Return a string response from the view",
+      "Run the dev server with flask run"
+    ],
+    "content": {
+      "type": "text",
+      "value": "A Flask app is just a Python file. Import Flask, create an app instance, and decorate a function with @app.route('/') to map a URL to that function. The function returns what the client receives \u2014 start with a plain string, then move to JSON. Run flask run and visit http://127.0.0.1:5000 in your browser. Flask's built-in dev server reloads automatically when you save. The entire framework fits in your head \u2014 that's its superpower and the reason it's a great starting point for learning web backends."
+    }
+  },
+  {
+    "moduleTitle": "Returning JSON and HTTP Methods",
+    "duration": "4 days",
+    "checkpoints": [
+      "Return JSON from a route using jsonify()",
+      "Accept GET and POST requests on the same route",
+      "Read JSON from a POST request body with request.get_json()",
+      "Understand HTTP status codes: 200, 201, 400, 404, 500"
+    ],
+    "content": {
+      "type": "text",
+      "value": "APIs communicate in JSON. Use Flask's jsonify() to return a dictionary as a proper JSON response with the correct Content-Type header. To accept both GET and POST on a route, add methods=['GET', 'POST'] to the decorator. In a POST handler, read the body with request.get_json(). Status codes signal success or failure: 200 OK, 201 Created (for new resources), 400 Bad Request (client sent invalid data), 404 Not Found, 500 Internal Server Error. Always return the appropriate status code \u2014 clients use it to decide how to handle the response."
+    }
+  },
+  {
+    "moduleTitle": "Working with a Database using SQLite and Flask-SQLAlchemy",
+    "duration": "5 days",
+    "checkpoints": [
+      "Install Flask-SQLAlchemy and configure a SQLite database",
+      "Define a model class that maps to a database table",
+      "Create the table by running db.create_all()",
+      "Insert, query, and delete records from the database",
+      "Understand what an ORM is and why it's useful"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Databases store your app's data persistently. SQLite is a file-based database \u2014 perfect for development because there's nothing to install. Flask-SQLAlchemy is an ORM (Object-Relational Mapper) that lets you define database tables as Python classes and interact with them using Python instead of raw SQL. Define a model class that inherits from db.Model, add column definitions, and call db.create_all() inside an app context to create the table. Query with User.query.all() or User.query.filter_by(email=email).first(). Add, commit, and delete records through db.session."
+    }
+  },
+  {
+    "moduleTitle": "Building a CRUD API",
+    "duration": "5 days",
+    "checkpoints": [
+      "Implement GET /items to return all records",
+      "Implement POST /items to create a new record",
+      "Implement GET /items/<id> to return one record",
+      "Implement PUT /items/<id> to update a record",
+      "Implement DELETE /items/<id> to delete a record",
+      "Test all endpoints with Postman or curl"
+    ],
+    "content": {
+      "type": "text",
+      "value": "CRUD (Create, Read, Update, Delete) is the foundation of almost every API. Map the four operations to HTTP methods: POST creates, GET reads, PUT/PATCH updates, DELETE deletes. Use URL parameters (<int:id>) to identify specific records. For each endpoint, validate the incoming data, perform the database operation, and return a meaningful response with the correct status code. Test with Postman \u2014 it lets you craft requests with any method, headers, and body without writing frontend code. Build a simple 'items' API and test every endpoint before moving on."
+    }
+  },
+  {
+    "moduleTitle": "Error Handling and Input Validation",
+    "duration": "3 days",
+    "checkpoints": [
+      "Use @app.errorhandler to return JSON error responses",
+      "Validate required fields in POST request bodies",
+      "Return 400 with a descriptive message for invalid input",
+      "Use abort() to trigger error responses from anywhere"
+    ],
+    "content": {
+      "type": "text",
+      "value": "A robust API never crashes silently. Use @app.errorhandler(404) and @app.errorhandler(500) to intercept errors and return structured JSON instead of HTML. Validate incoming data before touching the database \u2014 check that required fields exist, that strings aren't empty, and that numbers are within expected ranges. Return a 400 status code with a message like {'error': 'name is required'} when validation fails. The abort() function is a shortcut: abort(404) immediately triggers your 404 handler. Never trust client-provided data."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: To-Do List API",
+    "duration": "5 days",
+    "checkpoints": [
+      "Build a complete CRUD API for to-do items",
+      "Each item has title, description, done (boolean), and created_at fields",
+      "Add a route to filter items by done status",
+      "Handle all validation and errors with proper status codes",
+      "Write a README documenting all endpoints"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone is a complete, standalone API that a frontend could realistically consume. Build a to-do list API with full CRUD, a filter endpoint (/items?done=true), proper error handling, and a README that documents every endpoint with sample request and response bodies. Good documentation is a professional habit \u2014 it forces you to think about your API from the consumer's perspective. When the API is done, test every happy path and every error case with Postman and save the collection."
+    }
+  }
 ]

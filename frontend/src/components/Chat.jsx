@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MoreHorizontal, Eye, EyeOff, Sun, Moon, Database, Globe, PanelLeftClose, PanelLeftOpen, MessageSquarePlus, FolderOpen, CircleUserRound } from 'lucide-react';
+import { Send, MoreHorizontal, Eye, EyeOff, Database, Globe, PanelLeftClose, PanelLeftOpen, MessageSquarePlus, FolderOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WebContainer } from '@webcontainer/api';
 import JSZip from 'jszip';
+import Navbar from './Navbar';
 import PropertyEditor from './PropertyEditor';
 import { createElementInspectorScript } from '../utils/elementInspector';
 import { processJsxFiles, resetIdTracking } from '../utils/astProcessor';
@@ -27,10 +28,10 @@ const Chat = () => {
   const [webcontainerUrl, setWebcontainerUrl] = useState(null);
   const [webcontainerReady, setWebcontainerReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [threadId, setThreadId] = useState(null); // Persistent thread ID for multi-turn conversations
   const { isDarkMode, setIsDarkMode } = useThemeMode();
   const [useDeepSearch, setUseDeepSearch] = useState(false); // False: vector search, True: Tavily deep search
+  const [projectStatuses, setProjectStatuses] = useState({});
   
   // Visual Editing State
   const [visualEditingEnabled, setVisualEditingEnabled] = useState(false);
@@ -43,10 +44,58 @@ const Chat = () => {
   const webcontainerRef = useRef(null);
   const projectRootRef = useRef('');
   const menuRef = useRef(null);
-  const profileMenuRef = useRef(null);
   const creatingProjectPromiseRef = useRef(null);
   const authErrorShownRef = useRef(false);
   const navigate = useNavigate();
+
+  const normalizeProjectStatus = (value) => {
+    const normalized = (value || '').toLowerCase();
+    if (['pass', 'fail', 'running', 'idle'].includes(normalized)) {
+      return normalized;
+    }
+    return 'idle';
+  };
+
+  const getProjectStatusMeta = (value) => {
+    const normalized = normalizeProjectStatus(value);
+
+    if (normalized === 'pass') {
+      return {
+        label: 'PASS',
+        dotClass: 'bg-emerald-500',
+      };
+    }
+
+    if (normalized === 'fail') {
+      return {
+        label: 'FAIL',
+        dotClass: 'bg-red-500',
+      };
+    }
+
+    if (normalized === 'running') {
+      return {
+        label: 'RUNNING',
+        dotClass: 'bg-amber-500',
+      };
+    }
+
+    return {
+      label: 'IDLE',
+      dotClass: 'bg-slate-400',
+    };
+  };
+
+  const updateProjectStatus = (projectId, nextStatus) => {
+    if (!projectId) {
+      return;
+    }
+
+    setProjectStatuses((prev) => ({
+      ...prev,
+      [projectId]: normalizeProjectStatus(nextStatus),
+    }));
+  };
 
   const handleAuthFailure = () => {
     if (authErrorShownRef.current) {
@@ -146,16 +195,6 @@ const Chat = () => {
     setWebcontainerUrl(null);
   };
 
-  const openProfilePage = () => {
-    setProfileMenuOpen(false);
-    navigate('/profile');
-  };
-
-  const openLearningPage = () => {
-    setProfileMenuOpen(false);
-    navigate('/learning');
-  };
-
   const createProjectByName = async (projectName) => {
     const trimmedName = (projectName || '').trim();
     if (!trimmedName) {
@@ -175,7 +214,7 @@ const Chat = () => {
     return data.project || null;
   };
 
-  const promptProjectNameAndCreate = async () => {
+  const promptProjectNameAndCreate = async (initialStatus = 'idle') => {
     if (creatingProjectPromiseRef.current) {
       return creatingProjectPromiseRef.current;
     }
@@ -194,6 +233,7 @@ const Chat = () => {
 
         setProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
         setCurrentProjectId(project.id);
+        updateProjectStatus(project.id, initialStatus);
         localStorage.setItem('lockin.currentProjectId', project.id);
         return project.id;
       } catch (error) {
@@ -283,6 +323,12 @@ const Chat = () => {
       const data = await response.json();
       const projectList = data.projects || [];
       setProjects(projectList);
+      setProjectStatuses(
+        projectList.reduce((acc, project) => {
+          acc[project.id] = 'idle';
+          return acc;
+        }, {})
+      );
 
       const storedProjectId = localStorage.getItem('lockin.currentProjectId');
       const persistedProject = projectList.find((project) => project.id === storedProjectId) || null;
@@ -455,7 +501,7 @@ const Chat = () => {
   /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
-    if (!menuOpen && !profileMenuOpen) {
+    if (!menuOpen) {
       return;
     }
 
@@ -463,17 +509,13 @@ const Chat = () => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false);
       }
-
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
-        setProfileMenuOpen(false);
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpen, profileMenuOpen]);
+  }, [menuOpen]);
 
   // Setup message listener for iframe communication
   useEffect(() => {
@@ -866,7 +908,11 @@ const Chat = () => {
     setMessages((prev) => [...prev, userMessage]);
     const userPrompt = input;
     setInput('');
+    if (currentProjectId) {
+      updateProjectStatus(currentProjectId, 'running');
+    }
     setLoading(true);
+    let latestPromptStatus = 'fail';
 
     // Add initial bot message
     const botMessageId = Date.now() + 1;
@@ -1047,6 +1093,10 @@ const Chat = () => {
 
               case 'complete': {
                 setLoading(false);
+                latestPromptStatus = normalizeProjectStatus(eventData.status);
+                if (currentProjectId) {
+                  updateProjectStatus(currentProjectId, latestPromptStatus);
+                }
                 
                 // Update thread ID from response
                 if (eventData.thread_id) {
@@ -1077,7 +1127,7 @@ const Chat = () => {
                 }
 
                 if (!currentProjectId && Object.keys(streamedFiles).length > 0) {
-                  const projectIdForSave = await promptProjectNameAndCreate();
+                  const projectIdForSave = await promptProjectNameAndCreate(latestPromptStatus);
                   if (projectIdForSave) {
                     await persistGeneratedFiles(projectIdForSave, streamedFiles);
                   }
@@ -1097,6 +1147,9 @@ const Chat = () => {
 
               case 'error':
                 setLoading(false);
+                if (currentProjectId) {
+                  updateProjectStatus(currentProjectId, 'fail');
+                }
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === botMessageId
@@ -1115,6 +1168,9 @@ const Chat = () => {
     } catch (error) {
       console.error('Error sending message:', error);
       setLoading(false);
+      if (currentProjectId) {
+        updateProjectStatus(currentProjectId, 'fail');
+      }
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === botMessageId
@@ -1320,121 +1376,56 @@ const Chat = () => {
     <div className={`h-screen flex flex-col transition-colors duration-300 ${
       isDarkMode ? 'bg-[#050505] text-white' : 'bg-white text-gray-900'
     }`}>
-      {/* Header */}
-      <div className={`border-b px-6 py-4 flex items-center justify-between backdrop-blur-lg transition-colors duration-300 ${
-        isDarkMode ? 'border-white/5 bg-[#050505]/80' : 'border-gray-200 bg-white/80'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-lg flex items-center justify-center">
-            <Sparkles className="text-white w-5 h-5" />
-          </div>
-          <h1 className={`text-2xl font-bold transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>Lock-In</h1>
-        </div>
+      <Navbar
+        variant="app"
+        title="Workspace"
+        compact
+        actions={(
+          <>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => {
+                  setMenuOpen(!menuOpen);
+                }}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                  isDarkMode
+                    ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+                title="More actions"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
 
-        <div className="flex items-center gap-2">
-          {/* Theme Toggle Button */}
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-              isDarkMode 
-                ? 'text-gray-400 hover:text-white hover:bg-white/10' 
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-
-          {/* Menu Button */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => {
-                setMenuOpen(!menuOpen);
-                setProfileMenuOpen(false);
-              }}
-              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                isDarkMode 
-                  ? 'text-gray-400 hover:text-white hover:bg-white/10' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-
-            {/* Dropdown Menu */}
-            {menuOpen && (
-              <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50 transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-[#1a1a1a] border border-white/10' 
-                  : 'bg-white border border-gray-200'
-              }`}>
-                <button 
-                  onClick={exportAsZip}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-t-lg ${
-                    isDarkMode 
-                      ? 'text-gray-300 hover:bg-white/5 hover:text-white' 
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                   Export as zip
-                </button>
-                <button className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-b-lg border-t ${
-                  isDarkMode 
-                    ? 'text-gray-300 hover:bg-white/5 hover:text-white border-white/5' 
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 border-gray-200'
+              {menuOpen && (
+                <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50 transition-colors duration-300 ${
+                  isDarkMode
+                    ? 'bg-[#1a1a1a] border border-white/10'
+                    : 'bg-white border border-gray-200'
                 }`}>
-                   Link to github
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Profile Button */}
-          <div className="relative" ref={profileMenuRef}>
-            <button
-              onClick={() => {
-                setProfileMenuOpen(!profileMenuOpen);
-                setMenuOpen(false);
-              }}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white hover:opacity-80 transition-all"
-              title="Open profile menu"
-            >
-              <CircleUserRound className="w-5 h-5" />
-            </button>
-
-            {profileMenuOpen && (
-              <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-[#1a1a1a] border border-white/10'
-                  : 'bg-white border border-gray-200'
-              }`}>
-                <button
-                  onClick={openProfilePage}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-t-lg ${
-                    isDarkMode
-                      ? 'text-gray-300 hover:bg-white/5 hover:text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  Profile
-                </button>
-                <button
-                  onClick={openLearningPage}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-b-lg border-t ${
+                  <button
+                    onClick={exportAsZip}
+                    className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-t-lg ${
+                      isDarkMode
+                        ? 'text-gray-300 hover:bg-white/5 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    Export as zip
+                  </button>
+                  <button className={`w-full text-left px-4 py-2 text-sm transition-colors rounded-b-lg border-t ${
                     isDarkMode
                       ? 'text-gray-300 hover:bg-white/5 hover:text-white border-white/5'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 border-gray-200'
-                  }`}
-                >
-                  Learning Module
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+                  }`}>
+                    Link to github
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      />
 
       {/* Main Content with Resizable Panels */}
       <div className="flex-1 overflow-hidden flex" id="workspace-shell">
@@ -1501,35 +1492,47 @@ const Chat = () => {
                   No projects yet.
                 </div>
             ) : (
-              projects.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => handleSelectProject(project.id)}
-                  className={`w-full text-left px-3 py-3 rounded-lg border transition-all flex items-center gap-2 ${
-                    currentProjectId === project.id
-                      ? isDarkMode
-                        ? 'bg-indigo-500/15 border-indigo-500/50 text-white'
-                        : 'bg-indigo-50 border-indigo-200 text-gray-900'
-                      : isDarkMode
-                      ? 'bg-white/0 border-white/5 text-gray-300 hover:bg-white/5'
-                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                  title={project.name}
-                >
-                  <FolderOpen className="w-4 h-4 shrink-0" />
-                    <div className="min-w-0">
+              projects.map((project) => {
+                const statusMeta = getProjectStatusMeta(projectStatuses[project.id] || 'idle');
+
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => handleSelectProject(project.id)}
+                    className={`w-full text-left px-3 py-3 rounded-lg border transition-all flex items-center gap-2 ${
+                      currentProjectId === project.id
+                        ? isDarkMode
+                          ? 'bg-indigo-500/15 border-indigo-500/50 text-white'
+                          : 'bg-indigo-50 border-indigo-200 text-gray-900'
+                        : isDarkMode
+                        ? 'bg-white/0 border-white/5 text-gray-300 hover:bg-white/5'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title={project.name}
+                  >
+                    <FolderOpen className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0 w-full">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium truncate">{project.name}</span>
-                        {currentProjectId === project.id && (
-                          <span className="text-[10px] uppercase tracking-[0.2em] text-indigo-400">Active</span>
-                        )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {currentProjectId === project.id && (
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-indigo-400">Active</span>
+                          )}
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] ${
+                            isDarkMode ? 'bg-white/5 text-gray-200 border border-white/10' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${statusMeta.dotClass}`} />
+                            {statusMeta.label}
+                          </span>
+                        </div>
                       </div>
                       <p className={`mt-1 text-[11px] ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                         {project.last_opened_at ? new Date(project.last_opened_at).toLocaleString() : 'Recently updated'}
                       </p>
                     </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
           )}

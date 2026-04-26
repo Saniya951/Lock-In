@@ -1,67 +1,104 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Intermediate module 1 on System Overview. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "System Overview",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Intermediate module 2 on Frontend Backend Contracts. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Frontend Backend Contracts",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Intermediate module 3 on Authentication Flow. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Authentication Flow",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Intermediate module 4 on End to End Features. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "End to End Features",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Intermediate module 5 on Production Readiness. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Production Readiness",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "JWT Authentication Across the Stack",
+    "duration": "5 days",
+    "checkpoints": [
+      "Implement /register and /login in Flask that return JWT tokens",
+      "Store the token in React state (not localStorage) for this stage",
+      "Attach the token to every protected API request",
+      "Handle 401 responses in React by redirecting to login",
+      "Implement logout by clearing the token from state"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Authentication requires coordination between both layers. Flask issues a JWT on login; React stores it and sends it as a Bearer token in the Authorization header on every subsequent request. Use an axios instance with a request interceptor: axiosInstance.interceptors.request.use(config => { config.headers.Authorization = 'Bearer ' + token; return config; }). When a request returns 401, a response interceptor can automatically redirect to the login page. Store the token in React state (or Zustand) rather than localStorage to avoid XSS risks \u2014 the trade-off is that the session doesn't survive a page refresh, which you'll address with refresh tokens later."
     }
+  },
+  {
+    "moduleTitle": "Protected Routes in React",
+    "duration": "3 days",
+    "checkpoints": [
+      "Create a PrivateRoute wrapper component",
+      "Redirect unauthenticated users to /login",
+      "Preserve the intended destination URL in state",
+      "Redirect back to the intended page after login"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Not all pages should be accessible to unauthenticated users. Create a PrivateRoute component that checks for a token \u2014 if absent, redirects to /login using React Router's Navigate. Pass the current location to the redirect: <Navigate to='/login' state={{ from: location }} />. In the Login component, after successful authentication, read state.from and navigate there: navigate(state?.from || '/'). This gives users a seamless experience \u2014 they land on the page they originally intended to visit. Pair this with a public-only route wrapper that redirects authenticated users away from /login."
+    }
+  },
+  {
+    "moduleTitle": "Real-Time Data with Flask-SocketIO",
+    "duration": "5 days",
+    "checkpoints": [
+      "Install Flask-SocketIO and set up a WebSocket server",
+      "Connect to the WebSocket from React using socket.io-client",
+      "Emit and receive events between client and server",
+      "Build a live counter or chat feature to verify real-time updates",
+      "Handle disconnect and reconnect gracefully"
+    ],
+    "content": {
+      "type": "text",
+      "value": "HTTP is request-response: the client asks, the server answers. WebSockets are persistent, bidirectional connections \u2014 the server can push data to the client without being asked. Flask-SocketIO adds WebSocket support. On the server: @socketio.on('message') def handle_message(data): socketio.emit('response', data). On the client: const socket = io('http://localhost:5000'); socket.on('response', data => setMessages([...messages, data])). Build a simple live chat room: every message sent by any user is broadcast to all connected clients instantly. This architecture underpins collaborative features, live dashboards, and notifications."
+    }
+  },
+  {
+    "moduleTitle": "File Uploads from React to Flask",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a file input in React with preview for images",
+      "Send the file as FormData via a POST fetch",
+      "Validate and save the file in Flask",
+      "Return the file URL and display the uploaded image in React"
+    ],
+    "content": {
+      "type": "text",
+      "value": "File uploads use multipart/form-data, not JSON. In React: const formData = new FormData(); formData.append('avatar', file); fetch('/api/upload', { method: 'POST', body: formData }). Don't set Content-Type manually \u2014 the browser sets the multipart boundary automatically. In Flask: file = request.files['avatar']. Validate the extension and size, save with secure_filename, and return the relative URL. In React, display the returned URL in an <img> tag. For a polished UX, show a preview before upload using URL.createObjectURL(file)."
+    }
+  },
+  {
+    "moduleTitle": "State Management with Zustand Across Pages",
+    "duration": "4 days",
+    "checkpoints": [
+      "Create a Zustand store with user auth state",
+      "Persist the auth token to sessionStorage via the persist middleware",
+      "Access user state from any page without prop drilling",
+      "Reset the store on logout"
+    ],
+    "content": {
+      "type": "text",
+      "value": "As your app grows, React state in a top-level component and prop drilling becomes unwieldy. Zustand centralizes auth state: the user object, the token, and the login/logout actions live in one store. Any component reads state with useAuthStore(state => state.user) \u2014 no props needed. Use the persist middleware with sessionStorage as the storage engine so the session survives a page refresh but not a browser close (a reasonable security trade-off for most apps). The logout action clears the store and sessionStorage simultaneously. This pattern scales cleanly to apps with dozens of pages."
+    }
+  },
+  {
+    "moduleTitle": "Pagination and Infinite Scroll",
+    "duration": "4 days",
+    "checkpoints": [
+      "Add page and per_page query parameters to a Flask list endpoint",
+      "Return metadata: total, page, per_page, has_next",
+      "Implement page-based pagination controls in React",
+      "Alternatively, implement infinite scroll using an Intersection Observer"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Large datasets can't be returned all at once. Add pagination to Flask: page = request.args.get('page', 1, type=int); items = Item.query.paginate(page=page, per_page=20). Return total count and has_next in the response. In React, numbered pagination buttons call the API with the new page number and replace the current list. Infinite scroll is more engaging: use an IntersectionObserver to detect when the user reaches the bottom of the list and automatically append the next page. TanStack Query's useInfiniteQuery makes the infinite scroll pattern significantly cleaner to implement."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Social Bookmarking App",
+    "duration": "8 days",
+    "checkpoints": [
+      "Users register and log in; sessions managed with JWT in Zustand",
+      "Authenticated users can create, edit, and delete bookmarks",
+      "Bookmark list has pagination or infinite scroll",
+      "Protected routes redirect unauthenticated users to login",
+      "Users can upload a profile avatar",
+      "Deploy the full stack and test end-to-end"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone is a multi-user app that requires authentication, protected routes, file uploads, and pagination \u2014 all coordinated between a Flask API and a React frontend. This is the complexity level of real production software. Plan the API endpoints first (a simple table of method, path, auth required, description), then build the Flask layer, then the React layer. Test the full user journey: register \u2192 log in \u2192 create bookmarks \u2192 upload avatar \u2192 log out \u2192 confirm bookmarks persist. Deploy and share the live URL."
+    }
+  }
 ]

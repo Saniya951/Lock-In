@@ -1,72 +1,103 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Advanced System Design for Full Stack"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "System Overview",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Contract Evolution and Backward Compatibility"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Frontend Backend Contracts",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Hardened Authentication and Authorization"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Authentication Flow",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Large Feature Orchestration Across Services"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "End to End Features",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "SRE and Production Governance"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Production Readiness",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Monorepo Setup with Turborepo",
+    "duration": "4 days",
+    "checkpoints": [
+      "Set up a Turborepo workspace with frontend and backend apps",
+      "Create a shared types package",
+      "Run both apps with one command",
+      "Understand the pipeline cache output"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=YQLw5kJ1yrQ"
     }
+  },
+  {
+    "moduleTitle": "GraphQL with Strawberry and Apollo Client",
+    "duration": "6 days",
+    "checkpoints": [
+      "Define a schema and resolvers with Strawberry",
+      "Query and mutate data in GraphiQL",
+      "Connect Apollo Client to the endpoint in React",
+      "Implement a real-time subscription"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=1wY7ILSj3Xk"
+    }
+  },
+  {
+    "moduleTitle": "End-to-End Testing with Playwright",
+    "duration": "5 days",
+    "checkpoints": [
+      "Install Playwright and write a login test",
+      "Write a full CRUD test",
+      "Run tests in CI with GitHub Actions",
+      "Debug a failing test using the trace viewer"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=wGr5rz8WGCE"
+    }
+  },
+  {
+    "moduleTitle": "CI/CD with GitHub Actions",
+    "duration": "4 days",
+    "checkpoints": [
+      "Write a workflow that runs backend and frontend tests",
+      "Add a deploy step on push to main",
+      "Protect the main branch with CI requirements",
+      "Add a README status badge"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=R8_veQiYBjI"
+    }
+  },
+  {
+    "moduleTitle": "Observability with Sentry",
+    "duration": "4 days",
+    "checkpoints": [
+      "Install Sentry in Flask and React",
+      "Trigger and capture a test error",
+      "Set up an alert for high-frequency errors",
+      "Trace an error from the React client to the Flask server"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=CqjDuI5Ev9s"
+    }
+  },
+  {
+    "moduleTitle": "Feature Flags",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a Flask flag service backed by a database",
+      "Fetch flags in React at startup with Zustand",
+      "Gate a feature behind a flag check",
+      "Design a 50/50 A/B assignment for users"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=QRsVLtgfPJA"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Production SaaS Starter",
+    "duration": "10 days",
+    "checkpoints": [
+      "Monorepo with shared types",
+      "GraphQL API with a subscription",
+      "Full E2E test suite",
+      "CI/CD pipeline blocking on test failure",
+      "Sentry on frontend and backend",
+      "Feature flag with at least one gated feature",
+      "Architecture README"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=VEcnZxV2GW4"
+    }
+  }
 ]

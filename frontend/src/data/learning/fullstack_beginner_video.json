@@ -1,72 +1,86 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Full Stack System Overview"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "System Overview",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "API Contracts Between Frontend and Backend"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Frontend Backend Contracts",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Authentication Flow End to End"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Authentication Flow",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Building End-to-End Features"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "End to End Features",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Production Readiness for Full Stack Apps"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Production Readiness",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Understanding Full Stack Architecture",
+    "duration": "2 days",
+    "checkpoints": [
+      "Draw and explain the client-server diagram from the video",
+      "Enable CORS in a Flask app",
+      "Identify which code is client-side vs server-side",
+      "Set up the folder structure"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=7LNl2JlZKHA"
     }
+  },
+  {
+    "moduleTitle": "Setting Up Both Projects",
+    "duration": "3 days",
+    "checkpoints": [
+      "Scaffold React with Vite and Flask in separate folders",
+      "Run both dev servers",
+      "Configure Vite proxy for /api",
+      "Confirm a health-check fetch works"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=7LNl2JlZKHA&t=300"
+    }
+  },
+  {
+    "moduleTitle": "Fetching and Displaying API Data",
+    "duration": "4 days",
+    "checkpoints": [
+      "Create a Flask route returning JSON list",
+      "Fetch and render the list in React",
+      "Show a loading spinner during fetch",
+      "Display an error message on failure"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=06pWsB_hoD4"
+    }
+  },
+  {
+    "moduleTitle": "Sending Data from React to Flask",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a controlled form in React",
+      "POST JSON to Flask on submit",
+      "Save to SQLite in Flask",
+      "Append the new item to React state"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=PppslXOR7TA"
+    }
+  },
+  {
+    "moduleTitle": "Deleting and Updating Records",
+    "duration": "4 days",
+    "checkpoints": [
+      "Send DELETE request and remove from state",
+      "Build an edit form pre-filled with current values",
+      "Send PUT request and update state on success",
+      "Test all CRUD operations end-to-end"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=dam0GPOAvVI"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Full Stack To-Do App",
+    "duration": "6 days",
+    "checkpoints": [
+      "Build the complete Flask CRUD API",
+      "Build the complete React frontend",
+      "Test all operations locally",
+      "Deploy Flask to Render and React to Vercel"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=4jxy1V7Rtvo"
+    }
+  }
 ]

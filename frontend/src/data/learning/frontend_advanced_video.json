@@ -1,72 +1,101 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "React Architecture at Scale"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "React Fundamentals",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Advanced Component Systems"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Component Architecture",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Performance and Render Optimization"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "State and Effects",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Advanced Routing and Data Loading"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Routing and Data",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Design Systems and UX Strategy"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Styling and UX",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Advanced State Management with Zustand",
+    "duration": "5 days",
+    "checkpoints": [
+      "Build a store with state and actions following the video",
+      "Organize a large store using the slice pattern",
+      "Add persist middleware to sync state to localStorage",
+      "Write a test for a Zustand store action"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=_ngCLZ5Iz-0"
     }
+  },
+  {
+    "moduleTitle": "Server-Side Rendering with Next.js App Router",
+    "duration": "6 days",
+    "checkpoints": [
+      "Migrate a Vite app to Next.js App Router",
+      "Use Server vs Client Components in the right situations",
+      "Fetch data with an async Server Component",
+      "Implement a dynamic route with generateStaticParams"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=wm5gMKuwSYk"
+    }
+  },
+  {
+    "moduleTitle": "Testing React Applications",
+    "duration": "5 days",
+    "checkpoints": [
+      "Set up Vitest and React Testing Library",
+      "Write tests that query by role and interact via user-event",
+      "Mock API calls with MSW",
+      "Achieve meaningful test coverage on a real feature"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=8Xwpj9I4Q9A"
+    }
+  },
+  {
+    "moduleTitle": "Accessibility (a11y) in Practice",
+    "duration": "4 days",
+    "checkpoints": [
+      "Run axe DevTools on your app and triage violations",
+      "Fix keyboard navigation and focus management",
+      "Add correct ARIA attributes to a custom dropdown",
+      "Test your fixes with a screen reader"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=1A6SrPwmGpg"
+    }
+  },
+  {
+    "moduleTitle": "Micro-Frontend Architecture",
+    "duration": "5 days",
+    "checkpoints": [
+      "Set up a host and remote app with Vite Module Federation",
+      "Share a component across the two apps",
+      "Handle routing between the shell and remote apps",
+      "Document one real trade-off you experienced"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=lKKsjpH09dU"
+    }
+  },
+  {
+    "moduleTitle": "Advanced Performance Optimization",
+    "duration": "5 days",
+    "checkpoints": [
+      "Measure Core Web Vitals for your app in Lighthouse",
+      "Implement TanStack Virtual for a long list",
+      "Add a Profiler wrapper and log render timings",
+      "Fix at least one CLS or LCP issue you find"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=0fONene3OIA"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Production-Grade Feature",
+    "duration": "8 days",
+    "checkpoints": [
+      "Write a technical design document for your chosen feature",
+      "Implement it using Next.js App Router",
+      "Add full test coverage",
+      "Pass an axe audit with zero critical violations",
+      "Write a short retrospective on your decisions"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=6Nv18KBiN3A"
+    }
+  }
 ]

@@ -1,67 +1,104 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Intermediate module 1 on Flask Basics. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Flask Basics",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Intermediate module 2 on REST API Design. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "REST API Design",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Intermediate module 3 on Database Integration. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Database Integration",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Intermediate module 4 on Auth and Security. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Auth and Security",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Intermediate module 5 on Testing and Deployment. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Testing and Deployment",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "JWT Authentication",
+    "duration": "5 days",
+    "checkpoints": [
+      "Understand the JWT structure: header, payload, signature",
+      "Install Flask-JWT-Extended and configure a secret key",
+      "Implement /register and /login routes that issue tokens",
+      "Protect routes with @jwt_required()",
+      "Return the current user's identity with get_jwt_identity()"
+    ],
+    "content": {
+      "type": "text",
+      "value": "JSON Web Tokens are the standard for stateless authentication in REST APIs. A JWT is a signed string containing user claims \u2014 the server never stores session data. On login, verify credentials, then issue a token with create_access_token(identity=user.id). The client stores the token and sends it in the Authorization: Bearer <token> header on every subsequent request. @jwt_required() verifies the signature and rejects invalid or expired tokens. Use get_jwt_identity() to retrieve the user ID inside a protected route. Never store sensitive data in the token payload \u2014 it's base64-encoded, not encrypted."
     }
+  },
+  {
+    "moduleTitle": "Database Migrations with Flask-Migrate",
+    "duration": "3 days",
+    "checkpoints": [
+      "Install Flask-Migrate and initialize the migrations directory",
+      "Generate your first migration after creating a model",
+      "Apply the migration with flask db upgrade",
+      "Add a column to an existing model and generate a new migration"
+    ],
+    "content": {
+      "type": "text",
+      "value": "db.create_all() works for initial setup but ignores existing tables. Flask-Migrate uses Alembic under the hood to track schema changes incrementally. After install, run flask db init once to create a migrations/ folder. Each time you change a model, run flask db migrate -m 'add email column' to auto-generate a migration script, then flask db upgrade to apply it. Review the generated migration before applying \u2014 Alembic doesn't detect all changes (like column renames). Keep migration files in version control alongside your code."
+    }
+  },
+  {
+    "moduleTitle": "Blueprints for App Organization",
+    "duration": "4 days",
+    "checkpoints": [
+      "Understand why a single app.py file becomes unmanageable",
+      "Create a Blueprint for the auth routes",
+      "Create a Blueprint for the items routes",
+      "Register both blueprints in the application factory function"
+    ],
+    "content": {
+      "type": "text",
+      "value": "As an API grows, a single file becomes impossible to navigate. Blueprints are Flask's module system \u2014 each blueprint groups related routes, error handlers, and utilities. Create auth/routes.py with auth_bp = Blueprint('auth', __name__) and define routes on it. In a create_app() factory function, import and register blueprints: app.register_blueprint(auth_bp, url_prefix='/auth'). The factory pattern also makes testing easy \u2014 you can create a fresh app instance per test with test-specific configuration. Organize by feature (auth, items, users) not by file type (routes, models, helpers)."
+    }
+  },
+  {
+    "moduleTitle": "Request Validation with Marshmallow",
+    "duration": "4 days",
+    "checkpoints": [
+      "Install marshmallow and define a schema for your model",
+      "Validate and deserialize an incoming POST body",
+      "Serialize a SQLAlchemy model instance to JSON",
+      "Return structured validation errors with field-level messages"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Manual validation with if-else blocks doesn't scale. Marshmallow provides declarative schemas that validate, deserialize (input), and serialize (output) data. Define a schema class with typed fields: fields.String(required=True), fields.Email(), fields.Integer(load_default=0). Call schema.load(request.get_json()) to validate and transform input \u2014 it raises a ValidationError with field-level error messages if anything fails. Call schema.dump(model_instance) to serialize a SQLAlchemy object to a dictionary for jsonify(). Using the same schema for both input and output enforces consistency."
+    }
+  },
+  {
+    "moduleTitle": "Environment Configuration and .env Files",
+    "duration": "3 days",
+    "checkpoints": [
+      "Understand why secrets must never be hardcoded",
+      "Create a .env file and add it to .gitignore",
+      "Load environment variables with python-dotenv",
+      "Use a config class to separate development and production settings"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Hardcoded secrets (database URLs, JWT secret keys, API keys) are a security risk and a deployment headache. Store them in a .env file that is never committed to version control. python-dotenv reads .env automatically when you call load_dotenv(). Create a Config class in config.py: SECRET_KEY = os.environ.get('SECRET_KEY') and a DevelopmentConfig subclass with DEBUG = True. Pass the config class to create_app(): app.config.from_object(DevelopmentConfig). This pattern makes switching between development, testing, and production configuration trivial."
+    }
+  },
+  {
+    "moduleTitle": "File Uploads and Storage",
+    "duration": "4 days",
+    "checkpoints": [
+      "Accept file uploads with request.files",
+      "Validate file type and size before saving",
+      "Save files to a local uploads directory",
+      "Return the file URL in the API response"
+    ],
+    "content": {
+      "type": "text",
+      "value": "File uploads require multipart/form-data requests. Read the file with request.files['avatar']. Always validate before saving: check the extension against an allowlist and enforce a size limit. Save with file.save(os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))) \u2014 secure_filename() prevents directory traversal attacks. Serve uploaded files with a /uploads/<filename> route using send_from_directory(). For production, serve files from a CDN or object storage (like AWS S3) rather than your application server \u2014 it's faster and separates concerns."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Notes App API with Auth",
+    "duration": "7 days",
+    "checkpoints": [
+      "Register and login endpoints that issue JWT tokens",
+      "Protect all note endpoints with @jwt_required()",
+      "Each user can only see and edit their own notes",
+      "Notes have title, content, and updated_at fields",
+      "Use blueprints for auth and notes routes",
+      "Validate all inputs with Marshmallow schemas",
+      "Configure the app using a Config class and .env file"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone is a multi-user notes API that requires authentication. Every note belongs to a user \u2014 enforce this in every query with .filter_by(user_id=get_jwt_identity()). Use blueprints to separate auth and notes logic. Validate inputs with Marshmallow. Store configuration in .env. Run flask db upgrade instead of db.create_all(). Test the full user journey: register, login, create a note, edit it, retrieve it, delete it. Try to access another user's note and confirm you get a 403. This is the kind of complete, secure API you'd build professionally."
+    }
+  }
 ]

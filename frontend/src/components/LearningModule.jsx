@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Sparkles,
-  Sun,
-  Moon,
-  ArrowLeft,
   Clock3,
   Circle,
   CheckCircle2,
@@ -12,6 +8,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Navbar from './Navbar';
 import useThemeMode from '../hooks/useThemeMode';
 
 const contentFiles = import.meta.glob('../data/learning/*.json', { eager: true });
@@ -250,39 +247,7 @@ const LearningModule = () => {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#050505] text-white' : 'bg-gray-50 text-gray-900'}`}>
-      <header className={`sticky top-0 z-30 border-b backdrop-blur-lg transition-colors duration-300 ${
-        isDarkMode ? 'bg-[#050505]/85 border-white/10' : 'bg-white/90 border-gray-200'
-      }`}>
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/chat')}
-              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                isDarkMode ? 'text-gray-300 hover:bg-white/10 hover:text-white' : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Back to chat"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-lg flex items-center justify-center">
-              <Sparkles className="text-white w-5 h-5" />
-            </div>
-            <h1 className="text-xl font-semibold">Learning Module</h1>
-          </div>
-
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-              isDarkMode
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-        </div>
-      </header>
+      <Navbar variant="app" title="Learning Module" backTo="/chat" />
 
       <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
         {ongoingPaths.length > 0 && (
@@ -537,7 +502,9 @@ const LearningModule = () => {
                       onClick={() => setFormPreference(option)}
                       className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
                         formPreference === option
-                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100'
+                          ? isDarkMode
+                            ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100'
+                            : 'border-cyan-500 bg-cyan-50 text-cyan-900'
                           : isDarkMode
                             ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
                             : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
@@ -560,7 +527,9 @@ const LearningModule = () => {
                       onClick={() => setFormLevel(level)}
                       className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
                         formLevel === level
-                          ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100'
+                          ? isDarkMode
+                            ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100'
+                            : 'border-indigo-500 bg-indigo-50 text-indigo-900'
                           : isDarkMode
                             ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
                             : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'

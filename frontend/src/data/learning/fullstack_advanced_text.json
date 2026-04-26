@@ -1,67 +1,108 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Advanced module 1 on System Overview. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "System Overview",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Advanced module 2 on Frontend Backend Contracts. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Frontend Backend Contracts",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Advanced module 3 on Authentication Flow. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Authentication Flow",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Advanced module 4 on End to End Features. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "End to End Features",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Full Stack (React + Flask) Advanced module 5 on Production Readiness. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Production Readiness",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Monorepo Setup with Turborepo",
+    "duration": "4 days",
+    "checkpoints": [
+      "Understand why monorepos improve cross-layer consistency",
+      "Initialize a Turborepo workspace with apps/frontend and apps/backend",
+      "Share a TypeScript types package between frontend and backend",
+      "Run both apps concurrently with a single turbo dev command"
+    ],
+    "content": {
+      "type": "text",
+      "value": "In production teams, keeping frontend and backend in sync is an operational challenge. A monorepo houses both in a single version-controlled repository, enabling shared type definitions and coordinated deployments. Turborepo adds a build orchestration layer: it caches build artifacts and runs tasks in parallel. Create a packages/shared directory with TypeScript interfaces for your API response shapes \u2014 import the same interface in both the Flask OpenAPI schema and the React component. Turborepo's pipeline configuration defines the dependency order: frontend's dev task depends on backend's dev task starting first."
     }
+  },
+  {
+    "moduleTitle": "GraphQL API with Strawberry and React",
+    "duration": "6 days",
+    "checkpoints": [
+      "Understand REST vs GraphQL trade-offs",
+      "Define a GraphQL schema with Strawberry in Flask",
+      "Write queries and mutations from the GraphiQL explorer",
+      "Connect React to the GraphQL endpoint with Apollo Client",
+      "Implement a subscription for real-time updates"
+    ],
+    "content": {
+      "type": "text",
+      "value": "REST requires multiple round-trips and often over- or under-fetches data. GraphQL lets the client specify exactly what it needs in a single request. Strawberry is a Python GraphQL library with a type-safe, decorator-based API that integrates naturally with Flask. Define types with @strawberry.type, define a Query class with resolver functions, and mount the GraphQL endpoint with GraphQLView. Apollo Client on the React side handles caching, loading state, and polling. Subscriptions add WebSocket-based real-time updates \u2014 a GraphQL alternative to Socket.IO."
+    }
+  },
+  {
+    "moduleTitle": "End-to-End Testing with Playwright",
+    "duration": "5 days",
+    "checkpoints": [
+      "Install Playwright and configure it to target your running stack",
+      "Write a test that registers a user and logs in",
+      "Write a test that creates, edits, and deletes a resource",
+      "Run tests in CI with GitHub Actions against a test database",
+      "Add visual regression tests for key UI components"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Unit and integration tests verify individual layers; end-to-end tests verify the whole system works together. Playwright automates a real browser \u2014 it clicks buttons, fills forms, and asserts on DOM state just like a user would. The critical full stack test: register \u2192 log in \u2192 create a resource \u2192 verify it persists \u2192 log out \u2192 verify it's gone after logout. Run E2E tests in CI against a fresh test database (configured with a test-specific .env) so they never pollute production data. Playwright's trace viewer makes debugging failed CI tests practical."
+    }
+  },
+  {
+    "moduleTitle": "CI/CD Pipeline with GitHub Actions",
+    "duration": "4 days",
+    "checkpoints": [
+      "Write a GitHub Actions workflow that runs backend tests",
+      "Add a step that runs frontend tests",
+      "Add a deploy step that pushes to Render and Vercel on main",
+      "Protect the main branch: require passing CI before merge",
+      "Add a status badge to your README"
+    ],
+    "content": {
+      "type": "text",
+      "value": "CI/CD automates the path from code to production. A GitHub Actions workflow triggers on push to main: run backend pytest, run frontend Vitest, and if both pass, trigger deployments. Render and Vercel both offer webhook-based deploys \u2014 the workflow calls the deploy hook URL as a final step. Store secrets (API keys, deploy hook URLs) in GitHub Actions secrets, not in the workflow file. Branch protection rules enforce this gate: no direct pushes to main, CI must pass, at least one approval. This turns your side project into a professional, gated release process."
+    }
+  },
+  {
+    "moduleTitle": "Observability: Logging and Error Tracking",
+    "duration": "4 days",
+    "checkpoints": [
+      "Add structured JSON logging to Flask with python-json-logger",
+      "Instrument the React app with Sentry for frontend error tracking",
+      "Instrument Flask with Sentry for backend error tracking",
+      "Set up a Sentry alert for new high-frequency errors",
+      "Trace a user-triggered error from the React console to the Flask log"
+    ],
+    "content": {
+      "type": "text",
+      "value": "You can't fix what you can't see. Structured logging outputs JSON instead of plain text \u2014 log lines can be parsed by log aggregators like Datadog or AWS CloudWatch. Use python-json-logger to configure Flask's logger to emit JSON. Sentry captures unhandled exceptions in both layers and links them via a trace ID: one error in React generates a Sentry event that includes the API response, while the corresponding Flask exception appears as a linked server error. Set up an alert for any error that occurs more than five times in an hour \u2014 this is your production smoke detector."
+    }
+  },
+  {
+    "moduleTitle": "Feature Flags and A/B Testing",
+    "duration": "4 days",
+    "checkpoints": [
+      "Implement a simple flag service in Flask using a database table",
+      "Fetch flag values in React at app startup",
+      "Gate a UI feature behind a flag check",
+      "Toggle the flag in the database and observe the change without a deploy",
+      "Design a simple A/B test: 50/50 flag assignment per user"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Feature flags decouple deployment from release \u2014 you ship code dark and enable it for users when ready. Build a simple flag service: a Flask endpoint returns { 'new_dashboard': true, 'beta_editor': false } based on flag records in the database. React fetches flags at startup and stores them in a Zustand store. Gate features: if (flags.new_dashboard) return <NewDashboard />. Flipping a flag in the database changes behavior for all users within seconds, with no redeploy. A/B testing extends this: assign users to a variant deterministically (hash the user ID) and log which variant they saw alongside conversion events."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Production SaaS Starter",
+    "duration": "10 days",
+    "checkpoints": [
+      "Monorepo with shared TypeScript types for API contracts",
+      "GraphQL API with at least one subscription",
+      "Full E2E test suite covering the critical user journey",
+      "CI/CD pipeline that blocks deploys on test failure",
+      "Sentry error tracking on both frontend and backend",
+      "Feature flag system with at least one gated feature",
+      "A comprehensive README with architecture decisions documented"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone is a production-grade SaaS starter kit \u2014 the kind of foundation a startup would build on. It demonstrates advanced full stack skills: monorepo tooling, GraphQL, comprehensive testing, automated deployment, observability, and feature flags. The architecture document in the README is as important as the code: explain why you chose each tool, what trade-offs you made, and what you'd change with more time. This project is not a portfolio piece \u2014 it's a platform you could realistically ship a product on."
+    }
+  }
 ]

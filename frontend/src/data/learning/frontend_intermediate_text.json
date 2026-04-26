@@ -1,67 +1,120 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Frontend (React) Intermediate module 1 on React Fundamentals. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "React Fundamentals",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Intermediate module 2 on Component Architecture. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Component Architecture",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Intermediate module 3 on State and Effects. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "State and Effects",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Intermediate module 4 on Routing and Data. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Routing and Data",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Frontend (React) Intermediate module 5 on Styling and UX. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Styling and UX",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "React Hooks Deep Dive",
+    "duration": "5 days",
+    "checkpoints": [
+      "Understand the rules of hooks and why they exist",
+      "Use useEffect for data fetching on component mount",
+      "Control useEffect re-runs with the dependency array",
+      "Clean up subscriptions and timers in useEffect",
+      "Use useRef to access DOM elements directly"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Hooks are functions that let you use React features inside functional components. useEffect runs side effects \u2014 fetching data, setting up subscriptions, or updating the document title. The dependency array is its most misunderstood feature: an empty array means 'run once on mount', a populated array means 'run when these values change', and omitting it entirely means 'run on every render' (rarely what you want). useRef is a mutable container that persists across renders without causing re-renders \u2014 great for focusing an input or storing a timer ID."
     }
+  },
+  {
+    "moduleTitle": "Context API and Global State",
+    "duration": "4 days",
+    "checkpoints": [
+      "Identify the prop-drilling problem in a multi-level component tree",
+      "Create a context with createContext and a Provider",
+      "Consume context with useContext in a deeply nested component",
+      "Build a theme toggle using Context"
+    ],
+    "content": {
+      "type": "text",
+      "value": "When data needs to be accessible across many components, passing it through every intermediate layer (prop drilling) becomes messy. Context is React's built-in solution. Create a context with createContext(), wrap your component tree in a Provider with a value prop, and consume it anywhere below with useContext(). A practical example: a ThemeContext that stores isDark and a toggle function. Any component in the tree can read the theme and toggle it without receiving any props. Context is not a state management library \u2014 it's a communication channel."
+    }
+  },
+  {
+    "moduleTitle": "React Router for Multi-Page Apps",
+    "duration": "4 days",
+    "checkpoints": [
+      "Install React Router and wrap your app in BrowserRouter",
+      "Define routes with <Route> and render components",
+      "Navigate between pages with <Link> and useNavigate",
+      "Read URL parameters with useParams",
+      "Create a 404 Not Found route"
+    ],
+    "content": {
+      "type": "text",
+      "value": "React Router transforms a single-page app into one that feels multi-page. Install react-router-dom, wrap your app in <BrowserRouter>, and define <Routes> with individual <Route path='...' element={...} /> entries. Use <Link to='/about'> for navigation \u2014 never anchor tags, which cause full page reloads. useNavigate() gives you programmatic navigation (e.g. after a form submission). useParams() extracts dynamic segments from the URL like /product/:id. Nested routes let you share a layout across child pages."
+    }
+  },
+  {
+    "moduleTitle": "Forms and Validation",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a controlled form with multiple inputs",
+      "Validate fields on blur and on submit",
+      "Display inline error messages conditionally",
+      "Install and use React Hook Form to simplify complex forms"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Controlled forms link each input's value to state via onChange. For complex forms with many fields, this gets verbose. React Hook Form solves this: register inputs with a ref, call handleSubmit with your submit handler, and use formState.errors to display validation messages. Validation rules live inline: required, minLength, pattern. This approach is significantly more performant than fully controlled forms because it avoids a re-render on every keystroke. For simple forms, plain controlled inputs are fine; for anything with 5+ fields, React Hook Form pays off immediately."
+    }
+  },
+  {
+    "moduleTitle": "Data Fetching with TanStack Query",
+    "duration": "5 days",
+    "checkpoints": [
+      "Understand the problem: loading, error, and stale data management",
+      "Set up QueryClient and QueryClientProvider",
+      "Fetch data with useQuery and display loading/error states",
+      "Mutate server data with useMutation and invalidate queries",
+      "Implement pagination or infinite scroll with useInfiniteQuery"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Fetching data in useEffect works, but it leaves you managing loading, error, caching, and refetching manually. TanStack Query (formerly React Query) handles all of this. Wrap your app in <QueryClientProvider>. Call useQuery({ queryKey: ['todos'], queryFn: fetchTodos }) and you get data, isLoading, and error automatically. Results are cached by key \u2014 navigate away and back, and the data reappears instantly while a background refetch happens. useMutation handles writes: on success, call queryClient.invalidateQueries to trigger a fresh fetch. It's the single biggest quality-of-life improvement for any data-driven React app."
+    }
+  },
+  {
+    "moduleTitle": "Component Patterns and Reusability",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a compound component (e.g. Tabs with Tab and TabPanel)",
+      "Use the render props pattern to share logic",
+      "Create a custom hook that encapsulates reusable logic",
+      "Understand when to use each pattern"
+    ],
+    "content": {
+      "type": "text",
+      "value": "As your app grows, you'll need components that are flexible without becoming bloated. Compound components (think <Select><Option /></Select>) let related components share implicit state. Custom hooks extract reusable stateful logic \u2014 useWindowSize, useLocalStorage, useDebounce \u2014 keeping components clean. The render props pattern passes a function as a prop so the parent controls what gets rendered. Knowing when to reach for each pattern is what separates intermediate from advanced React developers. The rule of thumb: extract a custom hook when you find yourself duplicating useEffect or useState logic."
+    }
+  },
+  {
+    "moduleTitle": "Performance Optimization",
+    "duration": "4 days",
+    "checkpoints": [
+      "Use React DevTools to profile unnecessary re-renders",
+      "Memoize components with React.memo",
+      "Cache expensive computations with useMemo",
+      "Stabilize function references with useCallback",
+      "Implement code splitting with React.lazy and Suspense"
+    ],
+    "content": {
+      "type": "text",
+      "value": "React is fast by default, but avoidable re-renders compound in large apps. Use React DevTools' Profiler to identify components rendering more often than necessary. React.memo wraps a component and skips re-rendering if props haven't changed. useMemo caches the result of an expensive computation. useCallback memoizes a function so its reference stays stable \u2014 important when passing callbacks to memoized children. Code splitting with React.lazy(() => import('./HeavyComponent')) splits your bundle and loads chunks on demand, dramatically improving initial load time."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Dashboard App",
+    "duration": "7 days",
+    "checkpoints": [
+      "Set up React Router with a dashboard layout and nested routes",
+      "Fetch and display data from a public API using TanStack Query",
+      "Add filtering or search with controlled inputs",
+      "Implement a theme toggle using Context",
+      "Profile and fix at least one performance issue",
+      "Deploy to Vercel with environment variables"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone combines every intermediate skill into a cohesive product. Choose a public API (GitHub, OpenWeatherMap, or any JSONPlaceholder endpoint) and build a small dashboard around it. Use React Router for navigation between sections, TanStack Query for data fetching, Context for theming, and React Hook Form for any user input. The goal isn't a perfect app \u2014 it's demonstrable evidence that you can wire together real tools to solve a real problem. Polish one feature until it feels genuinely good rather than shipping ten half-baked ones."
+    }
+  }
 ]

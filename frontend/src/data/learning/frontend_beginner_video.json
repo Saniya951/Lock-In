@@ -1,72 +1,114 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "React Fundamentals - Core Concepts"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "React Fundamentals",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "React Components - Building Reusable UI"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Component Architecture",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "React Hooks - State and Effects"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "State and Effects",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "React Router - Navigation and Data Flow"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Routing and Data",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Styling React Apps"
-                    },
-        "duration":  "25 mins",
-        "moduleTitle":  "Styling and UX",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "How the Web Works",
+    "duration": "3 days",
+    "checkpoints": [
+      "Watch the intro and explain back what a browser does",
+      "Identify HTML, CSS, and JS roles in a webpage",
+      "Set up VS Code and install the Prettier extension",
+      "Create and open your first HTML file"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=zXqs6X0lzKI"
     }
+  },
+  {
+    "moduleTitle": "HTML & CSS Fundamentals",
+    "duration": "5 days",
+    "checkpoints": [
+      "Write a page using semantic HTML tags",
+      "Style elements with classes and the box model",
+      "Build a Flexbox layout with two columns",
+      "Add one media query to make it mobile-friendly"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=G3e-cpL7ofc"
+    }
+  },
+  {
+    "moduleTitle": "JavaScript Essentials for React",
+    "duration": "6 days",
+    "checkpoints": [
+      "Practice arrow functions and const/let",
+      "Use .map() and .filter() on a sample array",
+      "Destructure an object and an array",
+      "Write a small async function using async/await"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=W6NZfCO5SIk"
+    }
+  },
+  {
+    "moduleTitle": "Your First React App",
+    "duration": "4 days",
+    "checkpoints": [
+      "Scaffold a project with Vite",
+      "Explore the folder structure",
+      "Write and render your first component",
+      "See your changes live in the browser"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=SqcY0GlETPk"
+    }
+  },
+  {
+    "moduleTitle": "Props and State",
+    "duration": "5 days",
+    "checkpoints": [
+      "Pass props from a parent to a child component",
+      "Add useState to track a changing value",
+      "Build a counter app with increment and decrement",
+      "Explain the difference between props and state"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=TNhaISOUy6Q"
+    }
+  },
+  {
+    "moduleTitle": "Rendering Lists and Handling Events",
+    "duration": "4 days",
+    "checkpoints": [
+      "Render a list with .map() and add key props",
+      "Handle a button click with onClick",
+      "Capture input text with onChange",
+      "Build a simple to-do list app"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=Ke90Tje7VS0"
+    }
+  },
+  {
+    "moduleTitle": "Styling with Tailwind CSS",
+    "duration": "3 days",
+    "checkpoints": [
+      "Install Tailwind CSS in your Vite project",
+      "Apply utility classes to style a component",
+      "Toggle classes based on state",
+      "Make a card component with hover effects"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=mr15Xzb1Ook"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Personal Portfolio Page",
+    "duration": "5 days",
+    "checkpoints": [
+      "Create Header, About, and Projects components",
+      "Pass project data as props to a reusable card",
+      "Style the page with Tailwind",
+      "Deploy the finished portfolio to Vercel"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=OPaLnMw2i_0"
+    }
+  }
 ]

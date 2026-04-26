@@ -1,72 +1,102 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Intermediate Full Stack Architecture"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "System Overview",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Stable Frontend-Backend Contracts"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Frontend Backend Contracts",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Advanced Auth Flow and Sessions"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Authentication Flow",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Feature Delivery Across the Stack"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "End to End Features",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Deployment and Runtime Operations"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Production Readiness",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "JWT Authentication Across the Stack",
+    "duration": "5 days",
+    "checkpoints": [
+      "Build register and login Flask endpoints",
+      "Store the JWT in React state",
+      "Attach the token with an axios interceptor",
+      "Handle 401 by redirecting to login",
+      "Implement logout"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=PdFdd4NcBDg"
     }
+  },
+  {
+    "moduleTitle": "Protected Routes in React",
+    "duration": "3 days",
+    "checkpoints": [
+      "Create a PrivateRoute wrapper with React Router",
+      "Redirect unauthenticated users to /login",
+      "Pass the intended URL in navigation state",
+      "Redirect back after successful login"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=2k8NleFjG7I"
+    }
+  },
+  {
+    "moduleTitle": "Real-Time Data with Flask-SocketIO",
+    "duration": "5 days",
+    "checkpoints": [
+      "Set up Flask-SocketIO and connect from React",
+      "Emit and receive custom events",
+      "Build a live broadcast feature",
+      "Handle disconnect and reconnect"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=AMp6hlA8xKA"
+    }
+  },
+  {
+    "moduleTitle": "File Uploads from React to Flask",
+    "duration": "4 days",
+    "checkpoints": [
+      "Build a file input with image preview",
+      "Send as FormData in a POST request",
+      "Validate and save in Flask",
+      "Render the returned URL as an image"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=2Tw2MoKfn-Q"
+    }
+  },
+  {
+    "moduleTitle": "Zustand for Cross-Page State",
+    "duration": "4 days",
+    "checkpoints": [
+      "Create an auth store in Zustand",
+      "Persist the token with sessionStorage middleware",
+      "Consume auth state from multiple pages",
+      "Clear the store on logout"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=_ngCLZ5Iz-0"
+    }
+  },
+  {
+    "moduleTitle": "Pagination and Infinite Scroll",
+    "duration": "4 days",
+    "checkpoints": [
+      "Add pagination parameters to a Flask list endpoint",
+      "Build page controls in React",
+      "Implement infinite scroll with IntersectionObserver",
+      "Try useInfiniteQuery from TanStack Query"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=NZKUirTtxcg"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Social Bookmarking App",
+    "duration": "8 days",
+    "checkpoints": [
+      "Build auth flow end-to-end across both layers",
+      "Implement bookmark CRUD with protected routes",
+      "Add pagination to the bookmark list",
+      "Allow avatar uploads",
+      "Deploy and test the live app"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=7LNl2JlZKHA"
+    }
+  }
 ]

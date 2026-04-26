@@ -1,67 +1,106 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Advanced module 1 on Flask Basics. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Flask Basics",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Advanced module 2 on REST API Design. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "REST API Design",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Advanced module 3 on Database Integration. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Database Integration",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Advanced module 4 on Auth and Security. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Auth and Security",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "Backend (Flask) Advanced module 5 on Testing and Deployment. In this lesson you will understand the core idea, break it into practical tasks, and apply it in a mini build. Start with the fundamentals of why this topic matters, then walk through a step by step implementation flow with common mistakes to avoid. By the end, you should be able to explain the concept, implement it from scratch, and connect it to a larger project architecture with confidence.",
-                        "type":  "text"
-                    },
-        "duration":  "60 mins",
-        "moduleTitle":  "Testing and Deployment",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Async Flask with async/await",
+    "duration": "4 days",
+    "checkpoints": [
+      "Understand when async matters in a Flask context",
+      "Install flask[async] and write an async view function",
+      "Make an async HTTP call with httpx inside a view",
+      "Compare response times between sync and async I/O-bound routes"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Flask 2.0+ supports async view functions natively. Declare a view with async def and await I/O-bound calls \u2014 HTTP requests to external APIs, slow database queries \u2014 inside it. This prevents blocking the thread while waiting. Use httpx.AsyncClient() as an async HTTP client. The caveat: Flask still runs in a synchronous WSGI context by default; for full async throughput you need an ASGI server like Hypercorn or a migration to FastAPI. Async Flask is most useful when a single request fans out to multiple external services concurrently."
     }
+  },
+  {
+    "moduleTitle": "Caching with Redis",
+    "duration": "4 days",
+    "checkpoints": [
+      "Run Redis locally with Docker",
+      "Install Flask-Caching and configure the Redis backend",
+      "Cache an expensive route response with @cache.cached()",
+      "Cache at the function level with @cache.memoize()",
+      "Manually invalidate a cache key after a data mutation"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Caching eliminates redundant computation and database load. Redis is the standard in-memory cache for Python backends. Flask-Caching wraps Redis with a clean API: @cache.cached(timeout=60) caches the entire route response for 60 seconds. @cache.memoize() caches based on function arguments \u2014 useful for functions called with different parameters. Cache invalidation is the hard part: after a write operation, call cache.delete_memoized(my_function, arg) or use a cache key prefix per resource that you can bust with cache.delete_many(). Always measure cache hit rates in production."
+    }
+  },
+  {
+    "moduleTitle": "Background Tasks with Celery",
+    "duration": "5 days",
+    "checkpoints": [
+      "Install Celery and configure it with a Redis broker",
+      "Define a task with the @celery.task decorator",
+      "Trigger the task from a Flask route with .delay()",
+      "Poll task status from the client using the task ID",
+      "Handle task retries and failure states"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Long-running operations (sending emails, processing uploads, generating reports) should never block an HTTP request. Celery offloads them to a worker process. Define a task: @celery.task def send_email(user_id): ... . In your route, call send_email.delay(user_id) \u2014 this returns immediately with a task ID. The client can poll GET /tasks/<task_id> to check progress. Configure retries with @celery.task(max_retries=3, default_retry_delay=60). Redis serves as both the message broker (task queue) and result backend. In production, run workers with celery -A app.celery worker --loglevel=info."
+    }
+  },
+  {
+    "moduleTitle": "Rate Limiting and Security Headers",
+    "duration": "3 days",
+    "checkpoints": [
+      "Install Flask-Limiter and apply a global rate limit",
+      "Apply stricter limits to authentication endpoints",
+      "Add security headers with Flask-Talisman",
+      "Test rate limit behavior with a simple loop script"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Public APIs need protection against abuse. Flask-Limiter applies rate limits declaratively: @limiter.limit('5 per minute') on the login route prevents brute-force attacks. Use Redis as the storage backend so limits are shared across multiple workers. Flask-Talisman adds HTTP security headers in one line: Talisman(app) enables HTTPS-only, sets X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy. Review the CSP carefully \u2014 a misconfigured CSP breaks legitimate resources. These two libraries cover the most common security baseline for production Flask APIs."
+    }
+  },
+  {
+    "moduleTitle": "Containerization with Docker",
+    "duration": "4 days",
+    "checkpoints": [
+      "Write a Dockerfile for the Flask app",
+      "Build and run the container locally",
+      "Write a docker-compose.yml for Flask, PostgreSQL, and Redis",
+      "Use environment variables via docker-compose for secrets",
+      "Run database migrations inside the container on startup"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Docker packages your app and its dependencies into a portable container. The Dockerfile starts from python:3.11-slim, installs requirements.txt, copies your source, and defines CMD [\"gunicorn\", \"app:create_app()\"]. docker-compose orchestrates multiple services: your Flask app, a PostgreSQL container, and a Redis container \u2014 each in its own service with a named network for inter-service communication. Pass secrets as environment variables in docker-compose.yml (and override with a .env file). Add a healthcheck to the Flask service so dependent services wait for it to be ready."
+    }
+  },
+  {
+    "moduleTitle": "API Versioning and Documentation",
+    "duration": "4 days",
+    "checkpoints": [
+      "Design a URL versioning strategy: /api/v1/...",
+      "Register versioned blueprints in the factory",
+      "Generate OpenAPI documentation with flask-smorest",
+      "Expose a Swagger UI at /docs",
+      "Write a deprecation strategy for v1 when v2 launches"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Production APIs change over time, but you can't break existing clients. URL versioning (/api/v1/, /api/v2/) is the simplest strategy \u2014 register each version as a separate blueprint. flask-smorest integrates marshmallow schemas with OpenAPI spec generation automatically. Annotate your routes with @blp.arguments(MySchema) and @blp.response(200, MySchema) and flask-smorest builds the spec. Expose Swagger UI at /api/docs for interactive exploration. Establish a deprecation policy: announce v2, support v1 for six months, then sunset it. Document the policy in your README."
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Production-Ready API",
+    "duration": "8 days",
+    "checkpoints": [
+      "Containerize the app with Docker and docker-compose",
+      "Add Redis caching to at least one expensive endpoint",
+      "Offload one operation to a Celery background task",
+      "Apply rate limiting to auth endpoints",
+      "Generate OpenAPI docs with Swagger UI",
+      "Write a deployment README with setup instructions"
+    ],
+    "content": {
+      "type": "text",
+      "value": "Your capstone is a deployment-ready API that demonstrates professional engineering practices. Take an existing Flask API (your notes app or a new domain) and harden it: containerize it, add caching, offload a background task, lock down auth endpoints with rate limiting, and generate API documentation. The deployment README should let a colleague spin up the entire stack with two commands. This level of completeness \u2014 security, performance, observability, documentation \u2014 is what distinguishes a production API from a prototype."
+    }
+  }
 ]

@@ -1,72 +1,100 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Flask Basics for Beginners"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Flask Basics",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "REST API Design with Flask"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "REST API Design",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Database Integration in Python Apps"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Database Integration",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Authentication and Security Basics"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Auth and Security",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Testing and Deployment Workflow"
-                    },
-        "duration":  "30 mins",
-        "moduleTitle":  "Testing and Deployment",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "Python Basics Refresher",
+    "duration": "4 days",
+    "checkpoints": [
+      "Watch the Python crash course and write five functions",
+      "Create and activate a virtual environment",
+      "Install Flask with pip inside the venv",
+      "Verify Flask installed correctly"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=kqtD5dpn9C8"
     }
+  },
+  {
+    "moduleTitle": "Your First Flask App",
+    "duration": "3 days",
+    "checkpoints": [
+      "Create app.py and define your first route",
+      "Return a plain string response",
+      "Run flask run and view the result in a browser",
+      "Try adding a second route"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=mqhxxeeTbu0"
+    }
+  },
+  {
+    "moduleTitle": "Returning JSON and HTTP Methods",
+    "duration": "4 days",
+    "checkpoints": [
+      "Return JSON with jsonify()",
+      "Add a POST route and read the request body",
+      "Test GET and POST with curl or Postman",
+      "Return correct status codes for each scenario"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=GMppyAPbLYk"
+    }
+  },
+  {
+    "moduleTitle": "Flask-SQLAlchemy and SQLite",
+    "duration": "5 days",
+    "checkpoints": [
+      "Install and configure Flask-SQLAlchemy",
+      "Define a model and create the table",
+      "Insert and query records from the database",
+      "Delete a record and verify it's gone"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=cYWiDiIUxQc"
+    }
+  },
+  {
+    "moduleTitle": "Building a CRUD API",
+    "duration": "5 days",
+    "checkpoints": [
+      "Implement all five CRUD endpoints",
+      "Use URL parameters for single-item routes",
+      "Test every endpoint in Postman",
+      "Save the Postman collection"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=qbLc5a9LAfA"
+    }
+  },
+  {
+    "moduleTitle": "Error Handling and Validation",
+    "duration": "3 days",
+    "checkpoints": [
+      "Add @app.errorhandler for 404 and 500",
+      "Validate required fields in POST endpoints",
+      "Return descriptive 400 errors for bad input",
+      "Use abort() from a helper function"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=XJGub0vYJaM"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: To-Do List API",
+    "duration": "5 days",
+    "checkpoints": [
+      "Build a full CRUD API for to-do items",
+      "Add a filter endpoint for done/undone items",
+      "Handle all validation with proper status codes",
+      "Write a README documenting every endpoint"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=Urx8Kj00ziI"
+    }
+  }
 ]

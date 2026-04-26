@@ -1,72 +1,101 @@
-﻿[
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Building Robust Flask Services"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Flask Basics",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Advanced REST API Patterns"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "REST API Design",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Database Performance and Query Tuning"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Database Integration",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Authentication Flows and Security"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Auth and Security",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
-    },
-    {
-        "content":  {
-                        "value":  "https://youtu.be/SqcY0GlETPk?si=Bnrap3mLGeVZoqRV",
-                        "type":  "video",
-                        "title":  "Containerized Deployment for Flask"
-                    },
-        "duration":  "45 mins",
-        "moduleTitle":  "Testing and Deployment",
-        "checkpoints":  [
-                            "Concept clarity",
-                            "Hands-on implementation",
-                            "Applied mini task"
-                        ]
+[
+  {
+    "moduleTitle": "JWT Authentication",
+    "duration": "5 days",
+    "checkpoints": [
+      "Set up Flask-JWT-Extended in your project",
+      "Build register and login endpoints that issue tokens",
+      "Protect a route with @jwt_required()",
+      "Test the full auth flow with Postman"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=cOjEI0OYXAI"
     }
+  },
+  {
+    "moduleTitle": "Database Migrations with Flask-Migrate",
+    "duration": "3 days",
+    "checkpoints": [
+      "Initialize the migrations directory",
+      "Generate and apply your first migration",
+      "Add a new column and create a second migration",
+      "Roll back a migration with flask db downgrade"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=BAOfjPuVby0"
+    }
+  },
+  {
+    "moduleTitle": "Blueprints for App Organization",
+    "duration": "4 days",
+    "checkpoints": [
+      "Refactor a single-file app into blueprints",
+      "Create an application factory function",
+      "Register two blueprints with URL prefixes",
+      "Confirm routes still work after refactoring"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=pjVhrIJFUEs"
+    }
+  },
+  {
+    "moduleTitle": "Request Validation with Marshmallow",
+    "duration": "4 days",
+    "checkpoints": [
+      "Define a schema with typed fields",
+      "Validate an incoming POST body",
+      "Serialize a SQLAlchemy object to JSON",
+      "Return field-level error messages on failure"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=Lv1fv-HmkQo"
+    }
+  },
+  {
+    "moduleTitle": "Environment Configuration",
+    "duration": "3 days",
+    "checkpoints": [
+      "Create a .env file and add it to .gitignore",
+      "Load variables with python-dotenv",
+      "Create a Config class with separate dev/prod settings",
+      "Pass the config class to the app factory"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=Lqt4QyXoBlk"
+    }
+  },
+  {
+    "moduleTitle": "File Uploads and Storage",
+    "duration": "4 days",
+    "checkpoints": [
+      "Accept file uploads with request.files",
+      "Validate file type and size",
+      "Save securely with secure_filename",
+      "Serve files through a /uploads/<filename> route"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=6WruncSoCdI"
+    }
+  },
+  {
+    "moduleTitle": "Capstone: Notes App API with Auth",
+    "duration": "7 days",
+    "checkpoints": [
+      "Build register and login endpoints",
+      "Protect note endpoints and scope to user",
+      "Organize with blueprints and Marshmallow schemas",
+      "Configure with .env and a Config class",
+      "Test the complete user journey in Postman"
+    ],
+    "content": {
+      "type": "video",
+      "value": "https://www.youtube.com/watch?v=PTZiDnuC86g"
+    }
+  }
 ]
